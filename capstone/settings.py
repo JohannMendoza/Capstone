@@ -25,7 +25,8 @@ SECRET_KEY = 'django-insecure-i6hx&58*#us^q1_7mnqdjr9ryvegq%k*#5a5)8a)0ywa-vjyn(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['diseases-pest-detection.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['lanzotech.onrender.com']
+
 
 
 
