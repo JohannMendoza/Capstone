@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Details - Lanzones Leaf Disease Detector</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary-color: #198754;
+            --primary-dark: #157347;
+            --secondary-color: #6c757d;
+            --accent-color: #ffc107;
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+            --info-color: #0dcaf0;
+            --light-bg: #f8f9fa;
+            --dark-bg: #212529;
+        }
+        
+        body {
+            background-color: var(--light-bg);
+            padding-bottom: 50px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+            border: none;
+            overflow: hidden;
+        }
+        
+        .app-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1.5rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .app-header h1 {
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+            border-color: var(--primary-dark);
+        }
+        
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .health-meter {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .health-meter-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        
+        .health-meter-label {
+            position: absolute;
+            top: 65%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1rem;
+            color: #666;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            border-radius: 4px;
+        }
+        
+        .leaf-image-container {
+            position: relative;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+        
+        .leaf-image-container:hover {
+            transform: scale(1.05);
+        }
+        
+        .leaf-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+        
+        .leaf-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .leaf-badge.healthy {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .leaf-badge.powdery-mildew {
+            background-color: var(--info-color);
+            color: white;
+        }
+        
+        .leaf-badge.leaf-rust {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .recommendation-card {
+            border-left: 4px solid var(--primary-color);
+            transition: transform 0.2s ease;
+        }
+        
+        .recommendation-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .footer {
+            background-color: var(--dark-bg);
+            color: white;
+            padding: 2rem 0;
+            margin-top: 3rem;
+        }
+        
+        .health-status {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        
+        .health-status.good {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: var(--success-color);
+        }
+        
+        .health-status.moderate {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #d39e00;
+        }
+        
+        .health-status.poor {
+            background-color: rgba(220, 53, 69, 0.2);
+            color: var(--danger-color);
+        }
+        
+        .summary-card {
+            background: linear-gradient(45deg, var(--primary-color), var(--primary-dark));
+            color: white;
+        }
+        
+        .summary-card .card-title {
+            font-weight: 700;
+        }
+        
+        .summary-stat {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: transform 0.2s ease;
+        }
+        
+        .summary-stat:hover {
+            transform: translateY(-5px);
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .summary-stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        .summary-stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="mb-0">
+                    <i class="bi bi-graph-up"></i> Analysis Details
+                </h1>
+                <div>
+                    <a href="{% url 'home' %}" class="btn btn-outline-light me-2">
+                        <i class="bi bi-house"></i> Home
+                    </a>
+                    <a href="{% url 'history' %}" class="btn btn-outline-light">
+                        <i class="bi bi-clock-history"></i> History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4 main-container">
+        <div class="row">
+            <div class="col-md-12 mb-4">
+                <div class="card summary-card">
+                    <div class="card-body p-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h2 class="card-title mb-4">{{ tree_analysis.name }}</h2>
+                                <p class="mb-3">
+                                    <i class="bi bi-calendar3"></i> {{ tree_analysis.completed_at|date:"F j, Y" }} at {{ tree_analysis.completed_at|time:"g:i a" }}
+                                </p>
+                                <p class="mb-3">
+                                    <i class="bi bi-images"></i> {{ leaf_images.count }} leaves analyzed
+                                </p>
+                                
+                                <div class="mt-4">
+                                    <a href="{% url 'export_analysis' tree_analysis.id %}" class="btn btn-light me-2">
+                                        <i class="bi bi-download"></i> Export Report
+                                    </a>
+                                    <a href="{% url 'new_tree_analysis' %}" class="btn btn-outline-light">
+                                        <i class="bi bi-plus-lg"></i> New Analysis
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="summary-stat">
+                                            <div class="summary-stat-value">{{ tree_analysis.overall_health|floatformat:1 }}%</div>
+                                            <div class="summary-stat-label">Overall Health</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="summary-stat">
+                                            <div class="summary-stat-value">{{ tree_analysis.healthy_percentage|floatformat:1 }}%</div>
+                                            <div class="summary-stat-label">Healthy Leaves</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="summary-stat">
+                                            <div class="summary-stat-value">{{ tree_analysis.powdery_mildew_percentage|floatformat:1 }}%</div>
+                                            <div class="summary-stat-label">Powdery Mildew</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="summary-stat">
+                                            <div class="summary-stat-value">{{ tree_analysis.leaf_rust_percentage|floatformat:1 }}%</div>
+                                            <div class="summary-stat-label">Leaf Rust</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body p-4">
+                        <h3 class="card-title mb-4">Health Assessment</h3>
+                        
+                        <div class="text-center mb-4">
+                            {% if tree_analysis.overall_health >= 80 %}
+                            <div class="health-status good">
+                                <i class="bi bi-check-circle-fill me-2"></i> Good Health
+                            </div>
+                            {% elif tree_analysis.overall_health >= 50 %}
+                            <div class="health-status moderate">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i> Moderate Health
+                            </div>
+                            {% else %}
+                            <div class="health-status poor">
+                                <i class="bi bi-x-circle-fill me-2"></i> Poor Health
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="health-meter">
+                                <canvas id="health-meter"></canvas>
+                                <div class="health-meter-value">{{ tree_analysis.overall_health|floatformat:1 }}%</div>
+                                <div class="health-meter-label">Health Score</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>Healthy</span>
+                                <span>{{ tree_analysis.healthy_percentage|floatformat:1 }}%</span>
+                            </label>
+                            <div class="progress">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ tree_analysis.healthy_percentage }}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>Powdery Mildew</span>
+                                <span>{{ tree_analysis.powdery_mildew_percentage|floatformat:1 }}%</span>
+                            </label>
+                            <div class="progress">
+                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ tree_analysis.powdery_mildew_percentage }}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>Leaf Rust</span>
+                                <span>{{ tree_analysis.leaf_rust_percentage|floatformat:1 }}%</span>
+                            </label>
+                            <div class="progress">
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: {{ tree_analysis.leaf_rust_percentage }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body p-4">
+                        <h3 class="card-title mb-4">Disease Distribution</h3>
+                        <canvas id="disease-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body p-4">
+                        <h3 class="card-title mb-4">Recommendations</h3>
+                        
+                        <div class="row">
+                            {% if tree_analysis.healthy_percentage > 80 %}
+                            <div class="col-md-12 mb-3">
+                                <div class="card recommendation-card h-100" style="border-left-color: #28a745;">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Maintain Good Health</h5>
+                                        <p class="card-text">Your tree is in good health. Continue with your current care routine.</p>
+                                        <ul class="mb-0">
+                                            <li>Regular watering and fertilization</li>
+                                            <li>Maintain good air circulation</li>
+                                            <li>Monitor for early signs of disease</li>
+                                            <li>Preventive spraying during rainy season</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if tree_analysis.powdery_mildew_percentage > 10 %}
+                            <div class="col-md-4 mb-3">
+                                <div class="card recommendation-card h-100" style="border-left-color: #0dcaf0;">
+                                    <div class="card-body">
+                                        <h5 class="card-title">For Powdery Mildew ({{ tree_analysis.powdery_mildew_percentage|floatformat:1 }}%)</h5>
+                                        <ul class="mb-0">
+                                            <li>Apply fungicide specifically targeting white spot diseases</li>
+                                            <li>Improve air circulation by pruning dense foliage</li>
+                                            <li>Reduce humidity around the tree</li>
+                                            <li>Remove severely affected leaves and dispose properly</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if tree_analysis.leaf_rust_percentage > 10 %}
+                            <div class="col-md-4 mb-3">
+                                <div class="card recommendation-card h-100" style="border-left-color: #dc3545;">
+                                    <div class="card-body">
+                                        <h5 class="card-title">For Leaf Rust ({{ tree_analysis.leaf_rust_percentage|floatformat:1 }}%)</h5>
+                                        <ul class="mb-0">
+                                            <li>Apply copper-based fungicide</li>
+                                            <li>Ensure proper drainage around the tree</li>
+                                            <li>Prune affected branches and dispose away from the tree</li>
+                                            <li>Maintain proper spacing between trees to reduce humidity</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="col-md-4 mb-3">
+                                <div class="card recommendation-card h-100">
+                                    <div class="card-body">
+                                        <h5 class="card-title">General Care</h5>
+                                        <ul class="mb-0">
+                                            <li>Regular inspection of leaves</li>
+                                            <li>Proper fertilization schedule</li>
+                                            <li>Adequate watering</li>
+                                            <li>Maintain good sanitation around the tree</li>
+                                            <li>Preventive spraying during disease-prone seasons</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body p-4">
+                        <h3 class="card-title mb-4">Analyzed Leaves</h3>
+                        <div class="row" id="leaf-images-container">
+                            {% for leaf in leaf_images %}
+                            <div class="col-md-4 col-sm-6 mb-4">
+                                <div class="leaf-image-container">
+                                    <img src="{{ leaf.image.url }}" alt="Leaf image" class="leaf-image">
+                                    <span class="leaf-badge {% if leaf.prediction == 'Healthy' %}healthy{% elif leaf.prediction == 'Powdery Mildew' %}powdery-mildew{% else %}leaf-rust{% endif %}">
+                                        {{ leaf.prediction }}
+                                    </span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h4>Lanzones Leaf Disease Detector</h4>
+                    <p>An AI-powered tool to help farmers and agricultural experts detect and manage diseases in lanzones trees.</p>
+                </div>
+                <div class="col-md-3">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="{% url 'home' %}" class="text-white">Home</a></li>
+                        <li><a href="{% url 'new_tree_analysis' %}" class="text-white">Tree Analysis</a></li>
+                        <li><a href="{% url 'history' %}" class="text-white">History</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>Resources</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="text-white">About</a></li>
+                        <li><a href="#" class="text-white">Help</a></li>
+                        <li><a href="#" class="text-white">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="mt-4 mb-4" style="background-color: rgba(255,255,255,0.2);">
+            <div class="text-center">
+                <p class="mb-0">© 2023 Lanzones Leaf Disease Detector. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize health meter
+            const healthCtx = document.getElementById('health-meter').getContext('2d');
+            const healthMeter = new Chart(healthCtx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [{{ tree_analysis.overall_health }}, 100 - {{ tree_analysis.overall_health }}],
+                        backgroundColor: [getHealthColor({{ tree_analysis.overall_health }}), '#e9ecef'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    cutout: '80%',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    }
+                }
+            });
+            
+            // Initialize disease chart
+            const diseaseCtx = document.getElementById('disease-chart').getContext('2d');
+            const diseaseChart = new Chart(diseaseCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Healthy', 'Leaf Rust', 'Powdery Mildew'],
+                    datasets: [{
+                        data: [
+                            {{ tree_analysis.healthy_percentage }}, 
+                            {{ tree_analysis.leaf_rust_percentage }}, 
+                            {{ tree_analysis.powdery_mildew_percentage }}
+                        ],
+                        backgroundColor: ['#28a745', '#dc3545', '#0dcaf0'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+            
+            // Get color based on health percentage
+            function getHealthColor(healthPct) {
+                if (healthPct >= 80) {
+                    return '#28a745'; // Green
+                } else if (healthPct >= 50) {
+                    return '#ffc107'; // Yellow
+                } else {
+                    return '#dc3545'; // Red
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+

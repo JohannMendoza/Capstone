@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tree Health Detection System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    :root {
+      --primary-color: #16a34a;
+      --primary-dark: #15803d;
+      --primary-light: #22c55e;
+      --secondary-color: #64748b;
+      --accent-color: #f59e0b;
+      --danger-color: #ef4444;
+      --success-color: #10b981;
+      --info-color: #06b6d4;
+      --warning-color: #f59e0b;
+      --light-bg: #f8fafc;
+      --dark-bg: #0f172a;
+      --card-bg: #ffffff;
+      --border-color: #e2e8f0;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f8fafc 100%);
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .main-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+
+    /* Enhanced Header */
+    .app-header {
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 50%, #0f766e 100%);
+      color: white;
+      padding: 2rem 0;
+      margin-bottom: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .app-header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+      opacity: 0.3;
+    }
+
+    .app-header .container {
+      position: relative;
+      z-index: 2;
+    }
+
+    .app-header h1 {
+      font-weight: 800;
+      font-size: 2.5rem;
+      letter-spacing: -0.025em;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .app-header .btn-outline-light {
+      border: 2px solid rgba(255,255,255,0.3);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      font-weight: 600;
+    }
+
+    .app-header .btn-outline-light:hover {
+      background: rgba(255,255,255,0.2);
+      border-color: rgba(255,255,255,0.5);
+      transform: translateY(-2px);
+    }
+
+    /* Enhanced Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      box-shadow: var(--shadow-lg);
+      margin-bottom: 2rem;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-xl);
+    }
+
+    .card-body {
+      padding: 2rem;
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: var(--text-primary);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Enhanced Camera Container */
+    .camera-container {
+      position: relative;
+      max-width: 640px;
+      margin: 0 auto;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: var(--shadow-xl);
+      background: linear-gradient(45deg, var(--primary-color), var(--primary-dark));
+      padding: 4px;
+    }
+
+    .camera-inner {
+      border-radius: 20px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #video {
+      width: 100%;
+      display: block;
+      border-radius: 20px;
+    }
+
+    #canvas {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: calc(100% - 8px);
+      height: calc(100% - 8px);
+      pointer-events: none;
+      border-radius: 20px;
+    }
+
+    #recordingIndicator {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: linear-gradient(45deg, var(--danger-color), #f87171);
+      color: white;
+      padding: 0.75rem 1.25rem;
+      border-radius: 50px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      box-shadow: var(--shadow-lg);
+      z-index: 10;
+      animation: pulse 2s infinite;
+      display: none;
+      backdrop-filter: blur(10px);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.05); }
+    }
+
+    /* Enhanced Buttons */
+    .detect-btn {
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+      border: none;
+      border-radius: 50px;
+      padding: 1rem 2.5rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+      box-shadow: var(--shadow-lg);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .detect-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    .detect-btn:hover::before {
+      left: 100%;
+    }
+
+    .detect-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-xl);
+    }
+
+    .detect-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary.detect-btn {
+      background: linear-gradient(135deg, var(--secondary-color), #475569);
+    }
+
+    /* Enhanced Statistics */
+    .detection-stats {
+      background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.9) 100%);
+      border-radius: 24px;
+      padding: 2rem;
+      margin-top: 2rem;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+    }
+
+    .detection-stats h5 {
+      color: var(--primary-color);
+      font-weight: 800;
+      font-size: 1.25rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-item {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 16px;
+      text-align: center;
+      border-left: 5px solid;
+      transition: all 0.3s ease;
+      box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: inherit;
+      opacity: 0.3;
+    }
+
+    .stat-item:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow-xl);
+    }
+
+    .stat-item.healthy { 
+      border-left-color: var(--success-color);
+    }
+    .stat-item.healthy::before { background: var(--success-color); }
+
+    .stat-item.dried-leaf { 
+      border-left-color: var(--warning-color);
+    }
+    .stat-item.dried-leaf::before { background: var(--warning-color); }
+
+    .stat-item.powdery-mildew { 
+      border-left-color: var(--info-color);
+    }
+    .stat-item.powdery-mildew::before { background: var(--info-color); }
+
+    .stat-item.leaf-rust { 
+      border-left-color: var(--danger-color);
+    }
+    .stat-item.leaf-rust::before { background: var(--danger-color); }
+
+    .stat-number {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, currentColor, currentColor);
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      opacity: 0.8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Enhanced Alert */
+    .alert-info {
+      background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+      border: 1px solid #93c5fd;
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    /* Enhanced Progress Text */
+    #progressText {
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      padding: 1rem;
+      background: rgba(255,255,255,0.5);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Enhanced Analysis Results */
+    .analysis-item {
+      margin-bottom: 1.5rem;
+    }
+
+    .progress {
+      height: 12px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      border-radius: 10px;
+      transition: width 0.6s ease;
+    }
+
+    .badge {
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 0.5rem 1rem;
+      border-radius: 50px;
+    }
+
+    /* Enhanced Sidebar */
+    .tips-card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.9) 100%);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+    }
+
+    .tips-card h3 {
+      color: var(--primary-color);
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+    }
+
+    .tips-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .tips-list li {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .tips-list li:hover {
+      color: var(--primary-color);
+      transform: translateX(5px);
+    }
+
+    .tips-list li:last-child {
+      border-bottom: none;
+    }
+
+    .tips-list li i {
+      color: var(--primary-color);
+      font-size: 1.2rem;
+      width: 24px;
+      text-align: center;
+    }
+
+    /* Enhanced Empty State */
+    #empty-state-message {
+      background: rgba(255,255,255,0.5);
+      border-radius: 20px;
+      padding: 3rem;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Enhanced Save Button */
+    .save-analysis-btn {
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+      color: white;
+      border: none;
+      border-radius: 50px;
+      padding: 1.25rem 3rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      box-shadow: var(--shadow-lg);
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .save-analysis-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-xl);
+    }
+
+    .save-analysis-btn.pulse {
+      animation: buttonPulse 2s infinite;
+    }
+
+    @keyframes buttonPulse {
+      0%, 100% { box-shadow: var(--shadow-lg); }
+      50% { box-shadow: 0 0 30px rgba(22, 163, 74, 0.6); }
+    }
+
+    /* Enhanced Modal */
+    .modal-content {
+      border-radius: 20px;
+      border: none;
+      box-shadow: var(--shadow-xl);
+    }
+
+    .modal-header {
+      border-bottom: 1px solid var(--border-color);
+      border-radius: 20px 20px 0 0;
+    }
+
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+      .main-container {
+        padding: 0 0.5rem;
+      }
+      
+      .app-header h1 {
+        font-size: 1.75rem;
+      }
+      
+      .detect-btn {
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+      }
+      
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+      }
+
+      .card-body {
+        padding: 1.5rem;
+      }
+
+      .stat-number {
+        font-size: 2rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .app-header {
+        padding: 1.5rem 0;
+      }
+      
+      .app-header h1 {
+        font-size: 1.5rem;
+      }
+    }
+
+    /* Loading Animation */
+    .spinner-border {
+      width: 3rem;
+      height: 3rem;
+    }
+
+    /* Enhanced Form Controls */
+    .form-control {
+      border-radius: 12px;
+      border: 2px solid var(--border-color);
+      padding: 0.875rem 1rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.2rem rgba(22, 163, 74, 0.25);
+    }
+
+    /* Enhanced Quick Actions */
+    .btn-outline-danger,
+    .btn-outline-primary,
+    .btn-outline-secondary {
+      border-width: 2px;
+      font-weight: 600;
+      border-radius: 12px;
+      padding: 0.75rem 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .btn-outline-danger:hover,
+    .btn-outline-primary:hover,
+    .btn-outline-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-header">
+    <div class="container">
+      <div class="d-flex justify-content-between align-items-center">
+        <h1 class="mb-0">
+          <i class="bi bi-tree"></i> Tree Health Detection System
+        </h1>
+        <div>
+          <a href="/detector/" class="btn btn-outline-light me-2">
+            <i class="bi bi-arrow-left me-1"></i> Back
+          </a>
+          <a href="/history/" class="btn btn-outline-light">
+            <i class="bi bi-clock-history"></i> History
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container py-4 main-container">
+    <!-- Improved main layout structure with better positioning -->
+    <div class="row g-4">
+      <!-- Main Content Area -->
+      <div class="col-lg-8">
+        <!-- Live Detection Card -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <h2 class="card-title">
+              <i class="bi bi-camera-video text-primary"></i>
+              Live Tree Detection
+            </h2>
+            
+            <div class="alert alert-info border-0 mb-4">
+              <i class="bi bi-info-circle-fill me-2"></i>
+              <strong>Instructions:</strong> Point your camera at tree leaves for real-time health detection. The AI will automatically identify and classify leaf conditions.
+            </div>
+
+            <!-- Better positioned video section with improved centering -->
+            <div class="d-flex justify-content-center mb-4">
+              <div class="camera-container">
+                <div class="camera-inner">
+                  <video id="video" autoplay muted playsinline></video>
+                  <canvas id="canvas"></canvas>
+                  <div id="recordingIndicator">
+                    <i class="bi bi-record-circle-fill me-1"></i> Recording
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Better positioned control buttons -->
+            <div class="d-flex justify-content-center gap-3 mb-4">
+              <button class="btn btn-success btn-lg detect-btn" id="start-btn">
+                <i class="bi bi-play-fill me-2"></i> Start Detection
+              </button>
+              <button class="btn btn-secondary btn-lg detect-btn" id="stop-btn" disabled>
+                <i class="bi bi-stop-fill me-2"></i> Stop Detection
+              </button>
+            </div>
+
+            <div class="text-center">
+              <p id="progressText" class="fs-5 fw-medium text-muted">Ready to start detection</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Better organized statistics section -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="detection-stats">
+              <h5 class="mb-4"><i class="bi bi-bar-chart-fill me-2"></i>Detection Statistics</h5>
+              
+              <!-- Improved grid layout for statistics -->
+              <div class="row g-3 mb-4">
+                <div class="col-6 col-md-3">
+                  <div class="stat-item healthy text-center">
+                    <div class="stat-number text-success fs-2 fw-bold" id="healthy-count">0</div>
+                    <div class="stat-label small text-muted">Healthy Leaves</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="stat-item dried-leaf text-center">
+                    <div class="stat-number text-warning fs-2 fw-bold" id="dried-leaf-count">0</div>
+                    <div class="stat-label small text-muted">Dried Leaves</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="stat-item powdery-mildew text-center">
+                    <div class="stat-number text-info fs-2 fw-bold" id="powdery-mildew-count">0</div>
+                    <div class="stat-label small text-muted">Powdery Mildew</div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="stat-item leaf-rust text-center">
+                    <div class="stat-number text-danger fs-2 fw-bold" id="leaf-rust-count">0</div>
+                    <div class="stat-label small text-muted">Leaf Rust</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Better positioned total count -->
+              <div class="text-center mb-4">
+                <div class="stat-item p-3 border rounded-3" style="border-left: 4px solid var(--primary-color) !important; display: inline-block; min-width: 200px;">
+                  <div class="stat-number text-primary fs-1 fw-bold" id="total-count">0</div>
+                  <div class="stat-label text-muted">Total Detections</div>
+                </div>
+              </div>
+              
+              <!-- Better positioned analyze button -->
+              <div class="text-center" id="detect-button-container" style="display: none;">
+                <button class="btn btn-primary btn-lg px-5" id="analyze-btn">
+                  <i class="bi bi-graph-up me-2"></i> Analyze Tree Health
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Better positioned empty state -->
+        <div class="card" id="empty-state-message">
+          <div class="card-body text-center py-5">
+            <i class="bi bi-camera" style="font-size: 4rem; color: #cbd5e1;"></i>
+            <h4 class="text-muted mt-3 mb-2">No Detections Yet</h4>
+            <p class="text-muted mb-0">Start detection to analyze tree health</p>
+          </div>
+        </div>
+
+        <!-- Live analysis results section -->
+        <div class="card mt-4" id="live-analysis-results" style="display: none;">
+          <div class="card-body">
+            <h3 class="card-title mb-4">
+              <i class="bi bi-clipboard-data text-primary"></i>Tree Health Analysis
+            </h3>
+            
+            <!-- Better organized analysis grid -->
+            <div class="row g-4 mb-4">
+              <div class="col-md-6">
+                <div class="analysis-item p-3 border rounded-3">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-medium">Healthy Leaves</span>
+                    <span class="badge bg-success fs-6" id="live-healthy-percentage">0%</span>
+                  </div>
+                  <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-success" id="live-healthy-progress" style="width: 0%"></div>
+                  </div>
+                </div>
+                
+                <div class="analysis-item p-3 border rounded-3 mt-3">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-medium">Dried Leaves</span>
+                    <span class="badge bg-warning fs-6" id="live-dried-leaf-percentage">0%</span>
+                  </div>
+                  <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-warning" id="live-dried-leaf-progress" style="width: 0%"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="col-md-6">
+                <div class="analysis-item p-3 border rounded-3">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-medium">Powdery Mildew</span>
+                    <span class="badge bg-info fs-6" id="live-powdery-mildew-percentage">0%</span>
+                  </div>
+                  <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-info" id="live-powdery-mildew-progress" style="width: 0%"></div>
+                  </div>
+                </div>
+                
+                <div class="analysis-item p-3 border rounded-3 mt-3">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-medium">Leaf Rust</span>
+                    <span class="badge bg-danger fs-6" id="live-leaf-rust-percentage">0%</span>
+                  </div>
+                  <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-danger" id="live-leaf-rust-progress" style="width: 0%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Better positioned chart -->
+            <div class="text-center mb-4">
+              <div class="d-inline-block p-3 border rounded-3 bg-light">
+                <canvas id="live-disease-chart" width="400" height="200"></canvas>
+              </div>
+            </div>
+            
+            <!-- Better organized save section -->
+            <div class="border-top pt-4">
+              <div class="row align-items-end">
+                <div class="col-md-8">
+                  <label for="analysis-name-input" class="form-label fw-medium">Analysis Name (Optional)</label>
+                  <input type="text" class="form-control" id="analysis-name-input" placeholder="Enter analysis name...">
+                </div>
+                <div class="col-md-4 mt-3 mt-md-0">
+                  <button id="save-analysis-btn" class="save-analysis-btn w-100">
+                    <i class="bi bi-save me-2"></i> Save Analysis
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Better organized sidebar with improved spacing -->
+      <div class="col-lg-4">
+        <div class="sticky-top" style="top: 2rem;">
+          <!-- Summary Card -->
+          <div class="card mb-4">
+            <div class="card-body">
+              <h3 class="card-title mb-4">
+                <i class="bi bi-graph-up text-primary"></i>Live Summary
+              </h3>
+              
+              <!-- Empty State -->
+              <div id="summary-empty-state">
+                <div class="text-center py-4">
+                  <i class="bi bi-camera" style="font-size: 3rem; color: #cbd5e1;"></i>
+                  <p class="text-muted mt-3 mb-1">No detections yet</p>
+                  <small class="text-muted">Start detection to see live analysis</small>
+                </div>
+              </div>
+
+              <!-- Loading State -->
+              <div id="summary-loading" style="display: none;">
+                <div class="text-center py-4">
+                  <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                  <p class="text-muted mb-0">Analyzing tree health...</p>
+                </div>
+              </div>
+
+              <!-- Content State -->
+              <div id="summary-content" style="display: none;">
+                <div class="text-center mb-4">
+                  <div class="display-6 fw-bold text-primary" id="summary-detection-count">0</div>
+                  <small class="text-muted">Total Detections</small>
+                </div>
+                <div class="text-center">
+                  <canvas id="disease-chart" width="300" height="150"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Better organized tips card -->
+          <div class="card mb-4">
+            <div class="card-body">
+              <h3 class="card-title mb-4">
+                <i class="bi bi-lightbulb text-warning"></i> Detection Tips
+              </h3>
+              <div class="list-group list-group-flush">
+                <div class="list-group-item border-0 px-0 py-2">
+                  <i class="bi bi-camera text-primary me-3"></i>
+                  Point camera at different parts of the tree
+                </div>
+                <div class="list-group-item border-0 px-0 py-2">
+                  <i class="bi bi-sun text-warning me-3"></i>
+                  Ensure good lighting for accurate detection
+                </div>
+                <div class="list-group-item border-0 px-0 py-2">
+                  <i class="bi bi-hand-index text-info me-3"></i>
+                  Hold camera steady for better results
+                </div>
+                <div class="list-group-item border-0 px-0 py-2">
+                  <i class="bi bi-clock text-success me-3"></i>
+                  Detection works in real-time
+                </div>
+                <div class="list-group-item border-0 px-0 py-2">
+                  <i class="bi bi-arrow-repeat text-secondary me-3"></i>
+                  Multiple detections improve accuracy
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="card">
+            <div class="card-body">
+              <h3 class="card-title mb-4">
+                <i class="bi bi-lightning text-primary"></i> Quick Actions
+              </h3>
+              <div class="d-grid gap-3">
+                <button id="clear-all-btn" class="btn btn-outline-danger">
+                  <i class="bi bi-trash me-2"></i> Clear All Data
+                </button>
+                <a href="/history/" class="btn btn-outline-primary">
+                  <i class="bi bi-clock-history me-2"></i> View History
+                </a>
+                <button id="export-data-btn" class="btn btn-outline-secondary">
+                  <i class="bi bi-download me-2"></i> Export Data
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 class="modal-title" id="successModalLabel">Success</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <div class="display-1 text-success mb-3">
+            <i class="bi bi-check-circle-fill"></i>
+          </div>
+          <h4>Analysis Saved Successfully!</h4>
+          <p class="text-muted">Your tree health analysis has been saved to history.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <a href="/history/" class="btn btn-primary">
+            <i class="bi bi-clock-history me-2"></i> View History
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const progressText = document.getElementById('progressText');
+    const recordingIndicator = document.getElementById('recordingIndicator');
+
+    const classCounts = {
+      'dried-leaf': 0,
+      'healthy': 0,
+      'leaf-rust': 0,
+      'powdery-mildew': 0
+    };
+    const leafClasses = ['dried-leaf', 'healthy', 'leaf-rust', 'powdery-mildew'];
+
+    let detectionRunning = false;
+    let isPredicting = false;
+    let trackedLeaves = [];
+    let nextLeafId = 1;
+    let liveDiseaseChart = null;
+    let diseaseChart = null;
+
+    const DIST_THRESHOLD = 50;
+    const CONF_THRESHOLD = 0.50;
+
+    const normalizeClass = cls => cls.toLowerCase().replace(/\s/g, '-');
+
+    function getCookie(name) {
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        document.cookie.split(';').forEach(cookie => {
+          cookie = cookie.trim();
+          if (cookie.startsWith(name + '=')) cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        });
+      }
+      return cookieValue;
+    }
+
+    function distance(p1, p2) { return Math.hypot(p1[0] - p2[0], p1[1] - p2[1]); }
+    function getCenter(box) { const [x1, y1, x2, y2] = box; return [(x1 + x2) / 2, (y1 + y2) / 2]; }
+    
+    function updateStatsUI() {
+      for (let key in classCounts) {
+        const el = document.getElementById(`${key}-count`);
+        if (el) el.textContent = classCounts[key];
+      }
+      document.getElementById('total-count').textContent = Object.values(classCounts).reduce((a, b) => a + b, 0);
+      document.getElementById('summary-detection-count').textContent = Object.values(classCounts).reduce((a, b) => a + b, 0);
+    }
+    
+    function getDistThreshold(box) {
+      const width = box[2] - box[0];
+      const height = box[3] - box[1];
+      return Math.max(width, height) * 0.6;
+    }
+    
+    function drawFrame() {
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        requestAnimationFrame(drawFrame);
+        return;
+      }
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      trackedLeaves.forEach(det => {
+        const [x1, y1, x2, y2] = det.box;
+        const label = `${det.class} (${(det.confidence * 100).toFixed(1)}%)`;
+        let color = '#FF0000';
+        if (det.class === 'healthy') color = '#10b981';
+        else if (det.class === 'dried-leaf') color = '#f59e0b';
+        else if (det.class === 'powdery-mildew') color = '#06b6d4';
+        else if (det.class === 'leaf-rust') color = '#ef4444';
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+        ctx.font = 'bold 14px Inter, sans-serif';
+        const textWidth = ctx.measureText(label).width;
+        const textHeight = 16;
+        const bgY = y1 - textHeight - 6 > 0 ? y1 - textHeight - 6 : y1 + 6;
+        ctx.fillStyle = color;
+        ctx.fillRect(x1, bgY, textWidth + 10, textHeight + 6);
+        ctx.fillStyle = (color === '#f59e0b') ? '#000' : '#fff';
+        ctx.fillText(label, x1 + 5, bgY + textHeight - 2);
+      });
+
+      if (detectionRunning) requestAnimationFrame(drawFrame);
+    }
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' }, 
+          audio: false 
+        });
+        video.srcObject = stream;
+        await video.play();
+      } catch (err) {
+        console.error('Camera error:', err);
+        alert('Cannot access camera.');
+      }
+    }
+
+    function captureLoop() {
+      if (!detectionRunning || isPredicting) return;
+      isPredicting = true;
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = video.videoWidth;
+      tempCanvas.height = video.videoHeight;
+      tempCanvas.getContext('2d').drawImage(video, 0, 0);
+
+      tempCanvas.toBlob(blob => {
+        const formData = new FormData();
+        formData.append('frame', blob);
+
+        fetch('/predict/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') },
+          body: formData
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && Array.isArray(data.detections)) {
+              const now = Date.now();
+              data.detections.filter(d => d.confidence >= CONF_THRESHOLD).forEach(det => {
+                const detClass = normalizeClass(det.class);
+                if (!leafClasses.includes(detClass)) return;
+                const detCenter = getCenter(det.box);
+                let matched = false;
+                for (let leaf of trackedLeaves) {
+                  const dist = getDistThreshold(det.box);
+                  if (distance(detCenter, getCenter(leaf.box)) < dist) {
+                    leaf.box = det.box;
+                    leaf.class = detClass;
+                    leaf.confidence = det.confidence;
+                    leaf.lastUpdated = now;
+                    matched = true;
+                    break;
+                  }
+                }
+                if (!matched) {
+                  trackedLeaves.push({
+                    id: nextLeafId++,
+                    box: det.box,
+                    class: detClass,
+                    confidence: det.confidence,
+                    lastUpdated: now
+                  });
+                  if (classCounts.hasOwnProperty(detClass)) classCounts[detClass]++;
+                }
+              });
+              trackedLeaves = trackedLeaves.filter(l => now - l.lastUpdated < 3000);
+              updateStatsUI();
+              progressText.textContent = `Detected: ${trackedLeaves.length}`;
+              
+              // Show/hide summary states
+              if (Object.values(classCounts).reduce((a, b) => a + b, 0) > 0) {
+                document.getElementById('summary-empty-state').style.display = 'none';
+                document.getElementById('summary-content').style.display = 'block';
+                document.getElementById('empty-state-message').style.display = 'none';
+                document.getElementById('detect-button-container').style.display = 'flex';
+              }
+            } else {
+              progressText.textContent = 'No detection';
+            }
+          })
+          .catch(err => console.error('Prediction error:', err))
+          .finally(() => {
+            isPredicting = false;
+            if (detectionRunning) requestAnimationFrame(captureLoop);
+          });
+      }, 'image/jpeg');
+    }
+
+    function initializeDiseaseChart(healthyCount, driedLeafCount, powderyMildewCount, leafRustCount, canvasId) {
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      return new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Healthy', 'Dried Leaf', 'Powdery Mildew', 'Leaf Rust'],
+          datasets: [{
+            data: [healthyCount, driedLeafCount, powderyMildewCount, leafRustCount],
+            backgroundColor: ['#10b981', '#f59e0b', '#06b6d4', '#ef4444'],
+            borderWidth: 3,
+            borderColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 20,
+                usePointStyle: true,
+                font: {
+                  family: 'Inter',
+                  weight: '600'
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateLiveAnalysis(healthyCount, driedLeafCount, powderyMildewCount, leafRustCount, totalDetections, healthyPct, driedLeafPct, powderyMildewPct, leafRustPct, overallHealth, diseasedCount) {
+      // Update percentages
+      document.getElementById('live-healthy-percentage').textContent = `${healthyPct}%`;
+      document.getElementById('live-dried-leaf-percentage').textContent = `${driedLeafPct}%`;
+      document.getElementById('live-powdery-mildew-percentage').textContent = `${powderyMildewPct}%`;
+      document.getElementById('live-leaf-rust-percentage').textContent = `${leafRustPct}%`;
+
+      // Update progress bars
+      document.getElementById('live-healthy-progress').style.width = `${healthyPct}%`;
+      document.getElementById('live-dried-leaf-progress').style.width = `${driedLeafPct}%`;
+      document.getElementById('live-powdery-mildew-progress').style.width = `${powderyMildewPct}%`;
+      document.getElementById('live-leaf-rust-progress').style.width = `${leafRustPct}%`;
+
+      // Update chart
+      if (liveDiseaseChart) liveDiseaseChart.destroy();
+      liveDiseaseChart = initializeDiseaseChart(healthyCount, driedLeafCount, powderyMildewCount, leafRustCount, 'live-disease-chart');
+
+      document.getElementById('live-analysis-results').style.display = 'block';
+    }
+
+    document.getElementById('analyze-btn').addEventListener('click', () => {
+      document.getElementById('summary-empty-state').style.display = 'none';
+      document.getElementById('summary-loading').style.display = 'block';
+      document.getElementById('summary-content').style.display = 'none';
+
+      const totalDetections = Object.values(classCounts).reduce((a, b) => a + b, 0);
+
+      if (totalDetections === 0) {
+        alert('Please start detection first to analyze tree health.');
+        document.getElementById('summary-empty-state').style.display = 'block';
+        document.getElementById('summary-loading').style.display = 'none';
+        return;
+      }
+
+      const healthyCount = classCounts['healthy'];
+      const driedLeafCount = classCounts['dried-leaf'];
+      const powderyMildewCount = classCounts['powdery-mildew'];
+      const leafRustCount = classCounts['leaf-rust'];
+
+      const healthyPct = (healthyCount / totalDetections * 100).toFixed(1);
+      const driedLeafPct = (driedLeafCount / totalDetections * 100).toFixed(1);
+      const powderyMildewPct = (powderyMildewCount / totalDetections * 100).toFixed(1);
+      const leafRustPct = (leafRustCount / totalDetections * 100).toFixed(1);
+
+      const diseasedCount = driedLeafCount + powderyMildewCount + leafRustCount;
+      const overallHealth = (healthyCount / totalDetections * 100).toFixed(1);
+
+      setTimeout(() => {
+        document.getElementById('summary-loading').style.display = 'none';
+        document.getElementById('summary-detection-count').textContent = `${totalDetections}`;
+        
+        if (diseaseChart) diseaseChart.destroy();
+        diseaseChart = initializeDiseaseChart(healthyCount, driedLeafCount, powderyMildewCount, leafRustCount, 'disease-chart');
+        
+        document.getElementById('summary-content').style.display = 'block';
+        
+        updateLiveAnalysis(
+          healthyCount, 
+          driedLeafCount, 
+          powderyMildewCount, 
+          leafRustCount, 
+          totalDetections, 
+          healthyPct, 
+          driedLeafPct, 
+          powderyMildewPct, 
+          leafRustPct, 
+          overallHealth, 
+          diseasedCount
+        );
+        
+        document.getElementById('live-analysis-results').scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('save-analysis-btn').classList.add('pulse');
+      }, 1500);
+    });
+
+    // Save analysis
+    document.getElementById('save-analysis-btn').addEventListener('click', async () => {
+      const totalDetections = Object.values(classCounts).reduce((a, b) => a + b, 0);
+
+      if (totalDetections === 0) {
+        alert('No detections to save. Please start detection first.');
+        return;
+      }
+
+      const analysisName = document.getElementById('analysis-name-input').value.trim() || 
+                          `Tree Analysis ${new Date().toLocaleDateString()}`;
+
+      const plantId = new URLSearchParams(window.location.search).get('plant_id'); 
+      const analysisId = window.location.pathname.split('/')[2]; // /tree-analysis/216/ → "216"
+
+      if (!analysisId || analysisId === 'undefined') {
+        alert('Error: Invalid analysis ID. Please refresh the page and try again.');
+        return;
+      }
+
+      console.log('[v0] Saving analysis with ID:', analysisId);
+      console.log('[v0] Detection counts:', classCounts);
+
+      // Send individual detection counts to properly save as LeafImage records
+      const analysisData = {
+        tree_name: analysisName,
+        plant_id: plantId,
+        healthy_count: classCounts['healthy'],
+        dried_leaf_count: classCounts['dried-leaf'],
+        powdery_mildew_count: classCounts['powdery-mildew'],
+        leaf_rust_count: classCounts['leaf-rust'],
+        total_detections: totalDetections
+      };
+
+      try {
+        const saveBtn = document.getElementById('save-analysis-btn');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i> Saving...';
+        saveBtn.disabled = true;
+
+        const response = await fetch(`/tree-analysis/${analysisId}/complete/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+          },
+          body: new URLSearchParams(analysisData)
+        });
+
+        console.log('[v0] Response status:', response.status);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('[v0] Save result:', result);
+
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+
+        if (result.success) {
+          // Show success message with detailed results
+          console.log('[v0] Analysis saved successfully!');
+          console.log('[v0] Total LeafImage records created:', result.total_detections);
+          console.log('[v0] Overall health:', result.overall_health + '%');
+          
+          const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+          successModal.show();
+          
+          // Update the UI with the calculated results
+          if (result.plant_updated) {
+            console.log('[v0] Plant health status updated');
+          }
+        } else {
+          alert('❌ Error saving analysis: ' + (result.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('[v0] Error saving analysis:', error);
+        const saveBtn = document.getElementById('save-analysis-btn');
+        saveBtn.innerHTML = '<i class="bi bi-save me-2"></i> Save Analysis';
+        saveBtn.disabled = false;
+        alert('❌ Error saving analysis: ' + error.message);
+      }
+    });
+
+    // Button event handlers
+    startBtn.onclick = () => {
+      trackedLeaves = [];
+      nextLeafId = 1;
+      leafClasses.forEach(k => classCounts[k] = 0);
+      updateStatsUI();
+      detectionRunning = true;
+      recordingIndicator.style.display = 'block';
+      requestAnimationFrame(drawFrame);
+      captureLoop();
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      progressText.textContent = 'Detection started...';
+      document.getElementById('summary-loading').style.display = 'block';
+      document.getElementById('summary-empty-state').style.display = 'none';
+      document.getElementById('detect-button-container').style.display = 'none';
+      document.getElementById('live-analysis-results').style.display = 'none';
+    };
+
+    stopBtn.onclick = () => {
+      detectionRunning = false;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      recordingIndicator.style.display = 'none';
+      progressText.textContent = 'Detection stopped';
+      document.getElementById('summary-loading').style.display = 'none';
+      if (Object.values(classCounts).reduce((a, b) => a + b, 0) === 0) {
+        document.getElementById('summary-empty-state').style.display = 'block';
+        document.getElementById('summary-content').style.display = 'none';
+      }
+    };
+
+    // Clear all data
+    document.getElementById('clear-all-btn').onclick = () => {
+      if (confirm('Are you sure you want to clear all detection data?')) {
+        trackedLeaves = [];
+        nextLeafId = 1;
+        leafClasses.forEach(k => classCounts[k] = 0);
+        updateStatsUI();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        document.getElementById('summary-empty-state').style.display = 'block';
+        document.getElementById('summary-content').style.display = 'none';
+        document.getElementById('empty-state-message').style.display = 'block';
+        document.getElementById('detect-button-container').style.display = 'none';
+        document.getElementById('live-analysis-results').style.display = 'none';
+        progressText.textContent = 'Data cleared - Ready to start detection';
+      }
+    };
+
+    // Export data functionality
+    document.getElementById('export-data-btn').onclick = () => {
+      const data = {
+        timestamp: new Date().toISOString(),
+        detections: classCounts,
+        total: Object.values(classCounts).reduce((a, b) => a + b, 0)
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tree_analysis_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Initialize camera on page load
+    startCamera();
+  </script>
+</body>
+</html>
