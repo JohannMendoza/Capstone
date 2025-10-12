@@ -1,2 +1,35 @@
+# Virtual environments
 venv/
-yolov8env/ 
+yolov8env/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environment and secrets
+.env
+*.env
+
+# Django database and static files
+*.sqlite3
+media/
+staticfiles/
+
+# Logs
+*.log
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# PyInstaller
+*.spec
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
