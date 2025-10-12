@@ -56,18 +56,16 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 # Set up logger
 logger = logging.getLogger(__name__)
 
-# Your existing views here (register_view, login_view, etc.)
 def register_view(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
             user.set_password(form.cleaned_data['password'])
-            user.is_active = False  # User must verify email before activation
-            user.role = "admin"  
+            user.is_active = False  # Require email verification
+            user.role = "admin"
             user.save()
 
-            # Email verification setup
             current_site = get_current_site(request)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
@@ -87,10 +85,17 @@ def register_view(request):
                 fail_silently=False,
             )
 
-            return redirect('login')  # Redirect to login or a "Check your email" page
+            return redirect('login')
+        else:
+            # ✅ Handle invalid form
+            messages.error(request, "Please correct the errors below.")
+            return render(request, "dashboard/register.html", {"form": form})
+
+    # ✅ Handle GET request
     else:
         form = RegisterForm()
         return render(request, "dashboard/register.html", {"form": form})
+
 
 def verify_email_view(request, uidb64, token):
     try:

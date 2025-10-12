@@ -25,8 +25,7 @@ SECRET_KEY = 'django-insecure-i6hx&58*#us^q1_7mnqdjr9ryvegq%k*#5a5)8a)0ywa-vjyn(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['lanzotech.onrender.com']
-
+ALLOWED_HOSTS = ['diseases-pest-detection.onrender.com', 'localhost', '127.0.0.1']
 
 
 
@@ -194,7 +193,7 @@ EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "joannemile2003@gmail.com"
-EMAIL_HOST_PASSWORD = "srnm ymwl vzvi poli"
+EMAIL_HOST_PASSWORD = "bgta hyub urfp jism"
 
 DEFAULT_FROM_EMAIL = "Your Website <joannemile2003@gmail.com>"
 
