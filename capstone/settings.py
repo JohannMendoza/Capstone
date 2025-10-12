@@ -16,7 +16,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-i6hx&58*#us^q1_7mnqdj
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 # <CHANGE> Updated ALLOWED_HOSTS to use environment variable
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = ['lanzotech.onrender.com', 'localhost', '127.0.0.1']
 
 # Application definition
 INSTALLED_APPS = [
