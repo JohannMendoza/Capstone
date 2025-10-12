@@ -25,7 +25,7 @@ fsspec==2025.9.0
 gast==0.6.0
 git-filter-repo==2.47.0
 google-auth==2.41.1
-google-auth-oauthlib==1.2.2
+google-auth-oauthlib==1.0.0
 google-pasta==0.2.0
 grpcio==1.75.1
 gunicorn==23.0.0
@@ -38,7 +38,7 @@ jedi==0.19.2
 Jinja2==3.1.6
 jupyter_client==8.6.3
 jupyter_core==5.8.1
-keras==2.15.0
+keras==2.14.0
 kiwisolver==1.4.9
 lap==0.5.12
 libclang==18.1.1
@@ -55,6 +55,7 @@ nest-asyncio==1.6.0
 networkx==3.4.2
 numpy==1.26.4
 oauthlib==3.3.1
+opencv-python==4.6.0.66
 opencv-python-headless==4.10.0.84
 opt_einsum==3.4.0
 optree==0.17.0
@@ -81,6 +82,7 @@ pyparsing==3.2.5
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
 pytz==2025.2
+pywin32==311
 PyYAML==6.0.3
 pyzmq==27.1.0
 reportlab==4.4.4
@@ -96,13 +98,14 @@ six==1.17.0
 sqlparse==0.5.3
 stack-data==0.6.3
 sympy==1.14.0
-tensorboard==2.15.2
+tensorboard==2.14.1
 tensorboard-data-server==0.7.0
-tensorflow==2.15.0
-tensorflow-estimator==2.15.0
-tensorflow-intel==2.15.0
+tensorflow==2.14.0
+tensorflow-estimator==2.14.0
+tensorflow-intel==2.14.0
 tensorflow-io-gcs-filesystem==0.31.0
 termcolor==3.1.0
+tf_keras-nightly==2.16.0.dev2024021410
 thop==0.1.1.post2209072238
 torch==2.8.0
 torchvision==0.23.0
