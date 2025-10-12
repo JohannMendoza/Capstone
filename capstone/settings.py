@@ -169,16 +169,18 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
 
-# Increase max request size for image uploads
-DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
-
-# <CHANGE> Email configuration using environment variables
+# Email configuration using environment variables
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'joannemile2003@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'bgta hyub urfp jism')
+EMAIL_HOST_USER = os.environ['EMAIL_HOST_USER']
+EMAIL_HOST_PASSWORD = os.environ['EMAIL_HOST_PASSWORD']
 DEFAULT_FROM_EMAIL = f"Your Website <{EMAIL_HOST_USER}>"
+EMAIL_TIMEOUT = 10  # optional
+
+# Increase max request size for image uploads
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
 
 LOGIN_URL = '/login/'
+
