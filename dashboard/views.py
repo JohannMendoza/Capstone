@@ -60,6 +60,15 @@ logger = logging.getLogger(__name__)
 
 # ... existing code ...
 
+def send_verification_email(subject, body, recipient):
+    send_mail(
+        subject,
+        body,
+        settings.DEFAULT_FROM_EMAIL,
+        [recipient],
+        fail_silently=False
+    )
+
 def register_view(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
@@ -81,13 +90,12 @@ def register_view(request):
                 "verification_link": verification_link
             })
 
-            send_mail(
-                email_subject,
-                email_body,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
-            )
+            # Send email in a separate thread
+            threading.Thread(
+                target=send_verification_email,
+                args=(email_subject, email_body, user.email),
+                daemon=True
+            ).start()
 
             return redirect('login')
         else:
