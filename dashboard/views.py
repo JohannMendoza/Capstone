@@ -1,4 +1,4 @@
-# ✅ UPDATED: Fixed views.py with proper model property usage
+# ✅ UPDATED: Fixed views.py with lazy loading and model caching
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -40,21 +40,25 @@ from django.views.decorators.http import require_POST
 from django.utils import timezone
 import traceback
 import logging
-from .models import TreeAnalysis, LeafImage, PestDetectionSession, PestDetectionResult  # ✅ Added new models
+from .models import TreeAnalysis, LeafImage, PestDetectionSession, PestDetectionResult
 from django.contrib import messages, auth
 from django.urls import reverse
-import torch
-from ultralytics import YOLO
-import tensorflow as tf
 from PIL import Image
 import numpy as np
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
+# <CHANGE> Removed top-level imports of torch, tensorflow, and ultralytics
+# These will be imported inside functions that need them (lazy loading)
+
+# <CHANGE> Added global model cache to avoid reloading models
+_MODEL_CACHE = {}
 
 # Set up logger
 logger = logging.getLogger(__name__)
+
+# ... existing code ...
 
 def register_view(request):
     if request.method == "POST":
@@ -87,15 +91,13 @@ def register_view(request):
 
             return redirect('login')
         else:
-            # ✅ Handle invalid form
             messages.error(request, "Please correct the errors below.")
             return render(request, "dashboard/register.html", {"form": form})
-
-    # ✅ Handle GET request
     else:
         form = RegisterForm()
         return render(request, "dashboard/register.html", {"form": form})
 
+# ... existing code ...
 
 def verify_email_view(request, uidb64, token):
     try:
@@ -110,13 +112,14 @@ def verify_email_view(request, uidb64, token):
     except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
         return HttpResponse("Invalid request.", status=400)
 
+# ... existing code ...
+
 def login_view(request):
     if request.method == "POST":
-        email = request.POST.get("email")  # Use "email" instead of "username"
+        email = request.POST.get("email")
         password = request.POST.get("password")
         print(f"Attempting login - Email: {email}, Password: {password}")
 
-        # Authenticate using email
         user = authenticate(request, email=email, password=password)
         print(f"User authenticated: {user}")
 
@@ -125,7 +128,6 @@ def login_view(request):
                 return HttpResponse("Please verify your email before logging in.", status=401)
             login(request, user)
             print("Login successful!")
-            # Redirect based on role
             if user.role == "admin":
                 return redirect("admin_dashboard")
             else:
@@ -134,6 +136,8 @@ def login_view(request):
             print("Login failed")
 
     return render(request, "dashboard/login.html")
+
+# ... existing code ...
 
 def user_list(request):
     if request.method == "POST" and "delete_user_id" in request.POST:
@@ -146,12 +150,16 @@ def user_list(request):
     users = CustomUser.objects.all()
     return render(request, "dashboard/user_list.html", {"users": users})
 
+# ... existing code ...
+
 def logout_view(request):
     logout(request)
     return redirect('login')
 
 def home_view(request):
     return render(request, "dashboard/home.html")
+
+# ... existing code ...
 
 @login_required
 def admin_dashboard(request):
@@ -161,7 +169,6 @@ def admin_dashboard(request):
     User = get_user_model()
     total_users = User.objects.count()
 
-    # Fetch plants data
     plants = Plant.objects.all()
     total_plants = plants.count()
     healthy_plants = plants.filter(health_status="good").count()
@@ -181,12 +188,14 @@ def admin_dashboard(request):
         'disease_values': disease_values,
     })
 
+# ... existing code ...
+
 @login_required
 def client_dashboard(request):
     if request.user.role != "client":
         return redirect('home')
 
-    plants = Plant.objects.all()  # 👈 Get ALL plants
+    plants = Plant.objects.all()
     total_plants = plants.count()
     healthy_plants = plants.filter(health_status='good').count()
     unhealthy_plants = plants.exclude(health_status='good').count()
@@ -200,6 +209,8 @@ def client_dashboard(request):
 
     return render(request, "dashboard/client_dashboard.html", context)
 
+# ... existing code ...
+
 def update_user_view(request, user_id):
     user = get_object_or_404(CustomUser, id=user_id)
     if request.method == "POST":
@@ -207,17 +218,19 @@ def update_user_view(request, user_id):
         if form.is_valid():
             form.save()
             messages.success(request, "User updated successfully!")
-            return redirect('user_list')  # Redirect to the user list
+            return redirect('user_list')
     else:
         form = RegisterForm(instance=user)
 
     return render(request, "dashboard/update_user.html", {"form": form, "user": user})
 
+# ... existing code ...
+
 class CustomPasswordResetView(PasswordResetView):
     template_name = "dashboard/password_reset.html"
-    email_template_name = "dashboard/password_reset_email.txt"  # plain text fallback
-    html_email_template_name = "dashboard/password_reset_email.html"  # ✅ HTML version
-    subject_template_name = "dashboard/password_reset_subject.txt"  # ✅ email subject
+    email_template_name = "dashboard/password_reset_email.txt"
+    html_email_template_name = "dashboard/password_reset_email.html"
+    subject_template_name = "dashboard/password_reset_subject.txt"
     success_url = reverse_lazy("password_reset_done")
 
 class CustomPasswordResetDoneView(PasswordResetDoneView):
@@ -230,13 +243,12 @@ class CustomPasswordResetConfirmView(PasswordResetConfirmView):
 class CustomPasswordResetCompleteView(PasswordResetCompleteView):
     template_name = "dashboard/password_reset_complete.html"
 
-from django.shortcuts import render
-from .models import Plant, TreeAnalysis
+# ... existing code ...
 
 @login_required
 def plant_inventory(request):
     plants_list = Plant.objects.all()
-    paginator = Paginator(plants_list, 5)  # Show 10 plants per page
+    paginator = Paginator(plants_list, 5)
     page = request.GET.get('page')
     
     try:
@@ -290,8 +302,9 @@ def plant_inventory(request):
                 print(f"Leaf Rust: {latest_analysis.leaf_rust_percentage}")
                 print(f"Powdery Mildew: {latest_analysis.powdery_mildew_percentage}")
 
-
     return render(request, 'dashboard/inventory.html', {'plants': plants})
+
+# ... existing code ...
 
 @login_required
 def add_plant(request):
@@ -302,10 +315,10 @@ def add_plant(request):
     if request.method == "POST":
         form = PlantForm(request.POST)
         if form.is_valid():
-            plant = form.save(commit=False)   # Save but don't commit yet
-            plant.user = request.user         # Attach the current user manually
+            plant = form.save(commit=False)
+            plant.user = request.user
             plant.health_status = "undetected"
-            plant.save()                      # Now save to DB
+            plant.save()
             messages.success(request, "✅ Plant added successfully!")
             return redirect('add_plant')
         else:
@@ -318,25 +331,31 @@ def add_plant(request):
         'health_status': "undetected"
     })
 
+# ... existing code ...
+
 @login_required
 def update_plant(request, plant_id):
-    plant = get_object_or_404(Plant, plant_id=plant_id)  # Use plant_id instead of id
+    plant = get_object_or_404(Plant, plant_id=plant_id)
     if request.method == "POST":
         form = PlantForm(request.POST, instance=plant)
         if form.is_valid():
             form.save()
             messages.success(request, "✅ Plant updated successfully!")
-            return redirect('inventory')  # Redirect to inventory after update
+            return redirect('inventory')
     else:
         form = PlantForm(instance=plant)
 
     return render(request, 'dashboard/update_plant.html', {'form': form, 'plant': plant})
 
+# ... existing code ...
+
 def delete_plant(request, plant_id):
-    plant = get_object_or_404(Plant, plant_id=plant_id)  # Use plant_id instead of id
+    plant = get_object_or_404(Plant, plant_id=plant_id)
     plant.delete()
     messages.success(request, "✅ Plant deleted successfully!")
-    return redirect('inventory')  # Redirect to inventory after deletion
+    return redirect('inventory')
+
+# ... existing code ...
 
 def track_plant_health(request):
     from django.core.paginator import Paginator
@@ -349,7 +368,6 @@ def track_plant_health(request):
         if latest_analysis:
             latest_analysis.calculate_health()
             
-            # Only include plants that have leaf rust or powdery mildew
             if latest_analysis.leaf_rust_percentage > 0 or latest_analysis.powdery_mildew_percentage > 0:
                 plant.detection_details = {
                     'leaf_rust_percentage': latest_analysis.leaf_rust_percentage,
@@ -357,7 +375,6 @@ def track_plant_health(request):
                 }
                 unhealthy_plants_data.append(plant)
     
-    # Add pagination with 5 items per page
     paginator = Paginator(unhealthy_plants_data, 5)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -367,20 +384,19 @@ def track_plant_health(request):
         "page_obj": page_obj
     })
 
+# ... existing code ...
+
 @login_required
 def reports_view(request):
     User = get_user_model()
     
-    # Fetch user statistics
     total_users = User.objects.count()
     active_users = User.objects.filter(is_active=True).count()
     
-    # Fetch plant statistics
     total_plants = Plant.objects.count()
     healthy_plants = Plant.objects.filter(health_status="good").count()
     unhealthy_plants = Plant.objects.exclude(health_status="good").count()
 
-    # Send data to template
     context = {
         "total_users": total_users,
         "active_users": active_users,
@@ -391,6 +407,8 @@ def reports_view(request):
 
     return render(request, "dashboard/reports.html", context)
 
+# ... existing code ...
+
 def export_csv(request):
     if request.method == "GET":
         response = HttpResponse(content_type="text/csv")
@@ -398,7 +416,6 @@ def export_csv(request):
 
         writer = csv.writer(response)
 
-        # Write the headers based on selected checkboxes
         if "export_users" in request.GET:
             writer.writerow(["User ID", "Username", "Email", "Role", "Active"])
             users = CustomUser.objects.all().values_list("id", "username", "email", "role", "is_active")
@@ -425,22 +442,22 @@ def export_csv(request):
     else:
         return HttpResponse("Invalid request", status=400)
 
+# ... existing code ...
+
 def export_pdf(request):
     if request.method == "POST":
         response = HttpResponse(content_type="application/pdf")
         response["Content-Disposition"] = 'attachment; filename="report.pdf"'
         
-        # Create PDF
         pdf = canvas.Canvas(response, pagesize=letter)
         pdf.setTitle("Report")
         width, height = letter
-        y_position = height - 40  # Start from the top of the page
+        y_position = height - 40
 
         pdf.setFont("Helvetica-Bold", 14)
         pdf.drawString(200, y_position, "Escala Plants - Reports")
-        y_position -= 40  # Move down
+        y_position -= 40
 
-        # Export Users
         if "export_users" in request.POST:
             pdf.setFont("Helvetica-Bold", 12)
             pdf.drawString(30, y_position, "Users List")
@@ -452,18 +469,16 @@ def export_pdf(request):
                 pdf.drawString(30, y_position, f"ID: {user[0]}, Username: {user[1]}, Email: {user[2]}, Role: {user[3]}, Active: {user[4]}")
                 y_position -= 15
             
-            y_position -= 20  # Space before next section
+            y_position -= 20
 
-        # Export Total Plants
         if "export_total_plants" in request.POST:
             pdf.setFont("Helvetica-Bold", 12)
             pdf.drawString(30, y_position, "Total Plants")
             y_position -= 15
             pdf.setFont("Helvetica", 10)
             pdf.drawString(30, y_position, f"Total Plants: {Plant.objects.count()}")
-            y_position -= 20  # Space before next section
+            y_position -= 20
 
-        # Export Healthy Plants
         if "export_healthy_plants" in request.POST:
             pdf.setFont("Helvetica-Bold", 12)
             pdf.drawString(30, y_position, "Healthy Plants")
@@ -473,9 +488,8 @@ def export_pdf(request):
             for plant in healthy_plants:
                 pdf.drawString(30, y_position, f"Plant ID: {plant[0]},  Age: {plant[1]}, Status: {plant[2]}, Symptoms: {plant[3]}")
                 y_position -= 15
-            y_position -= 20  # Space before next section
+            y_position -= 20
 
-        # Export Unhealthy Plants
         if "export_unhealthy_plants" in request.POST:
             pdf.setFont("Helvetica-Bold", 12)
             pdf.drawString(30, y_position, "Unhealthy Plants")
@@ -491,35 +505,60 @@ def export_pdf(request):
     else:
         return HttpResponse("Invalid request", status=400)
 
-# Import the model and class names from model_loader
-from ultralytics import YOLO
+# <CHANGE> Updated YOLO model loading with caching and lazy import
+CLASS_NAMES = ['dried leaf', 'healthy', 'leaf rust', 'powdery mildew']
 
-CLASS_NAMES = [ 'dried leaf', 'healthy', 'leaf rust', 'powdery mildew']
+def load_yolo_model():
+    """Load YOLO model with caching - lazy loads ultralytics"""
+    global _MODEL_CACHE
+    
+    # Check if model is already cached
+    if 'yolo_model' in _MODEL_CACHE:
+        logger.info("✅ Using cached YOLO model")
+        return _MODEL_CACHE['yolo_model']
+    
+    try:
+        # <CHANGE> Lazy import - only import when needed
+        from ultralytics import YOLO
+        
+        model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
+        if not os.path.exists(model_path):
+            logger.error(f"❌ Model file not found at: {model_path}")
+            return None
+        
+        logger.info("🔄 Loading YOLO model for the first time...")
+        model = YOLO(model_path)
+        
+        # <CHANGE> Cache the model for future use
+        _MODEL_CACHE['yolo_model'] = model
+        
+        logger.info(f"✅ YOLO model loaded and cached. Classes: {model.names}")
+        return model
+    except Exception as e:
+        logger.error(f"❌ Error loading YOLO model: {e}")
+        traceback.print_exc()
+        return None
+
+# ... existing code ...
 
 def preprocess_image(image):
     """Preprocess the image for prediction"""
     try:
-        # Print original image details for debugging
         logger.debug(f"Original image size: {image.size}, mode: {image.mode}")
         
-        # Resize to 150x150 as per your training code
         image = image.resize((150, 150))
         logger.debug(f"Resized image size: {image.size}")
         
-        # Convert to RGB if not already
         if image.mode != 'RGB':
             logger.debug(f"Converting image from {image.mode} to RGB")
             image = image.convert('RGB')
         
-        # Convert to numpy array
         img_array = np.array(image)
         logger.debug(f"Image array shape: {img_array.shape}, dtype: {img_array.dtype}")
         
-        # Normalize to [0,1] - IMPORTANT for correct predictions
         img_array = img_array.astype(np.float32) / 255.0
         logger.debug(f"Normalized array min: {img_array.min()}, max: {img_array.max()}")
         
-        # Add batch dimension
         img_array = np.expand_dims(img_array, axis=0)
         logger.debug(f"Final array shape: {img_array.shape}")
         
@@ -529,52 +568,34 @@ def preprocess_image(image):
         traceback.print_exc()
         raise
 
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-import numpy as np
-import cv2
-import os
-from ultralytics import YOLO
-from django.conf import settings
+# ... existing code ...
 
-# Load YOLO model once
-def load_yolo_model():
-    model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
-    if not os.path.exists(model_path):
-        print("❌ Model file not found at:", model_path)
-        return None
-    model = YOLO(model_path)
-    print("✅ YOLO model loaded. Classes:", model.names)
-    return model
-
-model = load_yolo_model()
-
-# Only leaf classes
 ALLOWED_CLASSES = {"healthy", "dried leaf", "leaf rust", "powdery mildew"}
-
-# Confidence threshold (adjustable)
-CONF_THRESHOLD = 0.50  # Lower this if detections are missed
+CONF_THRESHOLD = 0.50
 
 @csrf_exempt
 def predict(request):
     if request.method != 'POST':
         return JsonResponse({"success": False, "error": "Invalid request method"})
 
+    # <CHANGE> Load model using cached function (lazy loads YOLO)
+    model = load_yolo_model()
     if model is None:
         return JsonResponse({"success": False, "error": "YOLO model not loaded"})
 
     try:
+        # <CHANGE> Lazy import cv2 only when needed
+        import cv2
+        
         frame_file = request.FILES.get('frame')
-        plant_id = request.POST.get("plant_id")  # 👈 send this from frontend
+        plant_id = request.POST.get("plant_id")
 
         if not frame_file:
             return JsonResponse({"success": False, "error": "No frame received"})
 
-        # Convert uploaded frame to OpenCV format
         file_bytes = np.frombuffer(frame_file.read(), np.uint8)
         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-        # Run YOLO with tracker
         results = model.track(frame, tracker="bytetrack.yaml", persist=True)[0]
 
         detections = []
@@ -597,22 +618,19 @@ def predict(request):
                     "class": class_name
                 })
 
-        # --- Save results to DB ---
         if plant_id:
-            from dashboard.models import Plant  # avoid circular import
+            from dashboard.models import Plant
             plant = Plant.objects.get(plant_id=plant_id)
 
-            # Create or reuse TreeAnalysis
             analysis, created = TreeAnalysis.objects.get_or_create(
                 plant=plant,
                 defaults={"name": f"Analysis for Plant {plant.plant_id}"}
             )
 
-            # Save each detection as LeafImage
             for det in detections:
                 LeafImage.objects.create(
-                    image=None,  # no file in this case unless you save cropped leaves
-                    prediction=det["class"].title(),  # store class (e.g., "Leaf Rust")
+                    image=None,
+                    prediction=det["class"].title(),
                     healthy_confidence=det["confidence"] if det["class"] == "healthy" else 0,
                     dried_leaf_confidence=det["confidence"] if det["class"] == "dried leaf" else 0,
                     leaf_rust_confidence=det["confidence"] if det["class"] == "leaf rust" else 0,
@@ -620,12 +638,10 @@ def predict(request):
                     tree_analysis=analysis
                 )
 
-            # Update health percentages
             analysis.calculate_health()
             analysis.is_completed = True
             analysis.save()
 
-            # Link back to Plant
             plant.tree_analysis = analysis
             plant.health_status = "good" if analysis.overall_health > 70 else "leaf rust"
             plant.save()
@@ -641,16 +657,18 @@ def predict(request):
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
 
+# ... existing code ...
 
 @login_required
 def detector(request):
     plant_id = request.GET.get('plant_id')
-    user_role = request.user.role  # 'admin' or 'client'
+    user_role = request.user.role
 
     if plant_id:
         url = reverse('new_tree_analysis')
         return redirect(f'{url}?plant_id={plant_id}&role={user_role}')
 
+    # <CHANGE> Load model using cached function
     model = load_yolo_model()
     context = {}
 
@@ -665,27 +683,26 @@ def detector(request):
 
     return render(request, 'dashboard/detector.html', context)
 
+# ... existing code ...
+
 def new_tree_analysis(request):
     plant_id = request.GET.get("plant_id")
     
     if plant_id:
         try:
             plant = Plant.objects.get(plant_id=plant_id)
-            # Check if plant already has an analysis
             if hasattr(plant, 'tree_analysis') and plant.tree_analysis:
                 existing_analysis = plant.tree_analysis
                 url = reverse('tree_analysis', args=[existing_analysis.id])
                 url += f'?plant_id={plant_id}'
                 return redirect(url)
             
-            # Create new analysis linked to plant
             tree_analysis = TreeAnalysis.objects.create(
                 name=f"Tree Analysis for Plant {plant_id}",
                 plant=plant,
                 plant_id=plant_id
             )
         except Plant.DoesNotExist:
-            # Create analysis without plant link if plant doesn't exist
             tree_analysis = TreeAnalysis.objects.create(
                 name="New Tree Analysis",
                 plant_id=plant_id
@@ -699,6 +716,8 @@ def new_tree_analysis(request):
 
     return redirect(url)
 
+# ... existing code ...
+
 @login_required
 def tree_analysis(request, analysis_id=None):
     """View for tree analysis page"""
@@ -709,27 +728,27 @@ def tree_analysis(request, analysis_id=None):
             tree_analysis.plant_id = plant_id
             tree_analysis.save()
     else:
-        # Redirect to create new analysis if no ID provided
         plant_id = request.GET.get('plant_id')
         if plant_id:
             return redirect(f"{reverse('new_tree_analysis')}?plant_id={plant_id}")
         return redirect('new_tree_analysis')
     
-    # Get all leaf images for this analysis
     leaf_images = tree_analysis.leaf_images.all()
     
     context = {
         'tree_analysis': tree_analysis,
         'leaf_images': leaf_images,
-        'plant_id': plant_id,  # Pass plant_id to template
+        'plant_id': plant_id,
     }
     
     return render(request, 'dashboard/tree_analysis.html', context)
 
+# ... existing code ...
+
 @csrf_exempt
 @require_POST
 def complete_analysis(request, analysis_id):
-    """Complete a tree analysis and calculate health - Enhanced to save individual detections"""
+    """Complete a tree analysis and calculate health"""
     try:
         logger.info(f"Completing analysis for ID: {analysis_id}")
         logger.info(f"POST data: {request.POST}")
@@ -737,22 +756,17 @@ def complete_analysis(request, analysis_id):
         tree_analysis = get_object_or_404(TreeAnalysis, id=analysis_id)
         logger.info(f"Found tree analysis: {tree_analysis}")
         
-        # Update tree name if provided
         tree_name = request.POST.get('tree_name')
         if tree_name:
             tree_analysis.name = tree_name
         
-        # Get detection counts from POST data
         healthy_count = int(request.POST.get('healthy_count', 0))
         dried_leaf_count = int(request.POST.get('dried_leaf_count', 0))
         powdery_mildew_count = int(request.POST.get('powdery_mildew_count', 0))
         leaf_rust_count = int(request.POST.get('leaf_rust_count', 0))
         
-        # Clear existing leaf images for this analysis to avoid duplicates
         tree_analysis.leaf_images.all().delete()
         
-        # Create individual LeafImage records for each detection
-        # Create healthy leaf records
         for i in range(healthy_count):
             LeafImage.objects.create(
                 tree_analysis=tree_analysis,
@@ -763,7 +777,6 @@ def complete_analysis(request, analysis_id):
                 leaf_rust_confidence=1.0
             )
         
-        # Create dried leaf records
         for i in range(dried_leaf_count):
             LeafImage.objects.create(
                 tree_analysis=tree_analysis,
@@ -774,7 +787,6 @@ def complete_analysis(request, analysis_id):
                 leaf_rust_confidence=2.0
             )
         
-        # Create powdery mildew records
         for i in range(powdery_mildew_count):
             LeafImage.objects.create(
                 tree_analysis=tree_analysis,
@@ -785,7 +797,6 @@ def complete_analysis(request, analysis_id):
                 leaf_rust_confidence=5.0
             )
         
-        # Create leaf rust records
         for i in range(leaf_rust_count):
             LeafImage.objects.create(
                 tree_analysis=tree_analysis,
@@ -798,29 +809,25 @@ def complete_analysis(request, analysis_id):
         
         logger.info(f"Created {healthy_count + dried_leaf_count + powdery_mildew_count + leaf_rust_count} LeafImage records")
         
-        # Calculate health metrics based on the created LeafImage records
         overall_health = tree_analysis.calculate_health()
         
-        # Mark as completed
         tree_analysis.is_completed = True
         tree_analysis.completed_at = timezone.now()
         tree_analysis.save()
         
-        # Update linked Plant - try both POST data and stored plant_id
         plant_id = request.POST.get('plant_id') or tree_analysis.plant_id
         if plant_id:
             try:
                 plant = Plant.objects.get(plant_id=plant_id)
                 plant.tree_analysis = tree_analysis
-                # Update health_status based on overall health
                 if overall_health >= 80:
                     plant.health_status = "good"
                 elif tree_analysis.powdery_mildew_percentage > 30:
-                    plant.health_status = "amag"  # powdery mildew
+                    plant.health_status = "amag"
                 elif tree_analysis.leaf_rust_percentage > 20:
                     plant.health_status = "leaf rust"
                 elif tree_analysis.dried_leaf_percentage > 40:
-                    plant.health_status = "dahon"  # dried leaves
+                    plant.health_status = "dahon"
                 else:
                     plant.health_status = "good"
                 plant.save()
@@ -848,6 +855,8 @@ def complete_analysis(request, analysis_id):
             'error': str(e)
         })
 
+# ... existing code ...
+
 @csrf_exempt
 def save_analysis(request):
     if request.method != "POST":
@@ -871,7 +880,6 @@ def save_analysis(request):
             }
         )
 
-        # Update existing analysis if not created
         if not created:
             analysis.plant = plant
             analysis.name = data.get("tree_name", analysis.name)
@@ -880,7 +888,6 @@ def save_analysis(request):
             analysis.overall_health = data.get("overall_health", analysis.overall_health)
             analysis.save()
 
-        # --- Update linked Plant health_status ---
         if plant:
             plant.health_status = (
                 "good" if analysis.overall_health > 70 else
@@ -903,6 +910,8 @@ def save_analysis(request):
     except Exception as e:
         return JsonResponse({"success": False, "message": str(e)}, status=400)
 
+# ... existing code ...
+
 @csrf_exempt
 @require_POST
 def remove_leaf(request, leaf_id):
@@ -911,12 +920,10 @@ def remove_leaf(request, leaf_id):
         leaf_image = get_object_or_404(LeafImage, id=leaf_id)
         tree_analysis = leaf_image.tree_analysis
         
-        # Delete the image file
         if leaf_image.image:
             if os.path.isfile(leaf_image.image.path):
                 os.remove(leaf_image.image.path)
         
-        # Delete the leaf image record
         leaf_image.delete()
         
         return JsonResponse({
@@ -932,6 +939,8 @@ def remove_leaf(request, leaf_id):
             'error': f'Error removing leaf: {str(e)}'
         })
 
+# ... existing code ...
+
 @csrf_exempt
 @require_POST
 def clear_leaves(request, analysis_id):
@@ -939,16 +948,13 @@ def clear_leaves(request, analysis_id):
     try:
         tree_analysis = get_object_or_404(TreeAnalysis, id=analysis_id)
         
-        # Get all leaf images
         leaf_images = tree_analysis.leaf_images.all()
         
-        # Delete all image files
         for leaf_image in leaf_images:
             if leaf_image.image:
                 if os.path.isfile(leaf_image.image.path):
                     os.remove(leaf_image.image.path)
         
-        # Delete all leaf image records
         leaf_images.delete()
         
         return JsonResponse({
@@ -963,6 +969,8 @@ def clear_leaves(request, analysis_id):
             'error': f'Error clearing leaves: {str(e)}'
         })
 
+# ... existing code ...
+
 @login_required
 def history(request):
     """View for analysis history"""
@@ -973,6 +981,8 @@ def history(request):
     }
     
     return render(request, 'dashboard/history.html', context)
+
+# ... existing code ...
 
 @login_required
 def analysis_detail(request, analysis_id):
@@ -987,6 +997,8 @@ def analysis_detail(request, analysis_id):
     
     return render(request, 'dashboard/analysis_detail.html', context)
 
+# ... existing code ...
+
 @csrf_exempt
 @require_POST
 def delete_analysis(request, analysis_id):
@@ -994,14 +1006,12 @@ def delete_analysis(request, analysis_id):
     try:
         tree_analysis = get_object_or_404(TreeAnalysis, id=analysis_id)
         
-        # Delete all leaf images
         leaf_images = tree_analysis.leaf_images.all()
         for leaf_image in leaf_images:
             if leaf_image.image:
                 if os.path.isfile(leaf_image.image.path):
                     os.remove(leaf_image.image.path)
         
-        # Delete the tree analysis
         tree_analysis.delete()
         
         return JsonResponse({
@@ -1015,6 +1025,8 @@ def delete_analysis(request, analysis_id):
             'success': False,
             'error': f'Error deleting analysis: {str(e)}'
         })
+
+# ... existing code ...
 
 @csrf_exempt
 @require_POST
@@ -1030,10 +1042,8 @@ def delete_multiple_analyses(request):
                 'error': 'No analysis IDs provided'
             })
         
-        # Get all analyses
         analyses = TreeAnalysis.objects.filter(id__in=analysis_ids)
         
-        # Delete all leaf images
         for analysis in analyses:
             leaf_images = analysis.leaf_images.all()
             for leaf_image in leaf_images:
@@ -1041,7 +1051,6 @@ def delete_multiple_analyses(request):
                     if os.path.isfile(leaf_image.image.path):
                         os.remove(leaf_image.image.path)
         
-        # Delete all analyses
         analyses.delete()
         
         return JsonResponse({
@@ -1057,10 +1066,7 @@ def delete_multiple_analyses(request):
             'error': f'Error deleting analyses: {str(e)}'
         })
 
-from django.http import HttpResponse
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from dashboard.models import TreeAnalysis
+# ... existing code ...
 
 def export_analysis_pdf(request, analysis_id):
     try:
@@ -1071,19 +1077,16 @@ def export_analysis_pdf(request, analysis_id):
     leaf_images = tree_analysis.leaf_images.all()
     total_leaves = leaf_images.count()
 
-    # Count predictions
     healthy_count = leaf_images.filter(prediction='Healthy').count()
     dried_leaf_count = leaf_images.filter(prediction='Dried Leaf').count()
     powdery_mildew_count = leaf_images.filter(prediction='Powdery Mildew').count()
     leaf_rust_count = leaf_images.filter(prediction='Leaf Rust').count()
 
-    # Percentages
     healthy_percentage = (healthy_count / total_leaves) * 100 if total_leaves else 0
     dried_leaf_percentage = (dried_leaf_count / total_leaves) * 100 if total_leaves else 0
     powdery_mildew_percentage = (powdery_mildew_count / total_leaves) * 100 if total_leaves else 0
     leaf_rust_percentage = (leaf_rust_count / total_leaves) * 100 if total_leaves else 0
 
-    # Setup PDF response
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="tree_analysis_{analysis_id}.pdf"'
 
@@ -1093,19 +1096,16 @@ def export_analysis_pdf(request, analysis_id):
     y = height - 50
     line_height = 20
 
-    # Header
     p.setFont("Helvetica-Bold", 16)
     p.drawString(x, y, f"Tree Analysis Report: {tree_analysis.name}")
     y -= line_height * 2
 
-    # General Info
     p.setFont("Helvetica", 12)
     p.drawString(x, y, f"Completed At: {tree_analysis.completed_at.strftime('%Y-%m-%d %H:%M') if tree_analysis.completed_at else 'N/A'}")
     y -= line_height
     p.drawString(x, y, f"Total Leaves Analyzed: {total_leaves}")
     y -= line_height * 2
 
-    # Detection Stats
     p.setFont("Helvetica-Bold", 14)
     p.drawString(x, y, "Detection Summary")
     y -= line_height
@@ -1126,30 +1126,27 @@ def export_analysis_pdf(request, analysis_id):
     p.setFont("Helvetica-Bold", 12)
     p.drawString(x, y, f"Overall Health: {tree_analysis.overall_health:.1f}%")
 
-    # Done
     p.showPage()
     p.save()
     return response
+
+# ... existing code ...
 
 def export_all_analyses(request):
     """Export all tree analyses as CSV"""
     try:
         analyses = TreeAnalysis.objects.filter(is_completed=True).order_by('-completed_at')
         
-        # Create HTTP response with CSV file
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="all-tree-analyses.csv"'
         
-        # Create CSV writer
         writer = csv.writer(response)
         
-        # Write header
         writer.writerow(['Lanzones Tree Analyses Report'])
         writer.writerow(['Generated on', timezone.now().strftime('%Y-%m-%d %H:%M:%S')])
         writer.writerow(['Total Analyses', analyses.count()])
         writer.writerow([])
         
-        # Write analyses
         writer.writerow(['ID', 'Tree Name', 'Analysis Date', 'Total Leaves', 'Healthy %', 'Dried Leaf %', 'Powdery Mildew %', 'Leaf Rust %', 'Overall Health'])
         
         for analysis in analyses:
@@ -1173,102 +1170,7 @@ def export_all_analyses(request):
         traceback.print_exc()
         return HttpResponse(f"Error exporting analyses: {str(e)}", status=500)
 
-# ✅ FIXED: Save analysis function with correct disease categorization
-@csrf_exempt
-def save_analysis(request):
-    """Save analysis from video detection"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'Invalid request method'})
-    
-    try:
-        # Parse JSON data
-        data = json.loads(request.body)
-        logger.info(f"Received analysis data: {data}")
-        
-        # Extract data
-        tree_name = data.get('tree_name', f"Tree Analysis {timezone.now().strftime('%m/%d/%Y')}")
-        healthy_count = int(data.get('healthy_count', 0))
-        dried_leaf_count = int(data.get('dried_leaf_count', 0))
-        powdery_mildew_count = int(data.get('powdery_mildew_count', 0))
-        leaf_rust_count = int(data.get('leaf_rust_count', 0))
-        
-        total_detections = healthy_count + dried_leaf_count + powdery_mildew_count + leaf_rust_count
-        
-        if total_detections == 0:
-            return JsonResponse({'success': False, 'error': 'No detections to save'})
-        
-        tree_analysis, created = TreeAnalysis.objects.get_or_create(
-            name=tree_name,
-            defaults={
-                'is_completed': True,
-                'completed_at': timezone.now()
-            }
-        )
-        
-        # Only create leaf records if this is a new analysis
-        if created:
-            # Create healthy leaf records
-            for i in range(healthy_count):
-                LeafImage.objects.create(
-                    tree_analysis=tree_analysis,
-                    prediction='Healthy',
-                    healthy_confidence=95.0,
-                    powdery_mildew_confidence=2.5,
-                    leaf_rust_confidence=2.5
-                )
-            
-            # Create dried leaf records
-            for i in range(dried_leaf_count):
-                LeafImage.objects.create(
-                    tree_analysis=tree_analysis,
-                    prediction='Dried Leaf',
-                    healthy_confidence=5.0,
-                    powdery_mildew_confidence=5.0,
-                    leaf_rust_confidence=90.0
-                )
-            
-            # Create powdery mildew records
-            for i in range(powdery_mildew_count):
-                LeafImage.objects.create(
-                    tree_analysis=tree_analysis,
-                    prediction='Powdery Mildew',
-                    healthy_confidence=5.0,
-                    powdery_mildew_confidence=90.0,
-                    leaf_rust_confidence=5.0
-                )
-            
-            # Create leaf rust records
-            for i in range(leaf_rust_count):
-                LeafImage.objects.create(
-                    tree_analysis=tree_analysis,
-                    prediction='Leaf Rust',
-                    healthy_confidence=5.0,
-                    powdery_mildew_confidence=5.0,
-                    leaf_rust_confidence=90.0
-                )
-        
-        # Calculate health metrics
-        overall_health = tree_analysis.calculate_health()
-        
-        logger.info(f"{'Created' if created else 'Found existing'} tree analysis {tree_analysis.id} with overall health {overall_health}")
-        
-        return JsonResponse({
-            'success': True,
-            'tree_analysis_id': tree_analysis.id,
-            'overall_health': overall_health,
-            'message': 'Analysis saved successfully!'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error saving analysis: {e}")
-        traceback.print_exc()
-        return JsonResponse({
-            'success': False,
-            'error': f'Error saving analysis: {str(e)}'
-        })
-
-from django.http import JsonResponse, Http404
-from dashboard.models import TreeAnalysis
+# ... existing code ...
 
 def analysis_detail_view(request, analysis_id):
     try:
@@ -1279,19 +1181,16 @@ def analysis_detail_view(request, analysis_id):
     leaf_images = analysis.leaf_images.all()
     total_leaves = leaf_images.count()
 
-    # Count predictions
     healthy_count = leaf_images.filter(prediction='Healthy').count()
     dried_leaf_count = leaf_images.filter(prediction='Dried Leaf').count()
     powdery_mildew_count = leaf_images.filter(prediction='Powdery Mildew').count()
     leaf_rust_count = leaf_images.filter(prediction='Leaf Rust').count()
 
-    # Percentages
     healthy_percentage = (healthy_count / total_leaves) * 100 if total_leaves else 0
     dried_leaf_percentage = (dried_leaf_count / total_leaves) * 100 if total_leaves else 0
     powdery_mildew_percentage = (powdery_mildew_count / total_leaves) * 100 if total_leaves else 0
     leaf_rust_percentage = (leaf_rust_count / total_leaves) * 100 if total_leaves else 0
 
-    # Leaf detections list
     leaf_detections = [
         {
             'prediction': leaf.prediction or 'Unknown',
@@ -1324,17 +1223,13 @@ def analysis_detail_view(request, analysis_id):
         'leaf_detections': leaf_detections
     })
 
-from django.shortcuts import render
-from dashboard.models import TreeAnalysis, LeafImage, PestDetectionSession  # ✅ Added PestDetectionSession
-from django.db.models import Count
+# ... existing code ...
 
 def history_view(request):
-    # Get tree analyses
     tree_analyses = TreeAnalysis.objects.filter(is_completed=True).order_by('-completed_at')
     analyses = []
     
     for analysis in tree_analyses:
-        # Get all leaf images related to the analysis
         leaf_images = analysis.leaf_images.all()
         total = leaf_images.count()
         healthy = leaf_images.filter(prediction='Healthy').count()
@@ -1355,10 +1250,9 @@ def history_view(request):
             'leaf_rust_count': rust,
             'healthy_percentage': (healthy / total) * 100 if total else 0,
             'diseased_percentage': (diseased / total) * 100 if total else 0,
-            'type': 'tree_analysis'  # ✅ Add type identifier
+            'type': 'tree_analysis'
         })
 
-    # ✅ NEW: Get pest detection sessions
     pest_sessions = PestDetectionSession.objects.all().order_by('-created_at')
     for session in pest_sessions:
         analyses.append({
@@ -1372,20 +1266,36 @@ def history_view(request):
             'uncertain_count': session.uncertain_count,
             'avg_confidence': session.avg_confidence,
             'avg_processing_time': session.avg_processing_time,
-            'type': 'pest_detection'  # ✅ Add type identifier
+            'type': 'pest_detection'
         })
 
-    # Sort all analyses by date
     analyses.sort(key=lambda x: x['completed_at'], reverse=True)
 
     return render(request, 'dashboard/history.html', {'analyses': analyses})
 
+# <CHANGE> Updated pest model loading with caching and lazy import
 def load_pest_model():
-    """Load the trained pest detection model"""
+    """Load the trained pest detection model with caching"""
+    global _MODEL_CACHE
+    
+    # Check if model is already cached
+    if 'pest_model' in _MODEL_CACHE:
+        logger.info("✅ Using cached pest detection model")
+        return _MODEL_CACHE['pest_model']
+    
     try:
+        # <CHANGE> Lazy import - only import TensorFlow when needed
+        import tensorflow as tf
+        
         model_path = os.path.join(settings.MEDIA_ROOT, 'improved_pest_model.h5')
         if os.path.exists(model_path):
+            logger.info("🔄 Loading pest detection model for the first time...")
             model = tf.keras.models.load_model(model_path)
+            
+            # <CHANGE> Cache the model for future use
+            _MODEL_CACHE['pest_model'] = model
+            
+            logger.info("✅ Pest detection model loaded and cached")
             return model
         else:
             logger.error(f"Model file not found at: {model_path}")
@@ -1394,30 +1304,29 @@ def load_pest_model():
         logger.error(f"Error loading model: {e}")
         return None
 
-# Class names for your pest detection model
-PEST_CLASS_NAMES = ['Adristyrannus', 'Aphids', 'Beetle', 'Bugs', 'Mites', 'Weevil', 'Whitefly']  # Update based on your model
+# ... existing code ...
+
+PEST_CLASS_NAMES = ['Adristyrannus', 'Aphids', 'Beetle', 'Bugs', 'Mites', 'Weevil', 'Whitefly']
 
 def preprocess_pest_image(image):
     """Preprocess image for pest detection model"""
     try:
-        # Resize to match your training size (224x224 based on your training script)
         image = image.resize((224, 224))
         
-        # Convert to RGB if not already
         if image.mode != 'RGB':
             image = image.convert('RGB')
         
-        # Convert to numpy array and normalize
         img_array = np.array(image)
         img_array = img_array.astype(np.float32) / 255.0
         
-        # Add batch dimension
         img_array = np.expand_dims(img_array, axis=0)
         
         return img_array
     except Exception as e:
         logger.error(f"Error preprocessing image: {e}")
         raise
+
+# ... existing code ...
 
 @login_required
 def pest_detector(request):
@@ -1427,12 +1336,14 @@ def pest_detector(request):
     }
     return render(request, 'dashboard/pest_detector.html', context)
 
+# ... existing code ...
+
 @csrf_exempt
 @require_POST
 def pest_predict(request):
     """API endpoint for pest prediction"""
     try:
-        # Load model
+        # <CHANGE> Load model using cached function (lazy loads TensorFlow)
         model = load_pest_model()
         if model is None:
             return JsonResponse({
@@ -1440,27 +1351,25 @@ def pest_predict(request):
                 'error': 'Pest detection model not found. Please ensure improved_pest_model.h5 is in media folder.'
             })
 
-        # Get image from request
         image_file = request.FILES.get('image')
         if not image_file:
             return JsonResponse({'success': False, 'error': 'No image provided'})
 
-        # Process image
         image = Image.open(image_file).convert('RGB')
         processed_image = preprocess_pest_image(image)
         
-        # Make prediction
+        # <CHANGE> Lazy import numpy only when needed (already imported at top, but showing pattern)
+        import numpy as np
+        
         predictions = model.predict(processed_image)
         predicted_class_idx = np.argmax(predictions[0])
         confidence = float(predictions[0][predicted_class_idx]) * 100
         
-        # Get class name
         if predicted_class_idx < len(PEST_CLASS_NAMES):
             predicted_class = PEST_CLASS_NAMES[predicted_class_idx]
         else:
             predicted_class = 'unknown'
         
-        # Prepare confidence scores for all classes
         confidence_scores = {}
         for i, class_name in enumerate(PEST_CLASS_NAMES):
             confidence_scores[class_name] = float(predictions[0][i]) * 100
@@ -1480,7 +1389,8 @@ def pest_predict(request):
             'error': f'Prediction error: {str(e)}'
         })
 
-# ✅ UPDATED: Save pest detection results to database
+# ... existing code ...
+
 @csrf_exempt
 @require_POST
 def save_pest_results(request):
@@ -1493,7 +1403,6 @@ def save_pest_results(request):
         if not results:
             return JsonResponse({'success': False, 'error': 'No results to save'})
         
-        # Create pest detection session
         session = PestDetectionSession.objects.create(
             user=request.user,
             session_name=f"Pest Detection - {timezone.now().strftime('%Y-%m-%d %H:%M')}",
@@ -1506,7 +1415,6 @@ def save_pest_results(request):
             avg_confidence=float(summary.get('avg_confidence', 0))
         )
         
-        # Save individual results
         for result in results:
             confidence_scores = result.get('confidence_scores', {})
             
@@ -1519,7 +1427,6 @@ def save_pest_results(request):
                 processing_time=float(result.get('processing_time', 0)),
                 is_low_confidence=result.get('is_low_confidence', False),
                 timestamp=timezone.now(),
-                # Save confidence scores for all classes
                 adristyrannus_confidence=float(confidence_scores.get('Adristyrannus', 0)),
                 aphids_confidence=float(confidence_scores.get('Aphids', 0)),
                 beetle_confidence=float(confidence_scores.get('Beetle', 0)),
@@ -1545,7 +1452,8 @@ def save_pest_results(request):
             'error': f'Error saving results: {str(e)}'
         })
 
-# ✅ UPDATED: Delete pest detection session - properly implemented
+# ... existing code ...
+
 @csrf_exempt
 @require_POST
 def delete_pest_session(request, session_id):
@@ -1553,10 +1461,8 @@ def delete_pest_session(request, session_id):
     try:
         session = get_object_or_404(PestDetectionSession, id=session_id)
         
-        # Delete all related results
         session.results.all().delete()
         
-        # Delete the session
         session.delete()
         
         logger.info(f"Pest detection session {session_id} deleted successfully")
@@ -1574,21 +1480,19 @@ def delete_pest_session(request, session_id):
             'error': f'Error deleting pest session: {str(e)}'
         })
 
-# ✅ UPDATED: Export pest detection session as CSV - properly implemented
+# ... existing code ...
+
 def export_pest_session_csv(request, session_id):
     """Export pest detection session as CSV"""
     try:
         session = get_object_or_404(PestDetectionSession, id=session_id)
         results = session.results.all()
         
-        # Create HTTP response with CSV file
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="pest_session_{session_id}.csv"'
         
-        # Create CSV writer
         writer = csv.writer(response)
         
-        # Write header
         writer.writerow(['Pest Detection Session Report'])
         writer.writerow(['Session Name', session.session_name])
         writer.writerow(['Date', session.created_at.strftime('%Y-%m-%d %H:%M:%S')])
@@ -1601,7 +1505,6 @@ def export_pest_session_csv(request, session_id):
         writer.writerow(['Average Processing Time', f"{session.avg_processing_time:.2f}s"])
         writer.writerow([])
         
-        # Write individual results header
         writer.writerow(['Individual Results'])
         writer.writerow(['Filename', 'Prediction', 'Confidence', 'Processing Time', 'Low Confidence', 'Timestamp'])
         
@@ -1623,7 +1526,8 @@ def export_pest_session_csv(request, session_id):
         traceback.print_exc()
         return HttpResponse(f"Error exporting pest session: {str(e)}", status=500)
 
-# ✅ NEW: Export multiple analyses (for bulk export)
+# ... existing code ...
+
 def export_multiple_analyses(request):
     """Export multiple tree analyses as CSV"""
     try:
@@ -1637,20 +1541,16 @@ def export_multiple_analyses(request):
         if not analyses:
             return HttpResponse("No analyses found", status=404)
         
-        # Create HTTP response with CSV file
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="selected-tree-analyses.csv"'
         
-        # Create CSV writer
         writer = csv.writer(response)
         
-        # Write header
         writer.writerow(['Selected Tree Analyses Report'])
         writer.writerow(['Generated on', timezone.now().strftime('%Y-%m-%d %H:%M:%S')])
         writer.writerow(['Total Analyses', analyses.count()])
         writer.writerow([])
         
-        # Write analyses
         writer.writerow(['ID', 'Tree Name', 'Analysis Date', 'Total Leaves', 'Healthy %', 'Dried Leaf %', 'Powdery Mildew %', 'Leaf Rust %', 'Overall Health'])
         
         for analysis in analyses:
