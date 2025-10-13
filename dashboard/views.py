@@ -48,6 +48,8 @@ import numpy as np
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+import threading
+
 
 # <CHANGE> Removed top-level imports of torch, tensorflow, and ultralytics
 # These will be imported inside functions that need them (lazy loading)
