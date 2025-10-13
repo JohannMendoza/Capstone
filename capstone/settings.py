@@ -170,14 +170,15 @@ if not DEBUG:
     X_FRAME_OPTIONS = 'DENY'
 
 # Email configuration using environment variables (SendGrid)
+# Email configuration using SendGrid
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.sendgrid.net")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "apikey")  # always 'apikey' for SendGrid
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")  # your SendGrid API key
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@yourdomain.com")
-EMAIL_TIMEOUT = 10  # optional
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "apikey")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "aurelioescala15@gmail.com")
+EMAIL_TIMEOUT = 10
 
 # Increase max request size for image uploads
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
