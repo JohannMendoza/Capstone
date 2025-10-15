@@ -73,7 +73,13 @@ def send_verification_email(subject, body, recipient):
         fail_silently=False
     )
 
+from django.contrib.sites.shortcuts import get_current_site
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.contrib.auth.tokens import default_token_generator
 from urllib.parse import urljoin
+from django.contrib import messages
+import threading
 
 def register_view(request):
     if request.method == "POST":
@@ -85,22 +91,25 @@ def register_view(request):
             user.role = "admin"
             user.save()
 
+            # Generate verification data
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
             current_site = get_current_site(request)
             protocol = 'https' if request.is_secure() else 'http'
-
-            # ✅ Clean, safe way to generate the link
             domain = f"{protocol}://{current_site.domain}"
-            verification_link = urljoin(domain, f"/verify/{uid}/{token}/")
 
+            # ✅ Clean and safe verification link
+            verification_link = urljoin(domain, f"/verify/{uid}/{token}/")
+            verification_link = verification_link.replace('"', '').replace("'", "").strip()
+
+            # Prepare email
             email_subject = "Verify Your Email"
             email_body = render_to_string("dashboard/verify_email.html", {
                 "user": user,
                 "verification_link": verification_link
             })
 
-            # ✅ Send email asynchronously
+            # ✅ Send email asynchronously (non-blocking)
             threading.Thread(
                 target=send_verification_email,
                 args=(email_subject, email_body, user.email),
@@ -115,6 +124,7 @@ def register_view(request):
         form = RegisterForm()
 
     return render(request, "dashboard/register.html", {"form": form})
+
 
 
 # ... existing code ...
