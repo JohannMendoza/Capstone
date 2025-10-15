@@ -81,10 +81,12 @@ def register_view(request):
             user.role = "admin"
             user.save()
 
-            current_site = get_current_site(request)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            verification_link = f"http://{current_site.domain}/verify/{uid}/{token}/"
+
+            # ✅ Always use your Render domain for deployed verification links
+            domain = "lanzotech.onrender.com"
+            verification_link = f"https://{domain}/verify/{uid}/{token}/"
 
             email_subject = "Verify Your Email"
             email_body = render_to_string("dashboard/verify_email.html", {
