@@ -73,6 +73,8 @@ def send_verification_email(subject, body, recipient):
         fail_silently=False
     )
 
+from urllib.parse import urljoin
+
 def register_view(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
@@ -87,8 +89,10 @@ def register_view(request):
             token = default_token_generator.make_token(user)
             current_site = get_current_site(request)
             protocol = 'https' if request.is_secure() else 'http'
-    
-            verification_link = f"{protocol}://{current_site.domain}/verify/{uid}/{token}/".strip().replace('"', '')
+
+            # ✅ Clean, safe way to generate the link
+            domain = f"{protocol}://{current_site.domain}"
+            verification_link = urljoin(domain, f"/verify/{uid}/{token}/")
 
             email_subject = "Verify Your Email"
             email_body = render_to_string("dashboard/verify_email.html", {
@@ -96,20 +100,22 @@ def register_view(request):
                 "verification_link": verification_link
             })
 
-            # Send email in a separate thread
+            # ✅ Send email asynchronously
             threading.Thread(
                 target=send_verification_email,
                 args=(email_subject, email_body, user.email),
                 daemon=True
             ).start()
 
+            messages.success(request, "A verification link has been sent to your email. Please verify before logging in.")
             return redirect('login')
         else:
             messages.error(request, "Please correct the errors below.")
-            return render(request, "dashboard/register.html", {"form": form})
     else:
         form = RegisterForm()
-        return render(request, "dashboard/register.html", {"form": form})
+
+    return render(request, "dashboard/register.html", {"form": form})
+
 
 # ... existing code ...
 
