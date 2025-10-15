@@ -180,6 +180,11 @@ SENDGRID_SANDBOX_MODE_IN_DEBUG = False
 SENDGRID_ECHO_TO_STDOUT = True
 EMAIL_TIMEOUT = 10
 
+# Disable SendGrid link and open tracking (so verification URLs are not rewritten)
+SENDGRID_TRACK_EMAIL_OPENS = False
+SENDGRID_TRACK_CLICKS = False
+
+
 # Increase max request size for image uploads
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
 
