@@ -1,4 +1,4 @@
 <p>Hi {{ user.username }},</p>
 <p>Thank you for signing up! Please verify your email by clicking the link below:</p>
-<p><a href="{{ verification_link }}">Verify Email</a></p>
+<p><a href="{{ verification_link|safe }}">Verify Email</a></p>
 <p>If you did not sign up, you can ignore this email.</p>
