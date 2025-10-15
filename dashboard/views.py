@@ -86,7 +86,9 @@ def register_view(request):
 
             # ✅ Always use your Render domain for deployed verification links
             domain = "lanzotech.onrender.com"
-            verification_link = f"https://{domain}/verify/{uid}/{token}/"
+            protocol = 'https' if request.is_secure() else 'http'
+            verification_link = f"{protocol}://{current_site.domain}/verify/{uid}/{token}/".strip().replace('"', '')
+
 
             email_subject = "Verify Your Email"
             email_body = render_to_string("dashboard/verify_email.html", {
