@@ -16,7 +16,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-i6hx&58*#us^q1_7mnqdj
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 # <CHANGE> Updated ALLOWED_HOSTS to use environment variable
-ALLOWED_HOSTS = ['lanzotech.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
@@ -157,8 +157,8 @@ CSRF_COOKIE_SECURE = not DEBUG  # True in production with HTTPS
 CSRF_COOKIE_HTTPONLY = False
 CSRF_USE_SESSIONS = False
 CSRF_TRUSTED_ORIGINS = [
-    'https://diseases-pest-detection.onrender.com',
-    'https://*.onrender.com',
+    'https://*.up.railway.app',
+    'https://*.railway.app',
 ]
 
 # <CHANGE> Security settings for production
