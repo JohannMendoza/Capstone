@@ -6,11 +6,9 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
-    libglib2.0-0 \
     ffmpeg \
     libopenblas-dev \
     liblapack-dev \
-    libatlas-base-dev \
     gfortran \
     && rm -rf /var/lib/apt/lists/*
 
