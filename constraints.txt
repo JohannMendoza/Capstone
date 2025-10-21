@@ -1,4 +1,0 @@
-# Prevent full OpenCV from installing
-opencv-python==0
-# Force headless OpenCV version
-opencv-python-headless==4.10.0.84
