@@ -99,7 +99,7 @@ def register_view(request):
             domain = f"{protocol}://{current_site.domain}"
 
             # ✅ Clean and safe verification link
-            verification_link = urljoin(domain, f"/verify/{uid}/{token}/")
+            verification_link = urljoin(domain, f"/verify/{uid}/{token}/").strip()
             verification_link = verification_link.replace('"', '').replace("'", "").strip()
 
             # Prepare email
