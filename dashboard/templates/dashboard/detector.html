@@ -520,253 +520,225 @@
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     
-    <script>
-    document.getElementById('menu-toggle').addEventListener('click', function () {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.classList.toggle('hidden');
-        sidebar.classList.toggle('show');
-    });
+<script>
+document.getElementById('menu-toggle').addEventListener('click', function () {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('hidden');
+    sidebar.classList.toggle('show');
+});
 
+document.addEventListener('DOMContentLoaded', function() {
+    // Get URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const plantId = urlParams.get('plant_id');
+    const analysisId = urlParams.get('analysis_id');
+    
+    // Modal elements
+    const singleLeafModal = new bootstrap.Modal(document.getElementById('singleLeafModal'));
+    const modalOptionsCard = document.getElementById('modal-options-card');
+    const modalCameraCard = document.getElementById('modal-camera-card');
+    const modalResultCard = document.getElementById('modal-result-card');
+    const modalPreviewImage = document.getElementById('modal-preview-image');
+    const modalLoadingContainer = document.getElementById('modal-loading-container');
+    const modalResultsContainer = document.getElementById('modal-results-container');
+    const modalErrorContainer = document.getElementById('modal-error-container');
+    const modalErrorMessage = document.getElementById('modal-error-message');
+    const modalPredictionResult = document.getElementById('modal-prediction-result');
+    const modalConfidenceScores = document.getElementById('modal-confidence-scores');
+    
+    // Button elements
+    const singleLeafBtn = document.getElementById('single-leaf-btn');
+    const singleLeafBtn2 = document.getElementById('single-leaf-btn-2');
+    const modalOpenCameraBtn = document.getElementById('modal-open-camera-btn');
+    const modalUploadImageBtn = document.getElementById('modal-upload-image-btn');
+    const modalFileInput = document.getElementById('modal-file-input');
+    const modalCancelCameraBtn = document.getElementById('modal-cancel-camera-btn');
+    const modalCaptureBtn = document.getElementById('modal-capture-btn');
+    const modalNewImageBtn = document.getElementById('modal-new-image-btn');
+    
+    // Camera elements
+    const modalVideo = document.getElementById('modal-video');
+    const modalCanvas = document.getElementById('modal-canvas');
+    
+    let stream = null;
+    
+    // Show single leaf modal
+    function showSingleLeafModal() {
+        modalOptionsCard.style.display = 'block';
+        modalCameraCard.style.display = 'none';
+        modalResultCard.style.display = 'none';
+        singleLeafModal.show();
+    }
+    
+    // Open camera
+    function openCamera() {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+            .then(function(mediaStream) {
+                stream = mediaStream;
+                modalVideo.srcObject = stream;
+                modalOptionsCard.style.display = 'none';
+                modalCameraCard.style.display = 'block';
+            })
+            .catch(function(error) {
+                console.error('Error accessing camera:', error);
+                alert('Error accessing camera. Please make sure you have granted camera permissions.');
+            });
+    }
+    
+    // Stop camera
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+    
+    // Capture image from camera
+    function captureImage() {
+        const context = modalCanvas.getContext('2d');
+        modalCanvas.width = modalVideo.videoWidth;
+        modalCanvas.height = modalVideo.videoHeight;
+        context.drawImage(modalVideo, 0, 0);
         
-        document.addEventListener('DOMContentLoaded', function() {
-            // Get URL parameters
-            const urlParams = new URLSearchParams(window.location.search);
-            const plantId = urlParams.get('plant_id');
-            const analysisId = urlParams.get('analysis_id');
+        const imageDataUrl = modalCanvas.toDataURL('image/jpeg');
+        modalPreviewImage.src = imageDataUrl;
+        
+        stopCamera();
+        modalCameraCard.style.display = 'none';
+        modalResultCard.style.display = 'block';
+        
+        // Process the image
+        processImage(imageDataUrl, analysisId);
+    }
+    
+    // Process uploaded file
+    function processFile(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            modalPreviewImage.src = e.target.result;
+            modalOptionsCard.style.display = 'none';
+            modalResultCard.style.display = 'block';
             
-            // Modal elements
-            const singleLeafModal = new bootstrap.Modal(document.getElementById('singleLeafModal'));
-            const modalOptionsCard = document.getElementById('modal-options-card');
-            const modalCameraCard = document.getElementById('modal-camera-card');
-            const modalResultCard = document.getElementById('modal-result-card');
-            const modalPreviewImage = document.getElementById('modal-preview-image');
-            const modalLoadingContainer = document.getElementById('modal-loading-container');
-            const modalResultsContainer = document.getElementById('modal-results-container');
-            const modalErrorContainer = document.getElementById('modal-error-container');
-            const modalErrorMessage = document.getElementById('modal-error-message');
-            const modalPredictionResult = document.getElementById('modal-prediction-result');
-            const modalConfidenceScores = document.getElementById('modal-confidence-scores');
+            // Process the image
+            processImage(e.target.result, analysisId);
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // Process image and get prediction
+    function processImage(imageData, analysisId) {
+        // Show loading state
+        modalLoadingContainer.style.display = 'block';
+        modalResultsContainer.style.display = 'none';
+        modalErrorContainer.style.display = 'none';
+        
+        // ✅ Use FormData instead of URLSearchParams
+        const formData = new FormData();
+        formData.append('image', imageData);
+        formData.append('tree_analysis_id', analysisId);
+        
+        // Send to server (no manual headers!)
+        fetch('/predict/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            modalLoadingContainer.style.display = 'none';
             
-            // Button elements
-            const singleLeafBtn = document.getElementById('single-leaf-btn');
-            const singleLeafBtn2 = document.getElementById('single-leaf-btn-2');
-            const modalOpenCameraBtn = document.getElementById('modal-open-camera-btn');
-            const modalUploadImageBtn = document.getElementById('modal-upload-image-btn');
-            const modalFileInput = document.getElementById('modal-file-input');
-            const modalCancelCameraBtn = document.getElementById('modal-cancel-camera-btn');
-            const modalCaptureBtn = document.getElementById('modal-capture-btn');
-            const modalNewImageBtn = document.getElementById('modal-new-image-btn');
-            
-            // Camera elements
-            const modalVideo = document.getElementById('modal-video');
-            const modalCanvas = document.getElementById('modal-canvas');
-            
-            let stream = null;
-            
-            // Show single leaf modal
-            function showSingleLeafModal() {
-                modalOptionsCard.style.display = 'block';
-                modalCameraCard.style.display = 'none';
-                modalResultCard.style.display = 'none';
-                singleLeafModal.show();
-            }
-            
-            // Open camera
-            function openCamera() {
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                    .then(function(mediaStream) {
-                        stream = mediaStream;
-                        modalVideo.srcObject = stream;
-                        modalOptionsCard.style.display = 'none';
-                        modalCameraCard.style.display = 'block';
-                    })
-                    .catch(function(error) {
-                        console.error('Error accessing camera:', error);
-                        alert('Error accessing camera. Please make sure you have granted camera permissions.');
-                    });
-            }
-            
-            // Stop camera
-            function stopCamera() {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                    stream = null;
+            if (data.success) {
+                modalResultsContainer.style.display = 'block';
+                modalPredictionResult.textContent = data.prediction;
+                modalPredictionResult.className = 'fs-3 fw-bold mb-0';
+                
+                if (data.prediction === 'Healthy') {
+                    modalPredictionResult.classList.add('text-success');
+                } else if (data.prediction === 'Powdery Mildew') {
+                    modalPredictionResult.classList.add('text-info');
+                } else {
+                    modalPredictionResult.classList.add('text-danger');
                 }
-            }
-            
-            // Capture image from camera
-            function captureImage() {
-                const context = modalCanvas.getContext('2d');
-                modalCanvas.width = modalVideo.videoWidth;
-                modalCanvas.height = modalVideo.videoHeight;
-                context.drawImage(modalVideo, 0, 0);
                 
-                const imageDataUrl = modalCanvas.toDataURL('image/jpeg');
-                modalPreviewImage.src = imageDataUrl;
-                
-                stopCamera();
-                modalCameraCard.style.display = 'none';
-                modalResultCard.style.display = 'block';
-                
-                // Process the image
-                processImage(imageDataUrl, analysisId);
-            }
-            
-            // Process uploaded file
-            function processFile(file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    modalPreviewImage.src = e.target.result;
-                    modalOptionsCard.style.display = 'none';
-                    modalResultCard.style.display = 'block';
+                modalConfidenceScores.innerHTML = '';
+                for (const [className, confidence] of Object.entries(data.confidences)) {
+                    const barColor = className === 'Healthy' ? 'bg-success' :
+                                     className === 'Powdery Mildew' ? 'bg-info' : 'bg-danger';
                     
-                    // Process the image
-                    processImage(e.target.result, analysisId);
-                };
-                reader.readAsDataURL(file);
-            }
-            
-            // Process image and get prediction
-            function processImage(imageData, analysisId) {
-                // Show loading state
-                modalLoadingContainer.style.display = 'block';
-                modalResultsContainer.style.display = 'none';
-                modalErrorContainer.style.display = 'none';
-                
-                // Create form data
-                const formData = new FormData();
-                formData.append('image', imageData);
-                formData.append('tree_analysis_id', analysisId);  // Special flag for single leaf check
-                
-                // Send to server
-                fetch('/predict/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: new URLSearchParams({
-                        image: imageData,
-                        tree_analysis_id: analysisId
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Hide loading state
-                    modalLoadingContainer.style.display = 'none';
-                    
-                    if (data.success) {
-                        // Show results
-                        modalResultsContainer.style.display = 'block';
-                        
-                        // Update prediction
-                        modalPredictionResult.textContent = data.prediction;
-                        modalPredictionResult.className = 'fs-3 fw-bold mb-0';
-                        
-                        // Set color based on prediction
-                        if (data.prediction === 'Healthy') {
-                            modalPredictionResult.classList.add('text-success');
-                        } else if (data.prediction === 'Powdery Mildew') {
-                            modalPredictionResult.classList.add('text-info');
-                        } else {
-                            modalPredictionResult.classList.add('text-danger');
-                        }
-                        
-                        // Update confidence scores
-                        modalConfidenceScores.innerHTML = '';
-                        
-                        // Add progress bars for each class
-                        for (const [className, confidence] of Object.entries(data.confidences)) {
-                            const barColor = className === 'Healthy' ? 'bg-success' :
-                                             className === 'Powdery Mildew' ? 'bg-info' : 'bg-danger';
-                            
-                            const progressBar = `
-                                <div class="mb-3">
-                                    <label class="form-label d-flex justify-content-between">
-                                        <span>${className}</span>
-                                        <span>${confidence.toFixed(1)}%</span>
-                                    </label>
-                                    <div class="progress">
-                                        <div class="progress-bar ${barColor}" role="progressbar"
-                                             style="width: ${confidence}%" aria-valuenow="${confidence}"
-                                             aria-valuemin="0" aria-valuemax="100"></div>
-                                    </div>
-                                </div>
-                            `;
-                            
-                            modalConfidenceScores.innerHTML += progressBar;
-                        }
+                    const progressBar = `
+                        <div class="mb-3">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>${className}</span>
+                                <span>${confidence.toFixed(1)}%</span>
+                            </label>
+                            <div class="progress">
+                                <div class="progress-bar ${barColor}" role="progressbar"
+                                     style="width: ${confidence}%" aria-valuenow="${confidence}"
+                                     aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    `;
+                    modalConfidenceScores.innerHTML += progressBar;
+                }
 
-                        if (analysisId && plantId) {
-                            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
-                            fetch(`/complete_analysis/${analysisId}/`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                    'X-CSRFToken': csrfToken
-                                },
-                                body: new URLSearchParams({
-                                    tree_name: 'Tree 1', // or dynamic if needed
-                                    plant_id: plantId
-                                })
-                            })
-                            .then(result => {
-                                console.log("✅ Health updated:", result);
-                                if (!result.success) {
-                                    console.warn("Server-side error:", result.error);
-                                }
-                            })
-                            .catch(err => {
-                                console.error("❌ Error completing analysis:", err);
-                            });
+                // ✅ Keep your complete_analysis logic
+                if (analysisId && plantId) {
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                    fetch(`/complete_analysis/${analysisId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: new URLSearchParams({
+                            tree_name: 'Tree 1',
+                            plant_id: plantId
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(result => {
+                        console.log("✅ Health updated:", result);
+                        if (!result.success) {
+                            console.warn("Server-side error:", result.error);
                         }
-                    } else {
-                        // Show error
-                        modalErrorContainer.style.display = 'block';
-                        modalErrorMessage.textContent = data.error || 'An error occurred during prediction';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    modalLoadingContainer.style.display = 'none';
-                    modalErrorContainer.style.display = 'block';
-                    modalErrorMessage.textContent = 'Network error: ' + error.message;
-                });
-            }
-            
-            // Event listeners
-            if (singleLeafBtn) {
-                singleLeafBtn.addEventListener('click', showSingleLeafModal);
-            }
-            
-            if (singleLeafBtn2) {
-                singleLeafBtn2.addEventListener('click', showSingleLeafModal);
-            }
-            
-            modalOpenCameraBtn.addEventListener('click', openCamera);
-            
-            modalUploadImageBtn.addEventListener('click', function() {
-                modalFileInput.click();
-            });
-            
-            modalFileInput.addEventListener('change', function() {
-                if (this.files && this.files[0]) {
-                    processFile(this.files[0]);
+                    })
+                    .catch(err => {
+                        console.error("❌ Error completing analysis:", err);
+                    });
                 }
-            });
-            
-            modalCancelCameraBtn.addEventListener('click', function() {
-                stopCamera();
-                modalCameraCard.style.display = 'none';
-                modalOptionsCard.style.display = 'block';
-            });
-            
-            modalCaptureBtn.addEventListener('click', captureImage);
-            
-            modalNewImageBtn.addEventListener('click', function() {
-                modalResultCard.style.display = 'none';
-                modalOptionsCard.style.display = 'block';
-            });
+            } else {
+                modalErrorContainer.style.display = 'block';
+                modalErrorMessage.textContent = data.error || 'An error occurred during prediction';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            modalLoadingContainer.style.display = 'none';
+            modalErrorContainer.style.display = 'block';
+            modalErrorMessage.textContent = 'Network error: ' + error.message;
         });
-    </script>
+    }
+    
+    // Event listeners
+    if (singleLeafBtn) singleLeafBtn.addEventListener('click', showSingleLeafModal);
+    if (singleLeafBtn2) singleLeafBtn2.addEventListener('click', showSingleLeafModal);
+    
+    modalOpenCameraBtn.addEventListener('click', openCamera);
+    modalUploadImageBtn.addEventListener('click', () => modalFileInput.click());
+    modalFileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) processFile(this.files[0]);
+    });
+    modalCancelCameraBtn.addEventListener('click', function() {
+        stopCamera();
+        modalCameraCard.style.display = 'none';
+        modalOptionsCard.style.display = 'block';
+    });
+    modalCaptureBtn.addEventListener('click', captureImage);
+    modalNewImageBtn.addEventListener('click', function() {
+        modalResultCard.style.display = 'none';
+        modalOptionsCard.style.display = 'block';
+    });
+});
+</script>
+
 </body>
 </html>
