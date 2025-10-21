@@ -277,7 +277,7 @@ class CustomPasswordResetCompleteView(PasswordResetCompleteView):
 
 @login_required
 def plant_inventory(request):
-    plants_list = Plant.objects.all()
+    plants_list = Plant.objects.all().order_by('id')  # Added ordering
     paginator = Paginator(plants_list, 5)
     page = request.GET.get('page')
     
@@ -296,23 +296,23 @@ def plant_inventory(request):
         latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-created_at').first()
 
         if latest_analysis:
-           latest_analysis.calculate_health()
+            latest_analysis.calculate_health()
            
-           percentages = {
+            percentages = {
                 'Healthy': latest_analysis.healthy_percentage,
                 'Dried Leaf': getattr(latest_analysis, 'dried_leaf_percentage', 0),
                 'Leaf Rust': latest_analysis.leaf_rust_percentage,
                 'Powdery Mildew': latest_analysis.powdery_mildew_percentage,
             }
 
-           plant.detection_details = {
-               'healthy': round(latest_analysis.healthy_percentage, 1),
-               'dried_leaf': round(getattr(latest_analysis, 'dried_leaf_percentage', 0), 1),
-               'leaf_rust': round(latest_analysis.leaf_rust_percentage, 1),
-               'powdery_mildew': round(latest_analysis.powdery_mildew_percentage, 1),
-           }
+            plant.detection_details = {
+                'healthy': round(latest_analysis.healthy_percentage, 1),
+                'dried_leaf': round(getattr(latest_analysis, 'dried_leaf_percentage', 0), 1),
+                'leaf_rust': round(latest_analysis.leaf_rust_percentage, 1),
+                'powdery_mildew': round(latest_analysis.powdery_mildew_percentage, 1),
+            }
 
-           if any(v > 0 for v in percentages.values()):
+            if any(v > 0 for v in percentages.values()):
                 most_likely = max(percentages, key=percentages.get)
                 max_val = percentages[most_likely]
 
@@ -324,7 +324,7 @@ def plant_inventory(request):
                 plant.status_percentage = round(max_val, 1)
 
                 print(f"[DEBUG] Plant {plant.plant_id} → {plant.health_status} ({plant.status_percentage}%)")
-           else:
+            else:
                 print(f"[DEBUG] Plant {plant.plant_id} → No detection results")
                 print(f"[DEBUG] Checking Analysis for Plant {plant.plant_id}")
                 print(f"Healthy: {latest_analysis.healthy_percentage}")
@@ -334,7 +334,6 @@ def plant_inventory(request):
 
     return render(request, 'dashboard/inventory.html', {'plants': plants})
 
-# ... existing code ...
 
 @login_required
 def add_plant(request):
