@@ -55,6 +55,7 @@ from django.contrib.sites.shortcuts import get_current_site
 
 # <CHANGE> Removed top-level imports of torch, tensorflow, and ultralytics
 # These will be imported inside functions that need them (lazy loading)
+model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
 
 # <CHANGE> Added global model cache to avoid reloading models
 _MODEL_CACHE = {}
