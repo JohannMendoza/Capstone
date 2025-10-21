@@ -552,10 +552,10 @@ def load_yolo_model():
         return _MODEL_CACHE['yolo_model']
     
     try:
-        # <CHANGE> Lazy import - only import when needed
+        # Lazy import - only import when needed
         from ultralytics import YOLO
         
-        model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
+        model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')  # YOLO model file
         if not os.path.exists(model_path):
             logger.error(f"❌ Model file not found at: {model_path}")
             return None
@@ -563,7 +563,7 @@ def load_yolo_model():
         logger.info("🔄 Loading YOLO model for the first time...")
         model = YOLO(model_path)
         
-        # <CHANGE> Cache the model for future use
+        # Cache the model for future use
         _MODEL_CACHE['yolo_model'] = model
         
         logger.info(f"✅ YOLO model loaded and cached. Classes: {model.names}")
@@ -613,9 +613,12 @@ def predict(request):
         return JsonResponse({"success": False, "error": "Invalid request method"})
 
     # <CHANGE> Load model using cached function (lazy loads YOLO)
-    model = load_yolo_model()
-    if model is None:
-        return JsonResponse({"success": False, "error": "YOLO model not loaded"})
+    model = load_pest_model()  # Ensure this loads the correct model for pest detection
+        if model is None:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Pest detection model not found. Please ensure improved_pest_model.h5 is in the media folder.'
+            })
 
     try:
         # <CHANGE> Lazy import cv2 only when needed
@@ -1318,15 +1321,15 @@ def load_pest_model():
         return _MODEL_CACHE['pest_model']
     
     try:
-        # <CHANGE> Lazy import - only import TensorFlow when needed
+        # Lazy import - only import TensorFlow when needed
         import tensorflow as tf
         
-        model_path = os.path.join(settings.MEDIA_ROOT, 'improved_pest_model.h5')
+        model_path = os.path.join(settings.MEDIA_ROOT, 'improved_pest_model.h5')  # Pest detection model file
         if os.path.exists(model_path):
             logger.info("🔄 Loading pest detection model for the first time...")
             model = tf.keras.models.load_model(model_path)
             
-            # <CHANGE> Cache the model for future use
+            # Cache the model for future use
             _MODEL_CACHE['pest_model'] = model
             
             logger.info("✅ Pest detection model loaded and cached")
@@ -1337,7 +1340,6 @@ def load_pest_model():
     except Exception as e:
         logger.error(f"Error loading model: {e}")
         return None
-
 # ... existing code ...
 
 PEST_CLASS_NAMES = ['Adristyrannus', 'Aphids', 'Beetle', 'Bugs', 'Mites', 'Weevil', 'Whitefly']
