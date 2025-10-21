@@ -64,14 +64,18 @@ logger = logging.getLogger(__name__)
 
 # ... existing code ...
 
+from django.core.mail import EmailMessage
+
 def send_verification_email(subject, body, recipient):
-    send_mail(
+    email = EmailMessage(
         subject,
         body,
         settings.DEFAULT_FROM_EMAIL,
-        [recipient],
-        fail_silently=False
+        [recipient]
     )
+    email.content_subtype = "html"  # ✅ tell Django it's HTML
+    email.send(fail_silently=False)
+
 
 from django.contrib.sites.shortcuts import get_current_site
 from django.utils.http import urlsafe_base64_encode
