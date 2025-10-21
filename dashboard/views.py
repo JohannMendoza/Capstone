@@ -609,21 +609,22 @@ CONF_THRESHOLD = 0.50
 
 @csrf_exempt
 def predict(request):
+    """API endpoint for YOLO tree disease prediction"""
     if request.method != 'POST':
         return JsonResponse({"success": False, "error": "Invalid request method"})
 
-    # <CHANGE> Load model using cached function (lazy loads YOLO)
-    model = load_pest_model()  # Ensure this loads the correct model for pest detection
-        if model is None:
-            return JsonResponse({
-                'success': False, 
-                'error': 'Pest detection model not found. Please ensure improved_pest_model.h5 is in the media folder.'
-            })
+    # ✅ Load YOLO model (not TensorFlow)
+    model = load_yolo_model()
+    if model is None:
+        return JsonResponse({
+            'success': False,
+            'error': 'YOLO model not found. Please ensure best.pt is in the media folder.'
+        })
 
     try:
-        # <CHANGE> Lazy import cv2 only when needed
+        # Lazy import OpenCV
         import cv2
-        
+
         frame_file = request.FILES.get('frame')
         plant_id = request.POST.get("plant_id")
 
@@ -633,8 +634,8 @@ def predict(request):
         file_bytes = np.frombuffer(frame_file.read(), np.uint8)
         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
+        # Run YOLO detection
         results = model.track(frame, tracker="bytetrack.yaml", persist=True)[0]
-
         detections = []
 
         if results.boxes is not None:
@@ -692,6 +693,8 @@ def predict(request):
         })
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({"success": False, "error": str(e)})
 
 # ... existing code ...
