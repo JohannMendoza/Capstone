@@ -15,7 +15,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "unsafe-dev-key")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 # Allow both Railway and local testing
-ALLOWED_HOSTS = ["*", ".up.railway.app", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ['lanzofields.capstoneph.com', '.up.railway.app']
 
 # Application definition
 INSTALLED_APPS = [
