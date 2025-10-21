@@ -111,15 +111,22 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.railway.app',
 ]
 
-# Email configuration (uses environment variables)
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# ✅ Email configuration using SendGrid API backend
+EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
 
-# Upload limits
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "aurelioescala15@gmail.com")
+
+# Optional (helpful for debugging)
+SENDGRID_SANDBOX_MODE_IN_DEBUG = False
+SENDGRID_ECHO_TO_STDOUT = True
+EMAIL_TIMEOUT = 10
+
+# Disable SendGrid link and open tracking (so verification URLs are not rewritten)
+SENDGRID_TRACK_EMAIL_OPENS = False
+SENDGRID_TRACK_CLICKS = False
+
+# Increase max request size for image uploads
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
+
 LOGIN_URL = '/login/'
