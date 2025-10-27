@@ -543,35 +543,46 @@ def export_pdf(request):
 CLASS_NAMES = ['dried leaf', 'healthy', 'leaf rust', 'powdery mildew']
 
 def load_yolo_model():
-    """Load YOLO model with caching - lazy loads ultralytics"""
+    """Load YOLO model with caching, better error messages and fallback hints."""
     global _MODEL_CACHE
-    
-    # Check if model is already cached
+
     if 'yolo_model' in _MODEL_CACHE:
         logger.info("✅ Using cached YOLO model")
         return _MODEL_CACHE['yolo_model']
-    
+
+    model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
+    if not os.path.exists(model_path):
+        logger.error(f"❌ YOLO model file not found at: {model_path}")
+        return None
+
     try:
-        # <CHANGE> Lazy import - only import when needed
+        # lazy import: will import ultralytics which imports cv2 internally
         from ultralytics import YOLO
-        
-        model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
-        if not os.path.exists(model_path):
-            logger.error(f"❌ Model file not found at: {model_path}")
-            return None
-        
+
         logger.info("🔄 Loading YOLO model for the first time...")
         model = YOLO(model_path)
-        
-        # <CHANGE> Cache the model for future use
+
         _MODEL_CACHE['yolo_model'] = model
-        
-        logger.info(f"✅ YOLO model loaded and cached. Classes: {model.names}")
+        logger.info("✅ YOLO model loaded and cached.")
+        try:
+            logger.info(f"YOLO classes: {model.names}")
+        except Exception:
+            logger.debug("Could not retrieve model.names")
         return model
+
+    except ImportError as ie:
+        # Most likely cv2 system lib missing or opencv not installed
+        logger.error(f"ImportError while loading YOLO (likely cv2/system libs): {ie}")
+        logger.error("Suggested fixes: 1) Install libGL (apt-get install -y libgl1 libglib2.0-0) "
+                     "or 2) use opencv-python-headless in requirements.txt")
+        traceback.print_exc()
+        return None
+
     except Exception as e:
         logger.error(f"❌ Error loading YOLO model: {e}")
         traceback.print_exc()
         return None
+
 
 # ... existing code ...
 
@@ -1309,33 +1320,41 @@ def history_view(request):
 
 # <CHANGE> Updated pest model loading with caching and lazy import
 def load_pest_model():
-    """Load the trained pest detection model with caching"""
+    """Load the trained pest detection model with caching and support for multiple filenames."""
     global _MODEL_CACHE
-    
-    # Check if model is already cached
+
     if 'pest_model' in _MODEL_CACHE:
         logger.info("✅ Using cached pest detection model")
         return _MODEL_CACHE['pest_model']
-    
+
     try:
-        # <CHANGE> Lazy import - only import TensorFlow when needed
         import tensorflow as tf
-        
-        model_path = os.path.join(settings.MEDIA_ROOT, 'improved_pest_model.h5')
-        if os.path.exists(model_path):
-            logger.info("🔄 Loading pest detection model for the first time...")
-            model = tf.keras.models.load_model(model_path)
-            
-            # <CHANGE> Cache the model for future use
-            _MODEL_CACHE['pest_model'] = model
-            
-            logger.info("✅ Pest detection model loaded and cached")
-            return model
-        else:
-            logger.error(f"Model file not found at: {model_path}")
-            return None
+    except ImportError as ie:
+        logger.error(f"TensorFlow is not installed: {ie}")
+        return None
+
+    # check multiple possible filenames (adjust names to match your uploaded files)
+    candidate_names = ['model.h5', 'improved_pest_model.h5', 'pest_model.h5']
+    model_path = None
+    for name in candidate_names:
+        path = os.path.join(settings.MEDIA_ROOT, name)
+        if os.path.exists(path):
+            model_path = path
+            break
+
+    if model_path is None:
+        logger.error(f"❌ No pest model found in media folder. Looked for: {candidate_names}")
+        return None
+
+    try:
+        logger.info(f"🔄 Loading pest model from {model_path} ...")
+        model = tf.keras.models.load_model(model_path)
+        _MODEL_CACHE['pest_model'] = model
+        logger.info("✅ Pest detection model loaded and cached")
+        return model
     except Exception as e:
-        logger.error(f"Error loading model: {e}")
+        logger.error(f"❌ Error loading pest model from {model_path}: {e}")
+        traceback.print_exc()
         return None
 
 # ... existing code ...
