@@ -282,7 +282,7 @@ class CustomPasswordResetCompleteView(PasswordResetCompleteView):
 
 @login_required
 def plant_inventory(request):
-    plants_list = Plant.objects.all().order_by('id')  # Added ordering
+    plants_list = Plant.objects.all().order_by('plant_id')  # Fixed ordering field
     paginator = Paginator(plants_list, 5)
     page = request.GET.get('page')
     
@@ -338,6 +338,7 @@ def plant_inventory(request):
                 print(f"Powdery Mildew: {latest_analysis.powdery_mildew_percentage}")
 
     return render(request, 'dashboard/inventory.html', {'plants': plants})
+
 
 
 @login_required
