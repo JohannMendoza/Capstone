@@ -552,10 +552,10 @@ def load_yolo_model():
         return _MODEL_CACHE['yolo_model']
     
     try:
-        # Lazy import - only import when needed
+        # <CHANGE> Lazy import - only import when needed
         from ultralytics import YOLO
         
-        model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')  # YOLO model file
+        model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
         if not os.path.exists(model_path):
             logger.error(f"❌ Model file not found at: {model_path}")
             return None
@@ -563,7 +563,7 @@ def load_yolo_model():
         logger.info("🔄 Loading YOLO model for the first time...")
         model = YOLO(model_path)
         
-        # Cache the model for future use
+        # <CHANGE> Cache the model for future use
         _MODEL_CACHE['yolo_model'] = model
         
         logger.info(f"✅ YOLO model loaded and cached. Classes: {model.names}")
@@ -609,22 +609,18 @@ CONF_THRESHOLD = 0.50
 
 @csrf_exempt
 def predict(request):
-    """API endpoint for YOLO tree disease prediction"""
     if request.method != 'POST':
         return JsonResponse({"success": False, "error": "Invalid request method"})
 
-    # ✅ Load YOLO model (not TensorFlow)
+    # <CHANGE> Load model using cached function (lazy loads YOLO)
     model = load_yolo_model()
     if model is None:
-        return JsonResponse({
-            'success': False,
-            'error': 'YOLO model not found. Please ensure best.pt is in the media folder.'
-        })
+        return JsonResponse({"success": False, "error": "YOLO model not loaded"})
 
     try:
-        # Lazy import OpenCV
+        # <CHANGE> Lazy import cv2 only when needed
         import cv2
-
+        
         frame_file = request.FILES.get('frame')
         plant_id = request.POST.get("plant_id")
 
@@ -634,8 +630,8 @@ def predict(request):
         file_bytes = np.frombuffer(frame_file.read(), np.uint8)
         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-        # Run YOLO detection
         results = model.track(frame, tracker="bytetrack.yaml", persist=True)[0]
+
         detections = []
 
         if results.boxes is not None:
@@ -693,8 +689,6 @@ def predict(request):
         })
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         return JsonResponse({"success": False, "error": str(e)})
 
 # ... existing code ...
@@ -1324,15 +1318,15 @@ def load_pest_model():
         return _MODEL_CACHE['pest_model']
     
     try:
-        # Lazy import - only import TensorFlow when needed
+        # <CHANGE> Lazy import - only import TensorFlow when needed
         import tensorflow as tf
         
-        model_path = os.path.join(settings.MEDIA_ROOT, 'improved_pest_model.h5')  # Pest detection model file
+        model_path = os.path.join(settings.MEDIA_ROOT, 'improved_pest_model.h5')
         if os.path.exists(model_path):
             logger.info("🔄 Loading pest detection model for the first time...")
             model = tf.keras.models.load_model(model_path)
             
-            # Cache the model for future use
+            # <CHANGE> Cache the model for future use
             _MODEL_CACHE['pest_model'] = model
             
             logger.info("✅ Pest detection model loaded and cached")
@@ -1343,6 +1337,7 @@ def load_pest_model():
     except Exception as e:
         logger.error(f"Error loading model: {e}")
         return None
+
 # ... existing code ...
 
 PEST_CLASS_NAMES = ['Adristyrannus', 'Aphids', 'Beetle', 'Bugs', 'Mites', 'Weevil', 'Whitefly']
