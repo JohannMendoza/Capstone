@@ -22,6 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gfortran \
     && rm -rf /var/lib/apt/lists/*
 
+    # Convert old model format to new .keras format on startup
+RUN mkdir -p /app/media
+COPY convert_model.py /app/
+RUN python /app/convert_model.py || true
+
 # Copy and install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel
