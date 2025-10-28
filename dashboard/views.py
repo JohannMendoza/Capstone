@@ -1351,16 +1351,14 @@ def load_pest_model():
         
         # <CHANGE> Handle Keras 3 compatibility with legacy Keras 2.x models
         try:
-            # Try loading with compile=False to skip validation
+            # First attempt: Try loading with compile=False
             model = tf.keras.models.load_model(model_path, compile=False)
         except (TypeError, ValueError) as e:
-            if "batch_shape" in str(e) or "Unrecognized keyword arguments" in str(e):
-                logger.warning("Detected legacy Keras 2.x model. Using compatibility mode...")
-                # Load with custom_objects and skip validation
-                import tensorflow.keras.layers as layers
-                custom_objects = {
-                    'InputLayer': layers.InputLayer,
-                }
+            if "batch_shape" in str(e):
+                logger.warning("Detected legacy Keras 2.x model format. Using compatibility mode...")
+                # Second attempt: Load with custom_objects to handle legacy InputLayer
+                from tensorflow.keras.layers import InputLayer
+                custom_objects = {'InputLayer': InputLayer}
                 model = tf.keras.models.load_model(
                     model_path, 
                     custom_objects=custom_objects,
@@ -1375,13 +1373,10 @@ def load_pest_model():
         
     except Exception as e:
         logger.error(f"Error loading pest model from {model_path}: {e}")
-        logger.error("Troubleshooting: Your model was saved with Keras 2.x but TensorFlow 2.14 uses Keras 3.x")
-        logger.error("Solutions:")
-        logger.error("  1. Downgrade TensorFlow in requirements.txt to: tensorflow==2.13.0")
-        logger.error("  2. Or retrain the model with current TensorFlow version")
+        logger.error("Your model was saved with Keras 2.x but TensorFlow 2.14 uses Keras 3.x")
+        logger.error("Solution: Downgrade TensorFlow in requirements.txt to: tensorflow==2.13.0")
         traceback.print_exc()
         return None
-
 # ... existing code ...
 
 PEST_CLASS_NAMES = ['Adristyrannus', 'Aphids', 'Beetle', 'Bugs', 'Mites', 'Weevil', 'Whitefly']
