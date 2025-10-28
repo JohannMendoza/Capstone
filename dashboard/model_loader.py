@@ -1,140 +1,73 @@
 import os
-import numpy as np
-import tensorflow as tf
-from django.conf import settings
-import traceback
 import logging
+import tensorflow as tf
+import numpy as np
+from django.conf import settings
 
-# Set up logger
 logger = logging.getLogger(__name__)
 
-# Global variable to store the model
-model = None
+_MODEL_CACHE = {}
 
-def create_model():
-    """
-    Recreate the exact same model architecture as used during training
-    """
-    try:
-        # This should match your original model architecture exactly
-        new_model = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(150, 150, 3)),
-            tf.keras.layers.MaxPooling2D((2, 2)),
-            
-            tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-            tf.keras.layers.MaxPooling2D((2, 2)),
-            
-            tf.keras.layers.Conv2D(128, (3, 3), activation='relu'),
-            tf.keras.layers.MaxPooling2D((2, 2)),
-            
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(512, activation='relu'),
-            tf.keras.layers.Dropout(0.5),
-            tf.keras.layers.Dense(3, activation='softmax')  # 3 classes: healthy, powdery mildew, leaf rust
-        ])
-        
-        # Compile the model with the same settings as during training
-        new_model.compile(
-            optimizer='adam',
-            loss='categorical_crossentropy',
-            metrics=['accuracy']
-        )
-        
-        return new_model
-    except Exception as e:
-        logger.error(f"Error creating model: {e}")
-        traceback.print_exc()
-        return None
-
-# Initialize the model
-def initialize_model():
-    """
-    Initialize the model and return it
-    """
-    global model
+def load_pest_model(model_path=None):
+    """Load pre-trained MobileNetV2 model for pest detection (TensorFlow 2.14.0 compatible)."""
+    global _MODEL_CACHE
     
-    if model is not None:
-        logger.info("Model already loaded")
-        return model
+    if 'pest_model' in _MODEL_CACHE:
+        logger.info("✅ Using cached pest detection model")
+        return _MODEL_CACHE['pest_model']
+    
+    if model_path is None:
+        model_path = os.path.join(settings.MEDIA_ROOT, 'improved_pest_model.keras')
     
     try:
-        # Create a new model with the same architecture
-        logger.info("Creating model with the same architecture as training")
-        new_model = create_model()
-        
-        if new_model is None:
-            logger.error("Failed to create model")
+        if not os.path.exists(model_path):
+            logger.error(f"❌ Model file not found: {model_path}")
             return None
         
-        # Check if the model file exists
-        model_path = getattr(settings, 'MODEL_PATH', os.path.join(settings.BASE_DIR, 'model', 'model.h5'))
-        logger.info(f"Looking for model at: {model_path}")
+        logger.info(f"🔄 Loading pest model from {model_path}")
+        model = tf.keras.models.load_model(model_path)
         
-        if os.path.exists(model_path):
-            logger.info(f"Found model at {model_path}")
-            
-            try:
-                # Try to load weights directly
-                logger.info("Attempting to load weights")
-                new_model.load_weights(model_path)
-                logger.info("Successfully loaded weights")
-                
-                # Test the model with a dummy input to ensure it works
-                logger.info("Testing model with dummy input")
-                dummy_input = np.zeros((1, 150, 150, 3))
-                predictions = new_model.predict(dummy_input)
-                logger.info(f"Prediction shape: {predictions.shape}")
-                logger.info(f"Prediction values: {predictions[0]}")
-                
-                model = new_model  # Set the global model
-                return model
-            except Exception as e:
-                logger.error(f"Error loading weights: {e}")
-                
-                # Try loading as a full model
-                try:
-                    logger.info("Attempting to load as full model")
-                    full_model = tf.keras.models.load_model(model_path)
-                    logger.info("Successfully loaded full model")
-                    
-                    # Test the model
-                    dummy_input = np.zeros((1, 150, 150, 3))
-                    predictions = full_model.predict(dummy_input)
-                    logger.info(f"Prediction shape: {predictions.shape}")
-                    logger.info(f"Prediction values: {predictions[0]}")
-                    
-                    model = full_model
-                    return model
-                except Exception as e2:
-                    logger.error(f"Error loading full model: {e2}")
-                    logger.warning("Using model with random weights - predictions will be inaccurate")
-                    model = new_model  # Still use the model even if weights couldn't be loaded
-                    return model
-        else:
-            logger.error(f"Model file not found at {model_path}")
-            logger.warning("Using model with random weights - predictions will be inaccurate")
-            model = new_model  # Use the model with random weights
-            return model
-            
+        logger.info("✅ Pest detection model loaded successfully")
+        _MODEL_CACHE['pest_model'] = model
+        return model
+        
     except Exception as e:
-        logger.error(f"Error in initialize_model: {e}")
-        traceback.print_exc()
+        logger.error(f"❌ Error loading pest model: {str(e)}")
         return None
 
-# Load the model - initialize it when this module is imported
-model = initialize_model()
+def preprocess_image(image_array, target_size=(224, 224)):
+    """Preprocess image for MobileNetV2 model."""
+    try:
+        image = tf.image.resize(image_array, target_size)
+        image = image / 127.5 - 1.0
+        image = tf.expand_dims(image, axis=0)
+        return image
+    except Exception as e:
+        logger.error(f"❌ Error preprocessing image: {str(e)}")
+        return None
 
-def load_model():
-    """
-    Get the model, initializing it if necessary
-    """
-    global model
-    
-    if model is None:
-        logger.info("Model not loaded, attempting to initialize")
-        model = initialize_model()
+def predict_pest(model, image_array):
+    """Make prediction on image using pest detection model."""
+    try:
+        if model is None:
+            return {'error': 'Model not loaded'}
         
-    return model
-
-# Class names for predictions - EXACT MATCH with training labels
-CLASS_NAMES = ['Healthy', 'Leaf Rust', 'Powdery Mildew']
+        processed_image = preprocess_image(image_array)
+        if processed_image is None:
+            return {'error': 'Image preprocessing failed'}
+        
+        predictions = model.predict(processed_image, verbose=0)
+        predicted_class = int(tf.argmax(predictions[0]))
+        confidence = float(tf.reduce_max(predictions[0]))
+        
+        pest_classes = ['Adristyrannus', 'Aphids', 'Beetle', 'Bugs', 'Mites', 'Weevil', 'Whitefly']
+        
+        return {
+            'predicted_class': pest_classes[predicted_class] if predicted_class < len(pest_classes) else 'Unknown',
+            'confidence': confidence,
+            'all_predictions': predictions[0].numpy().tolist()
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Error making prediction: {str(e)}")
+        return {'error': str(e)}
