@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pest Detection | Escala Plants</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #198754;
+            --primary-dark: #157347;
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+            --info-color: #0dcaf0;
+            --warning-color: #ffc107;
+            --gradient-primary: linear-gradient(135deg, #198754 0%, #20c997 100%);
+            --gradient-danger: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+            --gradient-info: linear-gradient(135deg, #0dcaf0 0%, #6f42c1 100%);
+            --gradient-warning: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* Removed all sidebar-related styles and updated main content */
+        .main-content {
+            width: 100%;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        /* New modern header design */
+        .header-nav {
+            background: var(--gradient-primary);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            color: white;
+        }
+
+        /* Enhanced card designs with modern styling */
+        .pest-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 16px;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .pest-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+        }
+        
+        .pest-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .pest-card.bg-success::before { background: var(--gradient-primary); }
+        .pest-card.bg-danger::before { background: var(--gradient-danger); }
+        .pest-card.bg-info::before { background: var(--gradient-info); }
+        .pest-card.bg-warning::before { background: var(--gradient-warning); }
+        .pest-card.bg-primary::before { background: var(--gradient-info); }
+        .pest-card.bg-secondary::before { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); }
+        
+        /* Modern detection area with glass morphism */
+        .detection-area {
+            border: 3px dashed var(--primary-color);
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(15px);
+            min-height: 350px;
+            transition: all 0.4s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .detection-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, rgba(25, 135, 84, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        .detection-area.dragover {
+            border-color: var(--primary-dark);
+            background: rgba(232, 245, 232, 0.9);
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(25, 135, 84, 0.2);
+        }
+
+        /* Enhanced card sections with better spacing */
+        .content-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .content-card .card-header {
+            background: var(--gradient-primary);
+            border: none;
+            padding: 1.5rem;
+            color: white;
+            font-weight: 600;
+        }
+
+        .content-card .card-body {
+            padding: 2rem;
+        }
+        
+        .confidence-bar {
+            height: 24px;
+            border-radius: 12px;
+            transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--gradient-primary);
+        }
+
+        /* Enhanced pest info cards */
+        .pest-info-card {
+            border: none;
+            border-radius: 16px;
+            transition: all 0.4s ease;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .pest-info-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--gradient-primary);
+        }
+
+        .pest-info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .result-card {
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.4s ease;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .result-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .confidence-progress {
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .pest-badge {
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Enhanced buttons */
+        .btn-modern {
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary.btn-modern {
+            background: var(--gradient-primary);
+        }
+
+        .btn-success.btn-modern {
+            background: var(--gradient-primary);
+        }
+
+        .btn-danger.btn-modern {
+            background: var(--gradient-danger);
+        }
+
+        .btn-info.btn-modern {
+            background: var(--gradient-info);
+        }
+
+        .btn-warning.btn-modern {
+            background: var(--gradient-warning);
+        }
+
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .content-card .card-body {
+                padding: 1.5rem;
+            }
+            
+            .detection-area {
+                min-height: 250px;
+            }
+        }
+
+        /* Animation for statistics cards */
+        @keyframes countUp {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .stat-number {
+            animation: countUp 0.6s ease-out;
+        }
+
+        /* Added loading spinner and modal styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+        }
+
+        .loading-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-bar-animated {
+            animation: progress-animation 2s ease-in-out infinite;
+        }
+
+        @keyframes progress-animation {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* Enhanced modal styles */
+        .detail-modal .modal-content {
+            border-radius: 20px;
+            border: none;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .detail-modal .modal-header {
+            background: var(--gradient-primary);
+            border: none;
+            padding: 1.5rem;
+        }
+
+        .detail-modal .modal-body {
+            padding: 2rem;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .pest-detail-card {
+            background: rgba(248, 249, 250, 0.8);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .confidence-item {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .confidence-item:last-child {
+            border-bottom: none;
+        }
+
+        .confidence-bar-small {
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.1);
+            flex: 1;
+            margin: 0 1rem;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: var(--gradient-primary);
+            transition: width 0.6s ease;
+        }
+
+        /* Processing indicator */
+        .processing-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        .processing-indicator.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- New simplified header with only Back and History buttons -->
+    <div class="header-nav">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center py-3">
+                <div class="d-flex align-items-center">
+                    <h1 class="text-white mb-0 fw-bold fs-3">
+                        <i class="bi bi-bug-fill me-2"></i>
+                       Lansones Pest Detection System
+                    </h1>
+                </div>
+                <div class="d-flex gap-3">
+                    <a href="javascript:history.back()" class="nav-btn text-decoration-none">
+                        <i class="bi bi-arrow-left me-2"></i>Back
+                    </a>
+                    <a href="{% url 'history' %}" class="nav-btn text-decoration-none">
+                        <i class="bi bi-clock-history me-2"></i>History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Added loading overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h5 class="fw-semibold mb-3">Analyzing Image...</h5>
+            <p class="text-muted mb-3">Please wait while we detect pests in your image</p>
+            <div class="progress" style="height: 8px;">
+                <div class="progress-bar progress-bar-animated bg-success" style="width: 100%"></div>
+            </div>
+            <small class="text-muted mt-2 d-block">This may take a few seconds</small>
+        </div>
+    </div>
+
+    <!-- Main content now uses full width -->
+    <div class="main-content">
+        <div class="container-fluid py-4">
+            <!-- Enhanced action buttons section -->
+            <div class="d-flex justify-content-end mb-4">
+                <div class="d-flex gap-3">
+                    <button id="camera-btn" class="btn btn-primary btn-modern">
+                        <i class="bi bi-camera me-2"></i>Camera
+                    </button>
+                    <button id="batch-upload-btn" class="btn btn-outline-primary btn-modern">
+                        <i class="bi bi-upload me-2"></i>Batch Upload
+                    </button>
+                </div>
+            </div>
+
+            <!-- Detection Area -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="content-card">
+                        <div class="card-header">
+                            <h4 class="mb-0">
+                                <i class="bi bi-cloud-upload me-2"></i>
+                                Upload Images for Pest Detection
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div id="detection-area" class="detection-area d-flex align-items-center justify-content-center">
+                                <div class="text-center">
+                                    <i class="bi bi-cloud-upload display-1 text-success mb-3"></i>
+                                    <h5 class="fw-semibold">Drop images here or click to upload</h5>
+                                    <p class="text-muted">Supports JPG, PNG, JPEG formats (Max 10MB per file)</p>
+                                    <input type="file" id="file-input" multiple accept="image/*" class="d-none">
+                                    <button id="upload-btn" class="btn btn-success btn-modern btn-lg">
+                                        <i class="bi bi-upload me-2"></i>Choose Files
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                    <div class="card pest-card bg-success text-white h-100">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-shield-check display-4 mb-3"></i>
+                            <h6 class="fw-semibold">No Pests</h6>
+                            <h2 id="no-pest-count" class="stat-number fw-bold">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                    <div class="card pest-card bg-danger text-white h-100">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-bug display-4 mb-3"></i>
+                            <h6 class="fw-semibold">Pests Found</h6>
+                            <h2 id="pest-count" class="stat-number fw-bold">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                    <div class="card pest-card bg-info text-white h-100">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-images display-4 mb-3"></i>
+                            <h6 class="fw-semibold">Processed</h6>
+                            <h2 id="processed-count" class="stat-number fw-bold">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                    <div class="card pest-card bg-primary text-white h-100">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-percent display-4 mb-3"></i>
+                            <h6 class="fw-semibold">Accuracy</h6>
+                            <h2 id="accuracy-rate" class="stat-number fw-bold">0%</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                    <div class="card pest-card bg-warning text-dark h-100">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-question-circle display-4 mb-3"></i>
+                            <h6 class="fw-semibold">Uncertain</h6>
+                            <h2 id="uncertain-count" class="stat-number fw-bold">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                    <div class="card pest-card bg-secondary text-white h-100">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-clock display-4 mb-3"></i>
+                            <h6 class="fw-semibold">Avg Time</h6>
+                            <h2 id="avg-time" class="stat-number fw-bold">0s</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results-section" class="row mb-4" style="display: none;">
+                <div class="col-12">
+                    <div class="content-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0">
+                                <i class="bi bi-clipboard-data me-2"></i>
+                                Detection Results
+                            </h4>
+                            <div>
+                                <button id="save-results-btn" class="btn btn-light btn-modern me-2">
+                                    <i class="bi bi-save me-1"></i>Save Results
+                                </button>
+                                <button id="clear-results-btn" class="btn btn-outline-light btn-modern">
+                                    <i class="bi bi-trash me-1"></i>Clear Results
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="results-container" class="row">
+                                <!-- Results will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pest Information Guide -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="content-card">
+                        <div class="card-header" style="background: linear-gradient(135deg, #343a40 0%, #495057 100%);">
+                            <h4 class="mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Pest Identification Guide
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-4 col-md-6 mb-4">
+                                    <div class="card pest-info-card h-100">
+                                        <div class="card-body">
+                                            <h5 class="text-danger fw-semibold">
+                                                <i class="bi bi-bug-fill me-2"></i>Adristyrannus
+                                            </h5>
+                                            <p class="text-muted small">
+                                                A type of predatory bug that can sometimes be mistaken for harmful pests. 
+                                                Generally beneficial but can occasionally damage plants.
+                                            </p>
+                                            <div class="mt-3">
+                                                <span class="badge bg-warning pest-badge">Medium Risk</span>
+                                                <span class="badge bg-secondary pest-badge">Predator</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-6 mb-4">
+                                    <div class="card pest-info-card h-100">
+                                        <div class="card-body">
+                                            <h5 class="text-danger fw-semibold">
+                                                <i class="bi bi-droplet-fill me-2"></i>Aphids
+                                            </h5>
+                                            <p class="text-muted small">
+                                                Small, soft-bodied insects that feed on plant sap. Cause yellowing, 
+                                                wilting, and stunted growth. Reproduce rapidly.
+                                            </p>
+                                            <div class="mt-3">
+                                                <span class="badge bg-danger pest-badge">High Risk</span>
+                                                <span class="badge bg-secondary pest-badge">Sap Feeder</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-6 mb-4">
+                                    <div class="card pest-info-card h-100">
+                                        <div class="card-body">
+                                            <h5 class="text-primary fw-semibold">
+                                                <i class="bi bi-shield-fill me-2"></i>Beetle
+                                            </h5>
+                                            <p class="text-muted small">
+                                                Hard-bodied insects that can be both beneficial and harmful. 
+                                                Some species eat other pests, while others damage crops.
+                                            </p>
+                                            <div class="mt-3">
+                                                <span class="badge bg-warning pest-badge">Variable Risk</span>
+                                                <span class="badge bg-secondary pest-badge">Chewer</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-6 mb-4">
+                                    <div class="card pest-info-card h-100">
+                                        <div class="card-body">
+                                            <h5 class="text-success fw-semibold">
+                                                <i class="bi bi-bug me-2"></i>Bugs
+                                            </h5>
+                                            <p class="text-muted small">
+                                                General category of true bugs. Many are beneficial predators, 
+                                                but some can damage plants by piercing and sucking.
+                                            </p>
+                                            <div class="mt-3">
+                                                <span class="badge bg-info pest-badge">Low-Medium Risk</span>
+                                                <span class="badge bg-secondary pest-badge">Mixed</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-6 mb-4">
+                                    <div class="card pest-info-card h-100">
+                                        <div class="card-body">
+                                            <h5 class="text-warning fw-semibold">
+                                                <i class="bi bi-circle-fill me-2"></i>Mites
+                                            </h5>
+                                            <p class="text-muted small">
+                                                Tiny arachnids that cause stippling, yellowing, and webbing on leaves. 
+                                                Thrive in hot, dry conditions.
+                                            </p>
+                                            <div class="mt-3">
+                                                <span class="badge bg-warning pest-badge">Medium-High Risk</span>
+                                                <span class="badge bg-secondary pest-badge">Leaf Damage</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-4 col-md-6 mb-4">
+                                    <div class="card pest-info-card h-100">
+                                        <div class="card-body">
+                                            <h5 class="text-primary fw-semibold">
+                                                <i class="bi bi-cone-striped me-2"></i>Weevil
+                                            </h5>
+                                            <p class="text-muted small">
+                                                Beetles with elongated snouts. Both adults and larvae can cause 
+                                                significant damage to crops, especially grains and fruits.
+                                            </p>
+                                            <div class="mt-3">
+                                                <span class="badge bg-danger pest-badge">High Risk</span>
+                                                <span class="badge bg-secondary pest-badge">Borer</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Added detailed analysis modal -->
+    <div class="modal fade detail-modal" id="detailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header text-white">
+                    <h5 class="modal-title fw-semibold">
+                        <i class="bi bi-clipboard-data me-2"></i>
+                        Detailed Analysis
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="detail-content">
+                        <!-- Content will be populated by JavaScript -->
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-secondary btn-modern" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div class="modal fade" id="cameraModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" style="border-radius: 20px; border: none; overflow: hidden;">
+                <div class="modal-header text-white" style="background: var(--gradient-primary); border: none;">
+                    <h5 class="modal-title fw-semibold">
+                        <i class="bi bi-camera me-2"></i>Camera Capture
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="text-center">
+                        <video id="camera-video" autoplay playsinline style="width: 100%; max-width: 500px; border-radius: 15px; border: 3px solid #dee2e6;"></video>
+                        <canvas id="camera-canvas" style="display: none;"></canvas>
+                        <div class="mt-4">
+                            <button id="capture-btn" class="btn btn-success btn-modern btn-lg me-3">
+                                <i class="bi bi-camera me-2"></i>Capture
+                            </button>
+                            <button id="stop-camera-btn" class="btn btn-secondary btn-modern btn-lg">
+                                <i class="bi bi-stop me-2"></i>Stop Camera
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Global variables
+        let camera = null;
+        let noPestCount = 0;
+        let pestCount = 0;
+        let processedCount = 0;
+        let highRiskCount = 0;
+        let uncertainCount = 0;
+        let detectionResults = [];
+        let totalProcessingTime = 0;
+
+        // Pest risk levels
+        const pestRiskLevels = {
+            'Adristyrannus': 'medium',
+            'Aphids': 'high',
+            'Beetle': 'variable',
+            'Bugs': 'low',
+            'Mites': 'medium-high',
+            'Weevil': 'high',
+            'Whitefly': 'high'
+        };
+
+        // DOM elements
+        const detectionArea = document.getElementById('detection-area');
+        const fileInput = document.getElementById('file-input');
+        const uploadBtn = document.getElementById('upload-btn');
+        const cameraBtn = document.getElementById('camera-btn');
+        const batchUploadBtn = document.getElementById('batch-upload-btn');
+        const resultsSection = document.getElementById('results-section');
+        const resultsContainer = document.getElementById('results-container');
+        const clearResultsBtn = document.getElementById('clear-results-btn');
+        const saveResultsBtn = document.getElementById('save-results-btn');
+
+        // Camera elements
+        const cameraModal = new bootstrap.Modal(document.getElementById('cameraModal'));
+        const cameraVideo = document.getElementById('camera-video');
+        const cameraCanvas = document.getElementById('camera-canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const stopCameraBtn = document.getElementById('stop-camera-btn');
+
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+        const detailContent = document.getElementById('detail-content');
+
+        // File upload handlers
+        uploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Drag and drop handlers
+        detectionArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            detectionArea.classList.add('dragover');
+        });
+
+        detectionArea.addEventListener('dragleave', () => {
+            detectionArea.classList.remove('dragover');
+        });
+
+        detectionArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            detectionArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        detectionArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Camera handlers
+        cameraBtn.addEventListener('click', openCamera);
+        captureBtn.addEventListener('click', captureImage);
+        stopCameraBtn.addEventListener('click', stopCamera);
+
+        // Clear and save results
+        clearResultsBtn.addEventListener('click', clearResults);
+        saveResultsBtn.addEventListener('click', saveResults);
+
+        // File handling functions
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            if (files.length === 0) return;
+
+            Array.from(files).forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                        alert(`File ${file.name} is too large. Maximum size is 10MB.`);
+                        return;
+                    }
+                    processImage(file);
+                }
+            });
+        }
+
+        function processImage(file) {
+            const startTime = Date.now();
+            
+            showLoading();
+            
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                const imageData = e.target.result;
+                
+                // Create FormData for API call
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                // Call your pest detection API
+                fetch('{% url "pest_predict" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(result => {
+                    const processingTime = (Date.now() - startTime) / 1000;
+                    totalProcessingTime += processingTime;
+                    
+                    hideLoading();
+                    
+                    if (result.success) {
+                        // Check if confidence is below 70%
+                        if (result.confidence < 70) {
+                            result.prediction = 'Uncertain';
+                            result.original_prediction = result.prediction;
+                            result.is_low_confidence = true;
+                        }
+                        
+                        displayResult(imageData, result, file.name, processingTime);
+                        updateStatistics(result);
+                        detectionResults.push({
+                            filename: file.name,
+                            prediction: result.prediction,
+                            original_prediction: result.original_prediction || result.prediction,
+                            confidence: result.confidence,
+                            confidence_scores: result.confidence_scores || {},
+                            processing_time: processingTime,
+                            is_low_confidence: result.is_low_confidence || false,
+                            timestamp: new Date().toISOString()
+                        });
+                    } else {
+                        alert('Error: ' + result.error);
+                    }
+                })
+                .catch(error => {
+                    hideLoading();
+                    console.error('Error:', error);
+                    alert('Error processing image: ' + error.message);
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showLoading() {
+            loadingOverlay.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideLoading() {
+            loadingOverlay.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function displayResult(imageData, result, filename, processingTime) {
+            const resultCard = document.createElement('div');
+            resultCard.className = 'col-lg-4 col-md-6 mb-4';
+            
+            const pestType = result.prediction;
+            const confidence = result.confidence;
+            const isLowConfidence = result.is_low_confidence || confidence < 70;
+            const originalPrediction = result.original_prediction || pestType;
+            
+            // Determine card styling based on pest type and confidence
+            let cardClass = 'border-success';
+            let badgeClass = 'bg-success';
+            let iconClass = 'bi-shield-check';
+            let textClass = 'text-success';
+            
+            if (isLowConfidence) {
+                cardClass = 'border-warning';
+                badgeClass = 'bg-warning';
+                iconClass = 'bi-question-circle';
+                textClass = 'text-warning';
+            } else if (pestType !== 'No Pest' && pestType !== 'Healthy' && pestType !== 'Uncertain') {
+                const riskLevel = pestRiskLevels[pestType] || 'unknown';
+                if (riskLevel === 'high') {
+                    cardClass = 'border-danger';
+                    badgeClass = 'bg-danger';
+                    iconClass = 'bi-exclamation-triangle-fill';
+                    textClass = 'text-danger';
+                } else if (riskLevel === 'medium-high' || riskLevel === 'medium') {
+                    cardClass = 'border-warning';
+                    badgeClass = 'bg-warning';
+                    iconClass = 'bi-exclamation-triangle';
+                    textClass = 'text-warning';
+                } else {
+                    cardClass = 'border-info';
+                    badgeClass = 'bg-info';
+                    iconClass = 'bi-info-circle';
+                    textClass = 'text-info';
+                }
+            }
+            
+            resultCard.innerHTML = `
+                <div class="card result-card ${cardClass} h-100">
+                    <img src="${imageData}" class="card-img-top" style="height: 200px; object-fit: cover;">
+                    <div class="card-body">
+                        <h6 class="card-title text-truncate fw-semibold" title="${filename}">${filename}</h6>
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi ${iconClass} me-2 ${textClass}"></i>
+                            <span class="badge ${badgeClass} pest-badge">${pestType}</span>
+                            ${isLowConfidence ? `<span class="badge bg-secondary pest-badge ms-1" title="Original prediction: ${originalPrediction}">Low Confidence</span>` : ''}
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small class="text-muted fw-medium">Confidence:</small>
+                                <small class="fw-bold ${confidence < 70 ? 'text-warning' : confidence >= 90 ? 'text-success' : 'text-info'}">${confidence.toFixed(1)}%</small>
+                            </div>
+                            <div class="progress confidence-progress">
+                                <div class="progress-bar ${confidence < 70 ? 'bg-warning' : confidence >= 90 ? 'bg-success' : 'bg-info'}" 
+                                     style="width: ${confidence}%"></div>
+                            </div>
+                        </div>
+                        ${isLowConfidence ? `
+                        <div class="alert alert-warning py-2 px-3 mb-2" style="font-size: 0.8rem; border-radius: 10px;">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            Low confidence detection. Original: ${originalPrediction}
+                        </div>
+                        ` : ''}
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="bi bi-clock me-1"></i>${processingTime.toFixed(2)}s
+                            </small>
+                            <button class="btn btn-sm btn-outline-primary btn-modern" onclick="showDetailedAnalysis('${pestType}', ${JSON.stringify(result.confidence_scores || {}).replace(/"/g, '&quot;')}, ${isLowConfidence}, '${originalPrediction}')">
+                                <i class="bi bi-info-circle me-1"></i>Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            resultsContainer.appendChild(resultCard);
+            resultsSection.style.display = 'block';
+        }
+
+        function updateStatistics(result) {
+            processedCount++;
+            
+            const pestType = result.prediction;
+            const confidence = result.confidence;
+            const isLowConfidence = result.is_low_confidence || confidence < 70;
+            
+            if (isLowConfidence || pestType === 'Uncertain') {
+                uncertainCount++;
+            } else if (pestType === 'No Pest' || pestType === 'Healthy') {
+                noPestCount++;
+            } else {
+                pestCount++;
+                const riskLevel = pestRiskLevels[pestType] || 'unknown';
+                if (riskLevel === 'high') {
+                    highRiskCount++;
+                }
+            }
+            
+            const avgTime = processedCount > 0 ? (totalProcessingTime / processedCount).toFixed(1) : 0;
+            const avgConfidence = processedCount > 0 ? (detectionResults.reduce((sum, r) => sum + r.confidence, 0) / processedCount).toFixed(1) : 0;
+            
+            document.getElementById('no-pest-count').textContent = noPestCount;
+            document.getElementById('pest-count').textContent = pestCount;
+            document.getElementById('processed-count').textContent = processedCount;
+            document.getElementById('uncertain-count').textContent = uncertainCount;
+            document.getElementById('avg-time').textContent = avgTime + 's';
+            document.getElementById('accuracy-rate').textContent = avgConfidence + '%';
+        }
+
+        function clearResults() {
+            resultsContainer.innerHTML = '';
+            resultsSection.style.display = 'none';
+            noPestCount = 0;
+            pestCount = 0;
+            processedCount = 0;
+            highRiskCount = 0;
+            uncertainCount = 0;
+            detectionResults = [];
+            totalProcessingTime = 0;
+            
+            document.getElementById('no-pest-count').textContent = '0';
+            document.getElementById('pest-count').textContent = '0';
+            document.getElementById('processed-count').textContent = '0';
+            document.getElementById('uncertain-count').textContent = '0';
+            document.getElementById('avg-time').textContent = '0s';
+            document.getElementById('accuracy-rate').textContent = '0%';
+        }
+
+        function saveResults() {
+            if (detectionResults.length === 0) {
+                alert('No results to save!');
+                return;
+            }
+
+            fetch('{% url "save_pest_results" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    results: detectionResults,
+                    summary: {
+                        total_processed: processedCount,
+                        no_pest_count: noPestCount,
+                        pest_count: pestCount,
+                        high_risk_count: highRiskCount,
+                        uncertain_count: uncertainCount,
+                        avg_processing_time: (totalProcessingTime / processedCount).toFixed(2),
+                        session_date: new Date().toISOString()
+                    }
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('Results saved successfully!');
+                } else {
+                    alert('Error saving results: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving results: ' + error.message);
+            });
+        }
+
+        // Camera functions
+        async function openCamera() {
+            try {
+                camera = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                cameraVideo.srcObject = camera;
+                cameraModal.show();
+            } catch (error) {
+                alert('Error accessing camera: ' + error.message);
+            }
+        }
+
+        function captureImage() {
+            const context = cameraCanvas.getContext('2d');
+            cameraCanvas.width = cameraVideo.videoWidth;
+            cameraCanvas.height = cameraVideo.videoHeight;
+            context.drawImage(cameraVideo, 0, 0);
+            
+            // Convert canvas to blob and process
+            cameraCanvas.toBlob(blob => {
+                const file = new File([blob], `camera_capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                processImage(file);
+            }, 'image/jpeg');
+            
+            cameraModal.hide();
+            stopCamera();
+        }
+
+        function stopCamera() {
+            if (camera) {
+                camera.getTracks().forEach(track => track.stop());
+                camera = null;
+            }
+        }
+
+        function showDetailedAnalysis(pestType, confidenceScores, isLowConfidence, originalPrediction) {
+            const pestInfo = {
+                'Uncertain': {
+                    description: 'Low confidence detection - image quality may be poor or pest type unclear. Consider retaking the image.',
+                    risk: 'Unknown',
+                    treatment: 'Retake image with better lighting and focus',
+                    icon: 'bi-question-circle',
+                    color: 'warning'
+                },
+                'Adristyrannus': {
+                    description: 'Predatory bug - generally beneficial but can occasionally damage plants. Monitor population levels.',
+                    risk: 'Medium',
+                    treatment: 'Monitor population levels, remove if excessive',
+                    icon: 'bi-bug-fill',
+                    color: 'warning'
+                },
+                'Aphids': {
+                    description: 'High-risk sap feeders that cause yellowing, wilting, and stunted growth.',
+                    risk: 'High',
+                    treatment: 'Use insecticidal soap, neem oil, or introduce ladybugs',
+                    icon: 'bi-droplet-fill',
+                    color: 'danger'
+                },
+                'Beetle': {
+                    description: 'Variable risk - some beneficial, others harmful. Identify specific species for targeted treatment.',
+                    risk: 'Variable',
+                    treatment: 'Identify species, use appropriate targeted treatment',
+                    icon: 'bi-shield-fill',
+                    color: 'info'
+                },
+                'Bugs': {
+                    description: 'Mixed category - many are beneficial predators. Monitor for plant damage signs.',
+                    risk: 'Low-Medium',
+                    treatment: 'Monitor for plant damage, treat only if necessary',
+                    icon: 'bi-bug',
+                    color: 'success'
+                },
+                'Mites': {
+                    description: 'Tiny arachnids that cause leaf stippling, yellowing, and webbing.',
+                    risk: 'Medium-High',
+                    treatment: 'Increase humidity, use miticides, introduce predatory mites',
+                    icon: 'bi-circle-fill',
+                    color: 'warning'
+                },
+                'Weevil': {
+                    description: 'High-risk borers that damage crops, especially grains and fruits.',
+                    risk: 'High',
+                    treatment: 'Remove affected parts, use pheromone traps, systemic insecticides',
+                    icon: 'bi-cone-striped',
+                    color: 'danger'
+                },
+                'Whitefly': {
+                    description: 'High-risk virus vectors that cause significant crop damage.',
+                    risk: 'High',
+                    treatment: 'Yellow sticky traps, reflective mulch, beneficial insects',
+                    icon: 'bi-bug-fill',
+                    color: 'danger'
+                }
+            };
+
+            const info = pestInfo[pestType] || pestInfo[originalPrediction] || {
+                description: 'No specific information available for this detection.',
+                risk: 'Unknown',
+                treatment: 'Consult with agricultural expert',
+                icon: 'bi-question-circle',
+                color: 'secondary'
+            };
+
+            let modalContent = `
+                <div class="pest-detail-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi ${info.icon} text-${info.color} me-3" style="font-size: 2rem;"></i>
+                        <div>
+                            <h4 class="mb-1 fw-bold">${pestType.toUpperCase()}</h4>
+                            <span class="badge bg-${info.color} pest-badge">Risk Level: ${info.risk}</span>
+                        </div>
+                    </div>
+                    
+                    ${isLowConfidence ? `
+                    <div class="alert alert-warning mb-3" style="border-radius: 12px;">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Low Confidence Detection</strong><br>
+                        Original Prediction: ${originalPrediction}<br>
+                        <small>Consider retaking the image with better lighting and focus.</small>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="mb-4">
+                        <h6 class="fw-semibold text-primary mb-2">
+                            <i class="bi bi-info-circle me-2"></i>Description
+                        </h6>
+                        <p class="text-muted">${info.description}</p>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6 class="fw-semibold text-success mb-2">
+                            <i class="bi bi-prescription2 me-2"></i>Recommended Treatment
+                        </h6>
+                        <p class="text-muted">${info.treatment}</p>
+                    </div>
+                </div>
+            `;
+
+            if (confidenceScores && Object.keys(confidenceScores).length > 0) {
+                modalContent += `
+                    <div class="pest-detail-card">
+                        <h6 class="fw-semibold text-info mb-3">
+                            <i class="bi bi-bar-chart me-2"></i>Confidence Scores
+                        </h6>
+                        <div class="confidence-scores">
+                `;
+                
+                // Sort confidence scores by value
+                const sortedScores = Object.entries(confidenceScores)
+                    .sort(([,a], [,b]) => b - a);
+                
+                sortedScores.forEach(([pest, score]) => {
+                    const percentage = parseFloat(score);
+                    modalContent += `
+                        <div class="confidence-item">
+                            <span class="fw-medium" style="min-width: 120px;">${pest}</span>
+                            <div class="confidence-bar-small">
+                                <div class="confidence-fill" style="width: ${percentage}%"></div>
+                            </div>
+                            <span class="fw-bold text-${percentage >= 70 ? 'success' : percentage >= 50 ? 'warning' : 'danger'}">${percentage.toFixed(1)}%</span>
+                        </div>
+                    `;
+                });
+                
+                modalContent += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (isLowConfidence) {
+                modalContent += `
+                    <div class="pest-detail-card">
+                        <h6 class="fw-semibold text-warning mb-3">
+                            <i class="bi bi-lightbulb me-2"></i>Tips for Better Results
+                        </h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Use good lighting (natural light preferred)</li>
+                            <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Keep camera steady and focused</li>
+                            <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Fill frame with pest/affected area</li>
+                            <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Avoid blurry or dark images</li>
+                            <li class="mb-0"><i class="bi bi-check-circle text-success me-2"></i>Take multiple shots from different angles</li>
+                        </ul>
+                    </div>
+                `;
+            }
+
+            detailContent.innerHTML = modalContent;
+            detailModal.show();
+        }
+
+        // Batch upload handler
+        batchUploadBtn.addEventListener('click', () => {
+            fileInput.multiple = true;
+            fileInput.click();
+        });
+    </script>
+</body>
+</html>

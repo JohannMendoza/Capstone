@@ -1,0 +1,186 @@
+    {% load static %}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Caretaker Dashboard | Escala Plants</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
+    </head>
+    <body class="bg-gray-100">
+
+        <!-- Sidebar -->
+        <div class="flex">
+            <!-- Sidebar -->
+    <aside class="w-64 bg-green-900 text-white h-screen p-5 flex flex-col justify-between">
+        <!-- Top Section (Logo + Navigation Links) -->
+        <div>
+            <a href="{% url 'client_dashboard' %}" class="flex justify-center mb-4">
+                <img src="{% static 'dashboard/img/core-img/logo.png' %}" alt="Logo" class="h-16">
+            </a>
+            <nav class="mt-6 space-y-2">
+                <a href="{% url 'client_dashboard' %}" 
+                class="flex items-center py-2 px-4 rounded {% if request.path == '/client_dashboard/' %}bg-green-700{% else %}hover:bg-green-700{% endif %}">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3m6 3h3m-3 0h-3m3 0v6m0-6h-3m-6 0h3m-3 0H6m3 0H6m0 0v6m0-6H3m3 0V6m6 3v6"/>
+                    </svg>
+                    Client Dashboard
+                </a>
+                <a href="{% url 'detector' %}" 
+        class="flex items-center py-2 px-4 rounded {% if request.path == '/detector/' %}bg-green-700{% else %}hover:bg-green-700{% endif %}">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m0 14v1m8-8h1M3 12H2m15.364-6.364l.707.707M6.343 17.657l-.707.707m0-13.414l.707.707M17.657 17.657l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+            </svg>
+            Detection
+        </a>
+
+                <a href="{% url 'inventory' %}" 
+                class="flex items-center py-2 px-4 rounded {% if request.path == '/inventory/' %}bg-green-700{% else %}hover:bg-green-700{% endif %}">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/>
+                    </svg>
+                    Inventory Plant
+                </a>
+
+                <a href="{% url 'track_plant_health' %}" 
+                class="flex items-center py-2 px-4 rounded {% if request.path == '/track-plant-health/' %}bg-green-700{% else %}hover:bg-green-700{% endif %}">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Unhealthy Plant
+                </a>
+            </nav>
+        </div>
+
+        <!-- Bottom Section (Logout Button) -->
+        <div>
+            <a href="{% url 'logout' %}" 
+            class="flex items-center py-2 px-4 rounded hover:bg-red-600">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7"/>
+                </svg>
+                Logout
+            </a>
+        </div>
+    </aside>
+
+
+
+
+            <main class="flex-1 p-6">
+            <!-- Navbar -->
+            <div class="flex justify-between items-center bg-white shadow-md p-4 rounded-lg mb-6">
+                <h2 class="text-2xl font-semibold text-gray-700">Dashboard</h2>
+            </div>
+
+       
+
+
+            <!-- Dashboard Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">            
+
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-700">Total Plants</h3>
+                    <p class="text-2xl font-bold">{{ total_plants|default:0 }}</p>
+                </div>
+                
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-700">Healthy Plants</h3>
+                    <p class="text-2xl font-bold text-green-600">{{ healthy_plants|default:0 }}</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-700">Unhealthy Plants</h3>
+                    <p class="text-2xl font-bold text-red-600">{{ unhealthy_plants|default:0 }}</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Ensure data is correctly formatted
+var healthyPlants = Number("{{ healthy_plants|default:0 }}");
+var unhealthyPlants = Number("{{ unhealthy_plants|default:0 }}");
+var diseaseLabels = JSON.parse('{{ disease_labels|safe|escapejs }}'.replace(/'/g, '"'));
+var diseaseValues = JSON.parse('{{ disease_values|safe|escapejs }}'.replace(/'/g, '"'));
+
+// Calculate total plants and percentages
+var totalPlants = healthyPlants + unhealthyPlants;
+var healthyPercentage = totalPlants ? ((healthyPlants / totalPlants) * 100).toFixed(2) : 0;
+var unhealthyPercentage = totalPlants ? ((unhealthyPlants / totalPlants) * 100).toFixed(2) : 0;
+
+// Calculate disease percentages
+var totalDiseases = diseaseValues.reduce((a, b) => a + b, 0);
+var diseasePercentages = diseaseValues.map(value => totalDiseases ? ((value / totalDiseases) * 100).toFixed(2) : 0);
+
+// Register Chart.js datalabels plugin
+Chart.register(ChartDataLabels);
+
+// Plant Health Trends Chart (Bar Chart with % Labels)
+var ctx1 = document.getElementById('plantHealthChart').getContext('2d');
+new Chart(ctx1, {
+    type: 'bar',
+    data: {
+        labels: ['Healthy Plants', 'Unhealthy Plants'],
+        datasets: [{
+            label: '', // Keep this empty instead of removing it
+            data: [healthyPlants, unhealthyPlants],
+            backgroundColor: ['#4CAF50', '#FF0000']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            datalabels: {
+                anchor: 'end',
+                align: 'top',
+                formatter: (value, context) => {
+                    let percentage = totalPlants ? ((value / totalPlants) * 100).toFixed(2) + "%" : "0%";
+                    return value + " (" + percentage + ")";
+                },
+                color: '#000',
+                font: { weight: 'bold', size: 12 }
+            }
+        },
+        scales: {
+            y: { beginAtZero: true }
+        }
+    }
+});
+
+
+
+// Most Common Plant Diseases Chart (Pie Chart with % Labels)
+var ctx2 = document.getElementById('diseaseChart').getContext('2d');
+new Chart(ctx2, {
+    type: 'pie',
+    data: {
+        labels: diseaseLabels,
+        datasets: [{
+            data: diseaseValues,
+            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#8A2BE2', '#FF4500']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            datalabels: {
+                formatter: (value, context) => {
+                    let percentage = totalDiseases ? ((value / totalDiseases) * 100).toFixed(2) + "%" : "0%";
+                    return value + " (" + percentage + ")";
+                },
+                color: '#fff',
+                font: { weight: 'bold', size: 12 }
+            }
+        }
+    }
+});
+
+    </script>
+    </body>
+    </html>
