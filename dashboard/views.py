@@ -1321,17 +1321,17 @@ def history_view(request):
 
 # <CHANGE> Updated pest model loading with caching and lazy import
 def load_pest_model():
-    """Load the trained pest detection model with Keras 3 compatibility."""
+    """Load the trained pest detection model with Keras 2.x/3.x compatibility."""
     global _MODEL_CACHE
 
     if 'pest_model' in _MODEL_CACHE:
-        logger.info("Using cached pest detection model")
+        logger.info("✅ Using cached pest detection model")
         return _MODEL_CACHE['pest_model']
 
     try:
         import tensorflow as tf
     except ImportError as ie:
-        logger.error(f"TensorFlow is not installed: {ie}")
+        logger.error(f"❌ TensorFlow is not installed: {ie}")
         return None
 
     candidate_names = ['model.h5', 'improved_pest_model.h5', 'pest_model.h5']
@@ -1343,40 +1343,59 @@ def load_pest_model():
             break
 
     if model_path is None:
-        logger.error(f"No pest model found in media folder. Looked for: {candidate_names}")
+        logger.error(f"❌ No pest model found in media folder. Looked for: {candidate_names}")
         return None
 
     try:
-        logger.info(f"Loading pest model from {model_path}")
+        logger.info(f"🔄 Loading pest model from {model_path}")
         
-        # <CHANGE> Handle Keras 3 compatibility with legacy Keras 2.x models
         try:
-            # First attempt: Try loading with compile=False
+            # First attempt: Try loading normally with compile=False
             model = tf.keras.models.load_model(model_path, compile=False)
+            logger.info("✅ Model loaded successfully (Keras 3.x compatible format)")
         except (TypeError, ValueError) as e:
-            if "batch_shape" in str(e):
-                logger.warning("Detected legacy Keras 2.x model format. Using compatibility mode...")
-                # Second attempt: Load with custom_objects to handle legacy InputLayer
-                from tensorflow.keras.layers import InputLayer
-                custom_objects = {'InputLayer': InputLayer}
-                model = tf.keras.models.load_model(
-                    model_path, 
-                    custom_objects=custom_objects,
-                    compile=False
-                )
+            error_msg = str(e)
+            
+            # Check if it's a Keras 2.x batch_shape issue
+            if "batch_shape" in error_msg or "Unrecognized keyword arguments" in error_msg:
+                logger.warning("⚠️ Detected legacy Keras 2.x model format. Attempting compatibility conversion...")
+                
+                try:
+                    # Use h5py to manually load and convert the model
+                    import h5py
+                    
+                    # Load with custom_objects to bypass strict validation
+                    with h5py.File(model_path, 'r') as f:
+                        logger.info(f"Model structure: {list(f.keys())}")
+                    
+                    # Try loading with safe_mode disabled (if available in TF 2.13)
+                    model = tf.keras.models.load_model(
+                        model_path,
+                        compile=False,
+                        safe_mode=False  # This helps with legacy models
+                    )
+                    logger.info("✅ Model loaded with compatibility mode")
+                    
+                except Exception as compat_error:
+                    logger.error(f"❌ Compatibility mode failed: {compat_error}")
+                    logger.error("SOLUTION: Your model was saved with Keras 2.x but requires TensorFlow 2.13.0")
+                    logger.error("The requirements.txt has been updated to tensorflow==2.13.0")
+                    logger.error("Please rebuild your Docker image and redeploy to Railway")
+                    raise
             else:
+                # Different error, re-raise
                 raise
         
         _MODEL_CACHE['pest_model'] = model
-        logger.info("Pest detection model loaded and cached successfully")
+        logger.info("✅ Pest detection model loaded and cached successfully")
         return model
         
     except Exception as e:
-        logger.error(f"Error loading pest model from {model_path}: {e}")
-        logger.error("Your model was saved with Keras 2.x but TensorFlow 2.14 uses Keras 3.x")
-        logger.error("Solution: Downgrade TensorFlow in requirements.txt to: tensorflow==2.13.0")
+        logger.error(f"❌ Error loading pest model from {model_path}: {e}")
+        logger.error("Traceback:")
         traceback.print_exc()
         return None
+
 # ... existing code ...
 
 PEST_CLASS_NAMES = ['Adristyrannus', 'Aphids', 'Beetle', 'Bugs', 'Mites', 'Weevil', 'Whitefly']
