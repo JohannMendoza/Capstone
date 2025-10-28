@@ -25,7 +25,6 @@ filterpy==1.4.5
 flatbuffers==25.9.23
 fonttools==4.60.1
 fsspec==2025.9.0
-gast==0.6.0
 git-filter-repo==2.47.0
 google-auth==2.41.1
 google-auth-oauthlib==1.0.0
