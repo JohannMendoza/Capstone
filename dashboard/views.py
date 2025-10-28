@@ -1321,7 +1321,7 @@ def history_view(request):
 
 # <CHANGE> Updated pest model loading with caching and lazy import
 def load_pest_model():
-    """Load the pre-trained pest detection model (TensorFlow 2.14.0 compatible)."""
+    """Load pest detection model (TensorFlow 2.14.0 compatible)."""
     global _MODEL_CACHE
 
     if 'pest_model' in _MODEL_CACHE:
@@ -1334,7 +1334,8 @@ def load_pest_model():
         logger.error(f"❌ TensorFlow is not installed: {ie}")
         return None
 
-    candidate_names = ['improved_pest_model.keras', 'model.keras', 'improved_pest_model.h5']
+    # Try .keras format first (new), then .h5 (old)
+    candidate_names = ['improved_pest_model.keras', 'improved_pest_model.h5', 'model.keras']
     model_path = None
     for name in candidate_names:
         path = os.path.join(settings.MEDIA_ROOT, name)
@@ -1348,16 +1349,21 @@ def load_pest_model():
 
     try:
         logger.info(f"🔄 Loading pest model from {model_path}")
-        model = tf.keras.models.load_model(model_path)
-        logger.info("✅ Model loaded successfully with TensorFlow 2.14.0")
         
+        # Load model
+        if model_path.endswith('.h5'):
+            # Old format - use safe_mode=False
+            model = tf.keras.models.load_model(model_path, safe_mode=False)
+        else:
+            # New .keras format
+            model = tf.keras.models.load_model(model_path)
+        
+        logger.info("✅ Pest detection model loaded successfully")
         _MODEL_CACHE['pest_model'] = model
-        logger.info("✅ Pest detection model loaded and cached successfully")
         return model
         
     except Exception as e:
         logger.error(f"❌ Error loading pest model from {model_path}: {e}")
-        logger.error("Traceback:")
         traceback.print_exc()
         return None
 # ... existing code ...
