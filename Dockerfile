@@ -1,4 +1,4 @@
-# Use stable slim image
+# Use stable slim image with Python 3.11
 FROM python:3.11-slim
 
 # Set working directory
@@ -8,7 +8,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install essential system libraries
+# Install essential system libraries (optimized for TensorFlow)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgl1 \
@@ -30,8 +30,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all project files
 COPY . .
 
-# Expose Railway’s expected port
+# Expose Railway's expected port
 EXPOSE 8000
 
 # Start Gunicorn for Django
-CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120"]
