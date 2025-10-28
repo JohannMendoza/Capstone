@@ -1,14 +1,14 @@
-# Use lightweight Python base image
+# Use stable slim image
 FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
-# Prevent Python from writing .pyc files and force unbuffered logs
+# Prevent Python from writing .pyc files & buffer logs
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install essential system dependencies for OpenCV, Pillow, and TensorFlow
+# Install essential system libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgl1 \
@@ -16,9 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsm6 \
     libxext6 \
     libxrender1 \
-    libatlas-base-dev \
-    libhdf5-dev \
+    libopenblas-dev \
     liblapack-dev \
+    libhdf5-dev \
     gfortran \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,14 +27,11 @@ COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy your Django project into the container
+# Copy all project files
 COPY . .
 
-# Collect static files (optional — useful for production)
-# RUN python manage.py collectstatic --noinput
-
-# Expose the Django port
+# Expose Railway’s expected port
 EXPOSE 8000
 
-# Run Gunicorn (production WSGI server)
+# Start Gunicorn for Django
 CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000"]
