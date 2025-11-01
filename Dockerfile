@@ -26,9 +26,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-COPY scripts/convert_model.sh /app/convert_model.sh
-RUN chmod +x /app/convert_model.sh && bash /app/convert_model.sh || true
-
 EXPOSE 8000
 
 CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
