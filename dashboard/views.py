@@ -1321,7 +1321,7 @@ def history_view(request):
 
 # <CHANGE> Updated pest model loading with caching and lazy import
 def load_pest_model():
-    """Load pest detection model (TensorFlow 2.14.0 compatible)."""
+    """Load pest detection model (TensorFlow 2.11.0 compatible)."""
     global _MODEL_CACHE
 
     if 'pest_model' in _MODEL_CACHE:
@@ -1350,13 +1350,8 @@ def load_pest_model():
     try:
         logger.info(f"🔄 Loading pest model from {model_path}")
         
-        # Load model
-        if model_path.endswith('.h5'):
-            # Old format - use safe_mode=False
-            model = tf.keras.models.load_model(model_path, safe_mode=False)
-        else:
-            # New .keras format
-            model = tf.keras.models.load_model(model_path)
+        # Both formats use the same load_model call
+        model = tf.keras.models.load_model(model_path)
         
         logger.info("✅ Pest detection model loaded successfully")
         _MODEL_CACHE['pest_model'] = model
