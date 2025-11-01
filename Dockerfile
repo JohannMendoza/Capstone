@@ -30,7 +30,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all project files
 COPY . .
 
-RUN python << 'EOF' || true
+RUN mkdir -p /app/scripts && \
+    cat > /tmp/convert_model.py << 'PYTHON_EOF'
 import os
 from pathlib import Path
 
@@ -42,7 +43,8 @@ if h5_path.exists():
         print(f"Successfully converted {h5_path} to .keras format")
     except Exception as e:
         print(f"Conversion skipped: {e}")
-EOF
+PYTHON_EOF
+RUN python /tmp/convert_model.py || true
 
 # Expose Railway's expected port
 EXPOSE 8000
