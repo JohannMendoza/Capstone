@@ -30,7 +30,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all project files
 COPY . .
 
-RUN python -c "from dashboard.convert_model import main; main()" || true
 
 # Expose Railway's expected port
 EXPOSE 8000
