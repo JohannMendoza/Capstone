@@ -15,137 +15,143 @@ logger = logging.getLogger(__name__)
 
 _MODEL_CACHE = {}
 
-class BatchShapeCompatibilityHandler(tf.keras.layers.Layer):
-    """Custom layer to handle batch_shape parameter in Input layers"""
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+def get_model_path():
+    """Get model path with multiple fallbacks for local and Railway deployments"""
+    base_paths = [
+        os.path.join(settings.MEDIA_ROOT) if hasattr(settings, 'MEDIA_ROOT') else None,
+        os.path.join(settings.BASE_DIR, 'media') if hasattr(settings, 'BASE_DIR') else None,
+        '/app/media',
+        'media',
+        './media',
+    ]
+    
+    # Try to find existing media directory
+    for base_path in base_paths:
+        if base_path and os.path.isdir(base_path):
+            logger.info(f"[v0] Using base media path: {base_path}")
+            return base_path
+    
+    # Create and use default
+    default_path = os.path.join(settings.MEDIA_ROOT) if hasattr(settings, 'MEDIA_ROOT') else 'media'
+    os.makedirs(default_path, exist_ok=True)
+    logger.info(f"[v0] Created media directory at: {default_path}")
+    return default_path
+
+def find_model_file():
+    """Find the best available model file"""
+    media_path = get_model_path()
+    
+    models_to_check = [
+        ('improved_pest_model.keras', 'keras'),
+        ('improved_pest_model.h5', 'h5'),
+        ('model.keras', 'keras'),
+        ('model.h5', 'h5'),
+    ]
+    
+    for filename, model_type in models_to_check:
+        full_path = os.path.join(media_path, filename)
+        if os.path.isfile(full_path) and os.path.getsize(full_path) > 1024 * 1024:
+            logger.info(f"[v0] Found valid {model_type} model: {full_path}")
+            return full_path, model_type
+    
+    # Log what we found for debugging
+    logger.error(f"[v0] No valid model file found in {media_path}")
+    if os.path.isdir(media_path):
+        files = os.listdir(media_path)
+        logger.error(f"[v0] Files in {media_path}: {files}")
+    else:
+        logger.error(f"[v0] Media directory does not exist: {media_path}")
+    
+    return None, None
+
+def load_h5_model(model_path):
+    """Load H5 model with batch_shape compatibility"""
+    logger.info(f"[v0] Loading H5 model from {model_path}")
+    
+    try:
+        logger.info("[v0] Attempt 1: Loading with custom_objects={'batch_shape': None}...")
+        model = tf.keras.models.load_model(
+            model_path,
+            custom_objects={'batch_shape': None},
+            compile=False
+        )
+        logger.info("[v0] ✓ Success with custom_objects")
+        return model
+    except Exception as e1:
+        logger.warning(f"[v0] Attempt 1 failed: {e1}")
+    
+    try:
+        logger.info("[v0] Attempt 2: Safe mode loading (compile=False)...")
+        model = tf.keras.models.load_model(model_path, compile=False)
+        logger.info("[v0] ✓ Success with safe mode")
+        return model
+    except Exception as e2:
+        logger.warning(f"[v0] Attempt 2 failed: {e2}")
+    
+    try:
+        logger.info("[v0] Attempt 3: Direct load...")
+        model = tf.keras.models.load_model(model_path)
+        logger.info("[v0] ✓ Success with direct load")
+        return model
+    except Exception as e3:
+        logger.error(f"[v0] All H5 loading attempts failed: {e3}")
+        return None
 
 def load_pest_model(model_path=None):
     """
-    Load pre-trained MobileNetV2 model for pest detection.
-    Compatible with TensorFlow 2.11.0
-    Supports both .keras and .h5 formats
-    Handles batch_shape incompatibility issues
+    Load pest detection model with automatic fallbacks
+    Returns cached model if already loaded
     """
     global _MODEL_CACHE
     
-    if 'pest_model' in _MODEL_CACHE:
+    if 'pest_model' in _MODEL_CACHE and _MODEL_CACHE['pest_model'] is not None:
         logger.info("[v0] Using cached pest detection model")
         return _MODEL_CACHE['pest_model']
     
+    # Find model file if not provided
     if model_path is None:
-        candidate_paths = [
-            os.path.join(settings.MEDIA_ROOT, 'improved_pest_model.keras'),
-            os.path.join(settings.MEDIA_ROOT, 'improved_pest_model.h5'),
-            os.path.join(settings.MEDIA_ROOT, 'model.keras'),
-            os.path.join(settings.MEDIA_ROOT, 'model.h5'),
-        ]
-        
-        model_path = None
-        for path in candidate_paths:
-            if os.path.exists(path):
-                model_path = path
-                logger.info(f"[v0] Found model at: {path}")
-                break
-        
+        model_path, model_type = find_model_file()
         if model_path is None:
-            logger.error(f"[v0] Model file not found. Looked for: {candidate_paths}")
+            logger.error("[v0] Model not found. Please upload improved_pest_model.h5 or .keras to media/ folder")
             return None
+    else:
+        model_type = 'h5' if model_path.endswith('.h5') else 'keras'
     
     try:
-        if not os.path.exists(model_path):
-            logger.error(f"[v0] Model file not found: {model_path}")
-            return None
+        logger.info(f"[v0] Loading {model_type} model from {model_path}")
         
-        logger.info(f"[v0] Loading pest model from {model_path}")
-        
-        if model_path.endswith('.h5'):
-            logger.info("[v0] Loading .h5 format model with batch_shape compatibility...")
-            try:
-                # Try with custom_objects first
-                model = tf.keras.models.load_model(
-                    model_path,
-                    custom_objects={'batch_shape': None}
-                )
-            except Exception as e1:
-                logger.warning(f"[v0] First attempt failed: {str(e1)}")
-                try:
-                    # Fallback: Try using safe_mode
-                    logger.info("[v0] Attempting to load with safe_mode=False...")
-                    model = tf.keras.models.load_model(model_path)
-                except Exception as e2:
-                    logger.warning(f"[v0] Safe mode failed: {str(e2)}")
-                    # Final fallback: Try converting to .keras format on-the-fly
-                    logger.info("[v0] Attempting emergency conversion to .keras format...")
-                    model = _load_and_convert_h5_model(model_path)
-                    if model is not None:
-                        logger.info("[v0] Successfully converted .h5 to functional model")
+        if model_type == 'h5':
+            model = load_h5_model(model_path)
         else:
-            # New .keras format (native to TF 2.11)
-            logger.info("[v0] Loading .keras format model...")
-            model = tf.keras.models.load_model(model_path)
+            logger.info("[v0] Loading .keras model...")
+            model = tf.keras.models.load_model(model_path, compile=False)
         
         if model is None:
-            logger.error("[v0] Model loading returned None")
+            logger.error("[v0] Model loading failed - returned None")
             return None
-            
-        logger.info("[v0] Pest detection model loaded successfully")
+        
+        logger.info("[v0] ✓ Pest detection model loaded successfully")
         _MODEL_CACHE['pest_model'] = model
         return model
         
     except Exception as e:
-        logger.error(f"[v0] Error loading pest model from {model_path}: {str(e)}")
-        logger.error(f"[v0] Exception type: {type(e).__name__}")
-        import traceback
-        logger.error(f"[v0] Traceback: {traceback.format_exc()}")
+        logger.error(f"[v0] Error loading model: {e}", exc_info=True)
         return None
 
-def _load_and_convert_h5_model(model_path):
-    """
-    Emergency fallback: Try to load .h5 model by converting to .keras format
-    This handles the batch_shape incompatibility by rebuilding the model
-    """
-    try:
-        logger.info("[v0] Attempting to rebuild model from .h5...")
-        
-        # Load with minimal config
-        import h5py
-        with h5py.File(model_path, 'r') as h5_file:
-            # Check model structure
-            if 'model_weights' in h5_file:
-                logger.info("[v0] HDF5 file has model_weights - attempting to load...")
-                # Create fresh model and load weights
-                model = tf.keras.models.load_model(model_path, compile=False)
-                logger.info("[v0] Model loaded successfully (weights only)")
-                return model
-    except Exception as e:
-        logger.error(f"[v0] HDF5 rebuild failed: {str(e)}")
-    
-    return None
-
 def preprocess_image(image_array, target_size=(224, 224)):
-    """
-    Preprocess image for MobileNetV2 model.
-    Applies MobileNetV2 preprocessing (normalize to [-1, 1])
-    """
+    """Preprocess image for MobileNetV2"""
     try:
         image = tf.image.resize(image_array, target_size)
-        
         # MobileNetV2 preprocessing: normalize to [-1, 1]
         image = image / 127.5 - 1.0
-        
         image = tf.expand_dims(image, axis=0)
-        
         return image
     except Exception as e:
-        logger.error(f"[v0] Error preprocessing image: {str(e)}")
+        logger.error(f"[v0] Image preprocessing error: {e}")
         return None
 
 def predict_pest(model, image_array):
-    """
-    Make prediction on image using pest detection model.
-    Returns prediction class and confidence score
-    """
+    """Make pest detection prediction"""
     try:
         if model is None:
             return {'error': 'Model not loaded', 'success': False}
@@ -168,23 +174,21 @@ def predict_pest(model, image_array):
         }
         
     except Exception as e:
-        logger.error(f"[v0] Error making prediction: {str(e)}")
-        import traceback
-        logger.error(f"[v0] Prediction traceback: {traceback.format_exc()}")
+        logger.error(f"[v0] Prediction error: {e}", exc_info=True)
         return {'error': str(e), 'success': False}
 
-def load_image_from_file(image_path):
-    """Load image from file path"""
+def load_image_from_file(image_file):
+    """Load image from file or file-like object"""
     try:
-        image = Image.open(image_path).convert('RGB')
+        image = Image.open(image_file).convert('RGB')
         image_array = np.array(image, dtype=np.float32)
         return image_array
     except Exception as e:
-        logger.error(f"[v0] Error loading image: {str(e)}")
+        logger.error(f"[v0] Image loading error: {e}")
         return None
 
 def clear_model_cache():
-    """Clear the model cache if needed"""
+    """Clear cached model"""
     global _MODEL_CACHE
     _MODEL_CACHE.clear()
     logger.info("[v0] Model cache cleared")
