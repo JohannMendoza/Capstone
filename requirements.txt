@@ -70,7 +70,7 @@ platformdirs==4.5.0
 polars==1.34.0
 polars-runtime-32==1.34.0
 prompt_toolkit==3.0.52
-protobuf>=3.20.0,<4
+protobuf>=3.9.2,<3.20
 psutil==7.1.0
 pure_eval==0.2.3
 py-cpuinfo==9.0.0
