@@ -1,9 +1,7 @@
 FROM python:3.10-slim
 
-# Set working directory
 WORKDIR /app
 
-# Prevent Python from writing .pyc files & buffer logs
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
@@ -22,21 +20,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN mkdir -p /app/media
 
-# Copy and install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all project files
 COPY . .
 
-RUN mkdir -p /app/scripts
-COPY scripts/convert_model.sh /app/scripts/convert_model.sh
-RUN chmod +x /app/scripts/convert_model.sh
+COPY scripts/convert_model.sh /app/convert_model.sh
+RUN chmod +x /app/convert_model.sh && bash /app/convert_model.sh || true
 
-RUN bash /app/scripts/convert_model.sh || true
-
-# Expose Railway's expected port
 EXPOSE 8000
 
 CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
