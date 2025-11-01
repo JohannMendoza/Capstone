@@ -1,6 +1,6 @@
 """
 Model Loader for Pest Detection
-Compatible with TensorFlow 2.14.0
+Compatible with TensorFlow 2.11.0
 Handles both .keras (new) and .h5 (old) formats
 """
 
@@ -18,7 +18,7 @@ _MODEL_CACHE = {}
 def load_pest_model(model_path=None):
     """
     Load pre-trained MobileNetV2 model for pest detection.
-    Compatible with TensorFlow 2.14.0
+    Compatible with TensorFlow 2.11.0
     Supports both .keras and .h5 formats
     """
     global _MODEL_CACHE
@@ -53,11 +53,11 @@ def load_pest_model(model_path=None):
         logger.info(f"🔄 Loading pest model from {model_path}")
         
         if model_path.endswith('.h5'):
-            # Old format - use safe_mode=False for compatibility
+            # Old format
             logger.info("Loading .h5 format model...")
-            model = tf.keras.models.load_model(model_path, safe_mode=False)
+            model = tf.keras.models.load_model(model_path)
         else:
-            # New .keras format (native to TF 2.14.0)
+            # New .keras format (native to TF 2.11)
             logger.info("Loading .keras format model...")
             model = tf.keras.models.load_model(model_path)
         
