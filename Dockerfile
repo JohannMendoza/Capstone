@@ -30,6 +30,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all project files
 COPY . .
 
+RUN python -c "from scripts.convert_h5_to_keras import convert_h5_to_keras; import os; \
+    h5_path = 'media/improved_pest_model.h5'; \
+    if os.path.exists(h5_path): convert_h5_to_keras(h5_path)" || true
 
 # Expose Railway's expected port
 EXPOSE 8000
