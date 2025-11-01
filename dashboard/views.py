@@ -1319,48 +1319,6 @@ def history_view(request):
 
     return render(request, 'dashboard/history.html', {'analyses': analyses})
 
-# <CHANGE> Updated pest model loading with caching and lazy import
-def load_pest_model():
-    """Load pest detection model (TensorFlow 2.11.0 compatible)."""
-    global _MODEL_CACHE
-
-    if 'pest_model' in _MODEL_CACHE:
-        logger.info("✅ Using cached pest detection model")
-        return _MODEL_CACHE['pest_model']
-
-    try:
-        import tensorflow as tf
-    except ImportError as ie:
-        logger.error(f"❌ TensorFlow is not installed: {ie}")
-        return None
-
-    # Try .keras format first (new), then .h5 (old)
-    candidate_names = ['improved_pest_model.keras', 'improved_pest_model.h5', 'model.keras']
-    model_path = None
-    for name in candidate_names:
-        path = os.path.join(settings.MEDIA_ROOT, name)
-        if os.path.exists(path):
-            model_path = path
-            break
-
-    if model_path is None:
-        logger.error(f"❌ No pest model found in media folder. Looked for: {candidate_names}")
-        return None
-
-    try:
-        logger.info(f"🔄 Loading pest model from {model_path}")
-        
-        # Both formats use the same load_model call
-        model = tf.keras.models.load_model(model_path)
-        
-        logger.info("✅ Pest detection model loaded successfully")
-        _MODEL_CACHE['pest_model'] = model
-        return model
-        
-    except Exception as e:
-        logger.error(f"❌ Error loading pest model from {model_path}: {e}")
-        traceback.print_exc()
-        return None
 # ... existing code ...
 
 PEST_CLASS_NAMES = ['Adristyrannus', 'Aphids', 'Beetle', 'Bugs', 'Mites', 'Weevil', 'Whitefly']
@@ -1385,6 +1343,12 @@ def preprocess_pest_image(image):
 
 # ... existing code ...
 
+# ... existing code at top ...
+from .model_loader import load_pest_model, preprocess_image, predict_pest, load_image_from_file
+
+# The model_loader.py has better error handling and batch_shape compatibility
+
+
 @login_required
 def pest_detector(request):
     """Main pest detection page"""
@@ -1393,49 +1357,45 @@ def pest_detector(request):
     }
     return render(request, 'dashboard/pest_detector.html', context)
 
-# ... existing code ...
 
 @csrf_exempt
 @require_POST
 def pest_predict(request):
     """API endpoint for pest prediction"""
     try:
-        # <CHANGE> Load model using cached function (lazy loads TensorFlow)
         model = load_pest_model()
         if model is None:
             return JsonResponse({
                 'success': False, 
-                'error': 'Pest detection model not found. Please ensure improved_pest_model.h5 is in media folder.'
+                'error': 'Pest detection model not found. Please ensure improved_pest_model.h5 or improved_pest_model.keras is in media folder.'
             })
 
         image_file = request.FILES.get('image')
         if not image_file:
             return JsonResponse({'success': False, 'error': 'No image provided'})
 
-        image = Image.open(image_file).convert('RGB')
-        processed_image = preprocess_pest_image(image)
+        image = load_image_from_file(image_file)
+        if image is None:
+            return JsonResponse({'success': False, 'error': 'Failed to load image'})
         
-        # <CHANGE> Lazy import numpy only when needed (already imported at top, but showing pattern)
-        import numpy as np
+        prediction_result = predict_pest(model, image)
         
-        predictions = model.predict(processed_image)
-        predicted_class_idx = np.argmax(predictions[0])
-        confidence = float(predictions[0][predicted_class_idx]) * 100
-        
-        if predicted_class_idx < len(PEST_CLASS_NAMES):
-            predicted_class = PEST_CLASS_NAMES[predicted_class_idx]
-        else:
-            predicted_class = 'unknown'
-        
-        confidence_scores = {}
-        for i, class_name in enumerate(PEST_CLASS_NAMES):
-            confidence_scores[class_name] = float(predictions[0][i]) * 100
+        if not prediction_result.get('success', False):
+            return JsonResponse(prediction_result)
         
         return JsonResponse({
             'success': True,
-            'prediction': predicted_class,
-            'confidence': round(confidence, 2),
-            'confidence_scores': confidence_scores
+            'prediction': prediction_result['predicted_class'],
+            'confidence': round(prediction_result['confidence'] * 100, 2),
+            'confidence_scores': {
+                'Adristyrannus': prediction_result['all_predictions'][0] * 100,
+                'Aphids': prediction_result['all_predictions'][1] * 100,
+                'Beetle': prediction_result['all_predictions'][2] * 100,
+                'Bugs': prediction_result['all_predictions'][3] * 100,
+                'Mites': prediction_result['all_predictions'][4] * 100,
+                'Weevil': prediction_result['all_predictions'][5] * 100,
+                'Whitefly': prediction_result['all_predictions'][6] * 100,
+            }
         })
         
     except Exception as e:
