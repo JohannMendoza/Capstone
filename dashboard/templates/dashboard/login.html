@@ -9,6 +9,23 @@
     <!-- Core Stylesheet -->
     <link rel="stylesheet" href="{% static 'dashboard/style.css' %}">
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Theme colors in CSS -->
+    <style>
+        :root {
+            --heading-color: #303030;
+            --text-color: #707070;
+            --bg-default: #70c745;
+            --bg-gray: #f2f4f5;
+            --pri-color: #70c745;
+            --white-color: #ffffff;
+            --dark-color: #111111;
+            --border-color: #ebebeb;
+            --hover-color: #70c745;
+            --footer-color: #2d2d2d;
+            --secondary-color: #b7b7b7;
+        }
+    </style>
 </head>
 
 <body class="bg-cover bg-center" style="background-image: url('{% static 'dashboard/img/bg-img/1.png' %}')">
@@ -17,52 +34,85 @@
         <div class="p-8 max-w-sm w-full rounded-lg shadow-lg" 
             style="background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(5px);">
             
-            <h2 class="text-2xl font-bold text-center text-gray-700">Login</h2>
+            <h2 class="text-2xl font-bold text-center" style="color: var(--heading-color);">Login</h2>
+
+            <!-- Error popup for invalid credentials or unverified email -->
+            {% if error %}
+            <div id="errorPopup" class="mb-4 p-4 rounded-lg text-white" style="background: #dc3545; display: block;">
+                {% if error == 'invalid_credentials' %}
+                    <strong>⚠️ Error!</strong> Invalid email or password. Please try again.
+                {% elif error == 'not_verified' %}
+                    <strong>⚠️ Error!</strong> Please verify your email before logging in.
+                {% endif %}
+                <button onclick="closeErrorPopup()" class="float-right text-white cursor-pointer font-bold">✕</button>
+            </div>
+            {% endif %}
 
             <form method="post" class="mt-6">
                 {% csrf_token %}
                 
                 <div class="mb-4">
-                    <label class="block text-gray-600 text-sm mb-1">Email</label>
-                    <div class="flex items-center border rounded-lg px-3 py-2 bg-gray-100">
+                    <label class="block text-sm mb-1" style="color: var(--text-color);">Email</label>
+                    <div class="flex items-center border rounded-lg px-3 py-2" style="background: var(--bg-gray); border-color: var(--border-color);">
                         <input type="email" name="email" placeholder="Enter your email" required 
-                            class="bg-transparent w-full outline-none px-2 text-gray-700">
+                            class="bg-transparent w-full outline-none px-2" style="color: var(--heading-color);">
                     </div>
                 </div>
 
-             <div class="mb-2">
-    <label class="block text-gray-600 text-sm mb-1">Password</label>
-    <div class="flex items-center border rounded-lg px-3 py-2 bg-gray-100">
-        <input type="password" name="password" placeholder="Enter your password" required 
-            class="bg-transparent w-full outline-none px-2 text-gray-700">
-    </div>
-</div>
+                <div class="mb-2">
+                    <label class="block text-sm mb-1" style="color: var(--text-color);">Password</label>
+                    <div class="flex items-center border rounded-lg px-3 py-2" style="background: var(--bg-gray); border-color: var(--border-color);">
+                        <input type="password" id="passwordInput" name="password" placeholder="Enter your password" required 
+                            class="bg-transparent w-full outline-none px-2" style="color: var(--heading-color);">
+                        <!-- Show/Hide password toggle -->
+                        <button type="button" onclick="togglePasswordVisibility()" class="ml-2 focus:outline-none" style="color: var(--text-color);">
+                            <span id="toggleIcon">👁️</span>
+                        </button>
+                    </div>
+                </div>
 
-<div class="mb-4 text-right">
-    <a href="{% url 'password_reset' %}" class="text-sm text-green-600 hover:underline font-medium">
-        Forgot password?
-    </a>
-</div>
+                <div class="mb-4 text-right">
+                    <a href="{% url 'password_reset' %}" class="text-sm font-medium hover:underline" style="color: var(--pri-color);">
+                        Forgot password?
+                    </a>
+                </div>
 
-
-                <button type="submit" class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition">
+                <button type="submit" class="w-full text-white py-2 rounded-lg hover:opacity-90 transition font-medium" 
+                    style="background: var(--pri-color);">
                     Login
                 </button>
-                
             </form>
 
-            <p class="text-gray-500 text-sm mt-4 text-center">
+            <p class="text-sm mt-4 text-center" style="color: var(--text-color);">
                 Don't have an account? 
-                <a href="{% url 'register' %}" class="text-green-500 font-semibold hover:underline">Register</a>
+                <a href="{% url 'register' %}" class="font-semibold hover:underline" style="color: var(--pri-color);">Register</a>
             </p>
             
             <a href="{% url 'home' %}" 
-            class="block text-center text-gray-700 font-semibold mb-4 hover:text-green-600">
-            ⬅ Back to Home
-         </a>
-
+                class="block text-center font-semibold mb-4 hover:opacity-75" style="color: var(--heading-color);">
+                ⬅ Back to Home
+            </a>
         </div>
     </section>
+
+    <script>
+        function togglePasswordVisibility() {
+            const input = document.getElementById('passwordInput');
+            const icon = document.getElementById('toggleIcon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                icon.textContent = '👁️';
+            }
+        }
+
+        function closeErrorPopup() {
+            document.getElementById('errorPopup').style.display = 'none';
+        }
+    </script>
 
 </body>
 </html>

@@ -1,5 +1,5 @@
 {% load static %}
-{% load form_filters %}  <!-- Load custom filter -->
+{% load form_filters %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -11,40 +11,142 @@
     <!-- Core Stylesheet -->
     <link rel="stylesheet" href="{% static 'dashboard/style.css' %}">
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Theme colors in CSS -->
+    <style>
+        :root {
+            --heading-color: #303030;
+            --text-color: #707070;
+            --bg-default: #70c745;
+            --bg-gray: #f2f4f5;
+            --pri-color: #70c745;
+            --white-color: #ffffff;
+            --dark-color: #111111;
+            --border-color: #ebebeb;
+            --hover-color: #70c745;
+            --footer-color: #2d2d2d;
+            --secondary-color: #b7b7b7;
+        }
+    </style>
 </head>
 
 <body class="bg-cover bg-center" style="background-image: url('{% static 'dashboard/img/bg-img/1.png' %}')">
 
-    <section class="flex items-center justify-center h-screen">
+    <section class="flex items-center justify-center min-h-screen py-8">
         <div class="p-8 max-w-sm w-full rounded-lg shadow-lg" 
             style="background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(5px);">
             
-            <h2 class="text-2xl font-bold text-center text-gray-700">Register</h2>
+            <h2 class="text-2xl font-bold text-center" style="color: var(--heading-color);">Register</h2>
+
+            <!-- Error popup for email validation and duplicate email -->
+            {% if error %}
+            <div id="errorPopup" class="mb-4 p-4 rounded-lg text-white" style="background: #dc3545; display: block;">
+                {% if error == 'email_invalid' %}
+                    <strong>⚠️ Error!</strong> Please enter a valid email address.
+                {% elif error == 'email_exists' %}
+                    <strong>⚠️ Error!</strong> This email is already registered. Please login or use a different email.
+                {% endif %}
+                <button onclick="closeErrorPopup()" class="float-right text-white cursor-pointer font-bold">✕</button>
+            </div>
+            {% endif %}
+
+            <!-- Success message for email verification -->
+            {% if success %}
+            <div id="successPopup" class="mb-4 p-4 rounded-lg text-white" style="background: #28a745; display: block;">
+                <strong>✅ Success!</strong> Registration successful! Please go to your email and verify your account to complete the signup.
+                <button onclick="closeSuccessPopup()" class="float-right text-white cursor-pointer font-bold">✕</button>
+            </div>
+            {% endif %}
 
             <form method="post" class="mt-6">
                 {% csrf_token %}
                 
-                {% for field in form %}
+                <!-- Render form fields manually for better control -->
                 <div class="mb-4">
-                    <label class="block text-gray-600 text-sm mb-1">{{ field.label }}</label>
-                    <div class="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-100">
-                        {{ field|add_class:"bg-transparent w-full outline-none px-2 text-gray-700" }}
+                    <label class="block text-sm mb-1" style="color: var(--text-color);">Username</label>
+                    <div class="flex items-center border rounded-lg px-3 py-2" style="background: var(--bg-gray); border-color: var(--border-color);">
+                        <input type="text" class="bg-transparent w-full outline-none px-2" style="color: var(--heading-color);" 
+                            name="username" placeholder="Username" required value="{{ form.username.value|default:'' }}">
                     </div>
-                    <small class="text-red-500">{{ field.errors }}</small>
+                    {% if form.username.errors %}
+                        <small class="text-red-500">{{ form.username.errors }}</small>
+                    {% endif %}
                 </div>
-                {% endfor %}
 
-                <button type="submit" class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition">
+                <div class="mb-4">
+                    <label class="block text-sm mb-1" style="color: var(--text-color);">Email</label>
+                    <div class="flex items-center border rounded-lg px-3 py-2" style="background: var(--bg-gray); border-color: var(--border-color);">
+                        <input type="email" class="bg-transparent w-full outline-none px-2" style="color: var(--heading-color);" 
+                            name="email" placeholder="Email" required value="{{ form.email.value|default:'' }}">
+                    </div>
+                    {% if form.email.errors %}
+                        <small class="text-red-500">{{ form.email.errors }}</small>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm mb-1" style="color: var(--text-color);">Password</label>
+                    <div class="flex items-center border rounded-lg px-3 py-2" style="background: var(--bg-gray); border-color: var(--border-color);">
+                        <input type="password" class="passwordField bg-transparent w-full outline-none px-2" style="color: var(--heading-color);" 
+                            name="password" placeholder="Password" required>
+                        <button type="button" onclick="togglePasswordVisibility(this)" class="ml-2 focus:outline-none" style="color: var(--text-color);">
+                            <span class="toggleIcon">👁️</span>
+                        </button>
+                    </div>
+                    {% if form.password.errors %}
+                        <small class="text-red-500">{{ form.password.errors }}</small>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm mb-1" style="color: var(--text-color);">Confirm Password</label>
+                    <div class="flex items-center border rounded-lg px-3 py-2" style="background: var(--bg-gray); border-color: var(--border-color);">
+                        <input type="password" class="passwordField bg-transparent w-full outline-none px-2" style="color: var(--heading-color);" 
+                            name="password2" placeholder="Confirm Password" required>
+                        <button type="button" onclick="togglePasswordVisibility(this)" class="ml-2 focus:outline-none" style="color: var(--text-color);">
+                            <span class="toggleIcon">👁️</span>
+                        </button>
+                    </div>
+                    {% if form.password2.errors %}
+                        <small class="text-red-500">{{ form.password2.errors }}</small>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="w-full text-white py-2 rounded-lg hover:opacity-90 transition font-medium" 
+                    style="background: var(--pri-color);">
                     Register
                 </button>
             </form>
 
-            <p class="text-gray-500 text-sm mt-4 text-center">
+            <p class="text-sm mt-4 text-center" style="color: var(--text-color);">
                 Already have an account? 
-                <a href="{% url 'login' %}" class="text-green-500 font-semibold hover:underline">Login</a>
+                <a href="{% url 'login' %}" class="font-semibold hover:underline" style="color: var(--pri-color);">Login</a>
             </p>
         </div>
     </section>
+
+    <script>
+        function togglePasswordVisibility(button) {
+            const input = button.previousElementSibling;
+            const icon = button.querySelector('.toggleIcon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                icon.textContent = '👁️';
+            }
+        }
+
+        function closeErrorPopup() {
+            document.getElementById('errorPopup').style.display = 'none';
+        }
+
+        function closeSuccessPopup() {
+            document.getElementById('successPopup').style.display = 'none';
+        }
+    </script>
 
 </body>
 </html>

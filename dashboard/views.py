@@ -1,4 +1,10 @@
 # ✅ UPDATED: Fixed views.py with lazy loading and model caching
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+from urllib.parse import urljoin
+from .forms import RegisterForm
+from .models import CustomUser
+from .utils import send_verification_email, default_token_generator
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -89,50 +95,82 @@ import threading
 def register_view(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
+        
         if form.is_valid():
             user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
-            user.is_active = False  # Require email verification
+            user.email = form.cleaned_data['email'].lower()
+            user.is_active = False
             user.role = "admin"
             user.save()
 
-            # Generate verification data
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            current_site = get_current_site(request)
+            
             protocol = 'https' if request.is_secure() else 'http'
-            domain = f"{protocol}://{current_site.domain}"
+            domain = request.get_host()
+            verification_link = f"{protocol}://{domain}/verify/{uid}/{token}/"
 
-            # ✅ Clean and safe verification link
-            verification_link = urljoin(domain, f"/verify/{uid}/{token}/").strip()
-            verification_link = verification_link.replace('"', '').replace("'", "").strip()
+            email_subject = "Verify Your Email - Escala Plants & Nursery"
+            try:
+                email_body = render_to_string("dashboard/verify_email_template.html", {
+                    "user": user,
+                    "verification_link": verification_link
+                })
+            except Exception as e:
+                print(f"[v0] Template error: {str(e)}")
+                email_body = f"<h2>Hello {user.username},</h2><p>Please verify your email by clicking this link:</p><p><a href='{verification_link}'>Verify Email</a></p>"
 
-            # Prepare email
-            email_subject = "Verify Your Email"
-            email_body = render_to_string("dashboard/verify_email.html", {
-                "user": user,
-                "verification_link": verification_link
-            })
-
-            # ✅ Send email asynchronously (non-blocking)
             threading.Thread(
                 target=send_verification_email,
                 args=(email_subject, email_body, user.email),
                 daemon=True
             ).start()
 
-            messages.success(request, "A verification link has been sent to your email. Please verify before logging in.")
-            return redirect('login')
+            return render(request, "dashboard/register.html", {
+                "form": RegisterForm(),
+                "success": True
+            })
         else:
-            messages.error(request, "Please correct the errors below.")
+            error = None
+            if 'email' in form.errors:
+                error_msg = str(form.errors['email'][0])
+                if 'already registered' in error_msg.lower():
+                    error = 'email_exists'
+                else:
+                    error = 'email_invalid'
+            
+            return render(request, "dashboard/register.html", {
+                "form": form,
+                "error": error
+            })
     else:
         form = RegisterForm()
 
     return render(request, "dashboard/register.html", {"form": form})
 
+def login_view(request):
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip().lower()
+        password = request.POST.get("password")
 
+        user = authenticate(request, email=email, password=password)
 
-# ... existing code ...
+        if user is not None:
+            if not user.is_active:
+                return render(request, "dashboard/login.html", {
+                    "error": "not_verified"
+                })
+            login(request, user)
+            if user.role == "admin":
+                return redirect("admin_dashboard")
+            else:
+                return redirect("client_dashboard")
+        else:
+            return render(request, "dashboard/login.html", {
+                "error": "invalid_credentials"
+            })
+
+    return render(request, "dashboard/login.html")
 
 def verify_email_view(request, uidb64, token):
     try:
@@ -141,38 +179,24 @@ def verify_email_view(request, uidb64, token):
         if user and default_token_generator.check_token(user, token):
             user.is_active = True
             user.save()
-            return HttpResponse("Email verified successfully! You can now log in.")
+            return render(request, "dashboard/verify_email.html", {
+                "verified": True
+            })
         else:
-            return HttpResponse("Invalid or expired verification link.", status=400)
+            return render(request, "dashboard/verify_email.html", {
+                "verified": False,
+                "error": "invalid_token"
+            })
     except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
-        return HttpResponse("Invalid request.", status=400)
+        return render(request, "dashboard/verify_email.html", {
+            "verified": False,
+            "error": "invalid_request"
+        })
+
+
 
 # ... existing code ...
 
-def login_view(request):
-    if request.method == "POST":
-        email = request.POST.get("email")
-        password = request.POST.get("password")
-        print(f"Attempting login - Email: {email}, Password: {password}")
-
-        user = authenticate(request, email=email, password=password)
-        print(f"User authenticated: {user}")
-
-        if user is not None:
-            if not user.is_active:
-                return HttpResponse("Please verify your email before logging in.", status=401)
-            login(request, user)
-            print("Login successful!")
-            if user.role == "admin":
-                return redirect("admin_dashboard")
-            else:
-                return redirect("client_dashboard")
-        else:
-            print("Login failed")
-
-    return render(request, "dashboard/login.html")
-
-# ... existing code ...
 
 def user_list(request):
     if request.method == "POST" and "delete_user_id" in request.POST:

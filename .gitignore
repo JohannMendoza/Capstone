@@ -1,4 +1,7 @@
+.env
+
 # Virtual environments
+
 venv/
 yolov8env/
 

@@ -9,21 +9,53 @@ from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth import get_user_model
 
-class RegisterForm(forms.ModelForm):
-    password = forms.CharField(widget=forms.PasswordInput)
-    confirm_password = forms.CharField(widget=forms.PasswordInput)
+from django import forms
+from django.contrib.auth import get_user_model
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 
+CustomUser = get_user_model()
+
+class RegisterForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput, required=True)
+    password2 = forms.CharField(widget=forms.PasswordInput, required=True, label="Confirm Password")
+    
     class Meta:
         model = CustomUser
-        fields = ['username', 'email', 'password']
-
+        fields = ['username', 'email']
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        
+        # Validate email format
+        try:
+            validate_email(email)
+        except ValidationError:
+            raise forms.ValidationError("Please enter a valid email address.")
+        
+        # Check if email already exists
+        if CustomUser.objects.filter(email=email).exists():
+            raise forms.ValidationError("This email is already registered.")
+        
+        return email
+    
     def clean(self):
         cleaned_data = super().clean()
-        password = cleaned_data.get("password")
-        confirm_password = cleaned_data.get("confirm_password")
+        password = cleaned_data.get('password')
+        password2 = cleaned_data.get('password2')
+        
+        if password and password2 and password != password2:
+            raise forms.ValidationError("Passwords do not match.")
+        
+        return cleaned_data
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data['password'])
+        if commit:
+            user.save()
+        return user
 
-        if password and confirm_password and password != confirm_password:
-            self.add_error('confirm_password', "Passwords do not match.")
             
 class PlantForm(forms.ModelForm):
     class Meta:

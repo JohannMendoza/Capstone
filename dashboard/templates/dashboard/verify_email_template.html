@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification - Escala Plants & Nursery</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f4f5;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background-color: #70c745;
+            color: #ffffff;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .content {
+            padding: 30px;
+            color: #707070;
+        }
+        .content h2 {
+            color: #303030;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+        .content p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #707070;
+        }
+        .verification-button {
+            display: inline-block;
+            background-color: #70c745;
+            color: #ffffff;
+            padding: 14px 32px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .verification-button:hover {
+            background-color: #5cb236;
+        }
+        .footer {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .footer p {
+            margin: 5px 0;
+            color: #ffffff;
+        }
+        .link-container {
+            margin: 20px 0;
+        }
+        .direct-link {
+            color: #70c745;
+            word-break: break-all;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header with theme color -->
+        <div class="header">
+            <h1>Escala Plants & Nursery</h1>
+        </div>
+
+        <!-- Email content -->
+        <div class="content">
+            <h2>Hello {{ user.username }},</h2>
+            
+            <p>Thank you for signing up for Escala Plants & Nursery! We're excited to have you join our community.</p>
+            
+            <p>To complete your registration, please verify your email address by clicking the button below:</p>
+            
+            <!-- Verification button -->
+            <div style="text-align: center;">
+                <a href="{{ verification_link|safe }}" class="verification-button">
+                    Verify Email Address
+                </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #b7b7b7;">
+                <strong>Or copy and paste this link:</strong>
+            </p>
+            <p class="direct-link">{{ verification_link|safe }}</p>
+            
+            <p>This verification link will expire in 24 hours.</p>
+            
+            <p style="margin-top: 30px;">
+                If you did not create this account, please ignore this email or contact our support team.
+            </p>
+            
+            <p>
+                Best regards,<br>
+                <strong>Escala Plants & Nursery Team</strong>
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>&copy; 2025 Escala Plants & Nursery. All rights reserved.</p>
+            <p>For support, contact us at support@escala.com</p>
+        </div>
+    </div>
+</body>
+</html>

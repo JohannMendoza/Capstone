@@ -1,4 +1,90 @@
-<p>Hi {{ user.username }},</p>
-<p>Thank you for signing up! Please verify your email by clicking the link below:</p>
-<p><a href="{{ verification_link|safe }}">Verify Email</a></p>
-<p>If you did not sign up, you can ignore this email.</p>
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Email Verification | Escala Plants & Nursery</title>
+
+    <link rel="stylesheet" href="{% static 'dashboard/style.css' %}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Theme colors in CSS -->
+    <style>
+        :root {
+            --heading-color: #303030;
+            --text-color: #707070;
+            --bg-default: #70c745;
+            --bg-gray: #f2f4f5;
+            --pri-color: #70c745;
+            --white-color: #ffffff;
+            --dark-color: #111111;
+            --border-color: #ebebeb;
+            --hover-color: #70c745;
+            --footer-color: #2d2d2d;
+            --secondary-color: #b7b7b7;
+        }
+    </style>
+</head>
+
+<body class="bg-cover bg-center" style="background-image: url('{% static 'dashboard/img/bg-img/1.png' %}')">
+
+    <section class="flex items-center justify-center h-screen">
+        <div class="p-8 max-w-sm w-full rounded-lg shadow-lg text-center" 
+            style="background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(5px);">
+            
+            {% if verified %}
+                <!-- Success message after email verification -->
+                <div class="mb-6">
+                    <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+                    <h2 class="text-2xl font-bold mb-2" style="color: var(--heading-color);">Email Verified Successfully!</h2>
+                    <p style="color: var(--text-color); margin-bottom: 24px;">
+                        Your email has been verified. You can now log in to your account.
+                    </p>
+                </div>
+
+                <!-- Proceed to login button that works locally and on Railway -->
+                <a href="{% url 'login' %}" class="inline-block w-full text-white py-3 rounded-lg hover:opacity-90 transition font-medium" 
+                    style="background: var(--pri-color); text-decoration: none;">
+                    Proceed to Login
+                </a>
+
+                <a href="{% url 'home' %}" class="block text-center font-semibold mt-4 hover:opacity-75" 
+                    style="color: var(--heading-color);">
+                    ⬅ Back to Home
+                </a>
+            {% else %}
+                <!-- Error message for invalid or expired verification link -->
+                <div class="mb-6">
+                    <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
+                    <h2 class="text-2xl font-bold mb-2" style="color: var(--heading-color);">Verification Failed</h2>
+                    {% if error == 'invalid_token' %}
+                        <p style="color: var(--text-color); margin-bottom: 24px;">
+                            The verification link is invalid or has expired. Please request a new verification email.
+                        </p>
+                    {% elif error == 'invalid_request' %}
+                        <p style="color: var(--text-color); margin-bottom: 24px;">
+                            Invalid verification request. Please try again or contact support.
+                        </p>
+                    {% else %}
+                        <p style="color: var(--text-color); margin-bottom: 24px;">
+                            An error occurred during email verification. Please try again.
+                        </p>
+                    {% endif %}
+                </div>
+
+                <a href="{% url 'register' %}" class="inline-block w-full text-white py-3 rounded-lg hover:opacity-90 transition font-medium" 
+                    style="background: var(--pri-color); text-decoration: none;">
+                    Return to Registration
+                </a>
+
+                <a href="{% url 'login' %}" class="block text-center font-semibold mt-4 hover:opacity-75" 
+                    style="color: var(--heading-color);">
+                    Go to Login
+                </a>
+            {% endif %}
+        </div>
+    </section>
+
+</body>
+</html>
