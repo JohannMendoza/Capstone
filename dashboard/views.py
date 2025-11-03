@@ -425,28 +425,51 @@ def delete_plant(request, plant_id):
 
 # ... existing code ...
 
+from django.core.paginator import Paginator
+from django.shortcuts import render
+from dashboard.models import Plant, TreeAnalysis
+
+@login_required
 def track_plant_health(request):
-    from django.core.paginator import Paginator
-    
-    plants = Plant.objects.all()
     unhealthy_plants_data = []
-    
-    for plant in plants:
-        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-created_at').first()
+
+    # 🔹 Loop through all plants
+    for plant in Plant.objects.all().order_by('plant_id'):
+        # Try linked TreeAnalysis
+        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+
+        # If not linked, try match by name (e.g. "Plant 27")
+        if not latest_analysis:
+            latest_analysis = (
+                TreeAnalysis.objects
+                .filter(name__icontains=f"Plant {plant.plant_id}")
+                .order_by('-id')
+                .first()
+            )
+
         if latest_analysis:
-            latest_analysis.calculate_health()
-            
-            if latest_analysis.leaf_rust_percentage > 0 or latest_analysis.powdery_mildew_percentage > 0:
+            # Skip healthy ones, only keep diseased plants
+            diseased = any([
+                latest_analysis.dried_leaf_percentage > 0,
+                latest_analysis.leaf_rust_percentage > 0,
+                latest_analysis.powdery_mildew_percentage > 0
+            ])
+
+            if diseased:
                 plant.detection_details = {
-                    'leaf_rust_percentage': latest_analysis.leaf_rust_percentage,
-                    'powdery_mildew_percentage': latest_analysis.powdery_mildew_percentage,
+                    'dried_leaf_percentage': round(latest_analysis.dried_leaf_percentage, 1),
+                    'leaf_rust_percentage': round(latest_analysis.leaf_rust_percentage, 1),
+                    'powdery_mildew_percentage': round(latest_analysis.powdery_mildew_percentage, 1),
+                    'total_leaves': latest_analysis.total_leaves,
+                    'healthy_percentage': round(latest_analysis.healthy_percentage, 1)
                 }
                 unhealthy_plants_data.append(plant)
-    
+
+    # 🔹 Paginate results
     paginator = Paginator(unhealthy_plants_data, 5)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
+
     return render(request, "dashboard/track_plant_health.html", {
         "unhealthy_plants": page_obj,
         "page_obj": page_obj

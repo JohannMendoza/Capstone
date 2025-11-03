@@ -181,66 +181,75 @@
           <!-- Table -->
           <div class="overflow-x-auto">
               <table class="min-w-full">
-                  <thead>
-                      <tr class="bg-gradient-to-r from-green-600 to-emerald-700 text-white">
-                          <th class="p-4 text-left font-semibold">Plant ID</th>
-                          <th class="p-4 text-left font-semibold">Age</th>
-                          <th class="p-4 text-left font-semibold">Health Status</th>
-                      </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-100">
-                      {% for plant in unhealthy_plants %}
-                      <tr class="hover:bg-green-50 transition-colors duration-200">
-                          <td class="p-4 font-medium text-gray-900">{{ plant.plant_id }}</td>
-                          <td class="p-4 text-gray-700">{{ plant.age }}</td>
-                          <td class="p-4">
-                              <!-- Modified health status display to show only disease percentages and handle undetected status -->
-                              {% if plant.health_status == 'undetected' %}
-                                  <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                                      <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                      </svg>
-                                      Pending Detection
-                                  </span>
-                              {% else %}
-                                  <div class="flex flex-wrap gap-1">
-                                      <!-- Only show disease classes (leaf rust and powdery mildew) with percentages -->
-                                      {% if plant.detection_details and plant.detection_details.leaf_rust_percentage > 0 %}
-                                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                              <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                  <path d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.66 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.34.19 3 1.73 3z"/>
-                                              </svg>
-                                              Leaf Rust {{ plant.detection_details.leaf_rust_percentage|floatformat:1 }}%
-                                          </span>
-                                      {% endif %}
-                                      {% if plant.detection_details and plant.detection_details.powdery_mildew_percentage > 0 %}
-                                          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                              <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                  <path d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.66 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.34.19 3 1.73 3z"/>
-                                              </svg>
-                                              Powdery Mildew {{ plant.detection_details.powdery_mildew_percentage|floatformat:1 }}%
-                                          </span>
-                                      {% endif %}
-                                  </div>
-                              {% endif %}
-                          </td>
-                      </tr>
-                      {% empty %}
-                      <tr>
-                          <td colspan="3" class="text-center p-8">
-                              <div class="flex flex-col items-center space-y-3">
-                                  <div class="bg-gray-100 p-4 rounded-full">
-                                      <svg class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                          <path d="M5 13l4 4L19 7"/>
-                                      </svg>
-                                  </div>
-                                  <p class="text-gray-500 font-medium">No unhealthy plants found</p>
-                                  <p class="text-gray-400 text-sm">All plants are in good condition!</p>
-                              </div>
-                          </td>
-                      </tr>
-                      {% endfor %}
-                  </tbody>
+                <thead>
+                  <tr class="bg-gradient-to-r from-green-600 to-emerald-700 text-white">
+                    <th class="p-4 text-left font-semibold">Plant ID</th>
+                    <th class="p-4 text-left font-semibold">Plant Number</th>
+                    <th class="p-4 text-left font-semibold">Age</th>
+                    <th class="p-4 text-left font-semibold">Health Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  {% for plant in unhealthy_plants %}
+                  <tr class="hover:bg-green-50 transition-colors duration-200">
+                    <!-- ✅ Correct column order -->
+                    <td class="p-4 font-medium text-gray-900">{{ plant.plant_id }}</td>
+                    <td class="p-4 text-gray-700">{{ plant.plant_number }}</td>
+                    <td class="p-4 text-gray-700">{{ plant.age }}</td>
+
+                    <td class="p-4">
+                      {% if plant.health_status == 'undetected' %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                          <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10
+                            10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5
+                            1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                          </svg>
+                          Pending Detection
+                        </span>
+                      {% else %}
+                        <div class="flex flex-wrap gap-1">
+                          {% if plant.detection_details and plant.detection_details.leaf_rust_percentage > 0 %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                              <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 9v2m0 4h.01M5.07 19h13.86c1.54
+                                0 2.5-1.66 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46
+                                0L3.34 16c-.77 1.34.19 3 1.73 3z"/>
+                              </svg>
+                              Leaf Rust {{ plant.detection_details.leaf_rust_percentage|floatformat:1 }}%
+                            </span>
+                          {% endif %}
+
+                          {% if plant.detection_details and plant.detection_details.powdery_mildew_percentage > 0 %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 9v2m0 4h.01M5.07 19h13.86c1.54
+                                0 2.5-1.66 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46
+                                0L3.34 16c-.77 1.34.19 3 1.73 3z"/>
+                              </svg>
+                              Powdery Mildew {{ plant.detection_details.powdery_mildew_percentage|floatformat:1 }}%
+                            </span>
+                          {% endif %}
+                        </div>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="4" class="text-center p-8">
+                      <div class="flex flex-col items-center space-y-3">
+                        <div class="bg-gray-100 p-4 rounded-full">
+                          <svg class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M5 13l4 4L19 7"/>
+                          </svg>
+                        </div>
+                        <p class="text-gray-500 font-medium">No unhealthy plants found</p>
+                        <p class="text-gray-400 text-sm">All plants are in good condition!</p>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
               </table>
           </div>
 
