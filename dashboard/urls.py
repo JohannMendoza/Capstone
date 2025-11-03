@@ -80,6 +80,12 @@ urlpatterns = [
     path('pest-session/<int:session_id>/export/csv/', views.export_pest_session_csv, name='export_pest_session_csv'),
     
     path('analyses/export/multiple/', views.export_multiple_analyses, name='export_multiple_analyses'),
+
+    path('tree-analyses/', views.tree_analysis_list, name='tree_analysis_list'),
+    path('tree-analysis/<int:analysis_id>/update/', views.update_tree_analysis, name='update_tree_analysis'),
+    path('tree-analysis/<int:analysis_id>/delete/', views.delete_tree_analysis, name='delete_tree_analysis'),
+    path('analysis/<int:analysis_id>/detail/json/', views.analysis_detail_json, name='analysis_detail_json'),
+
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

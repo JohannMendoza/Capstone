@@ -304,12 +304,18 @@ class CustomPasswordResetCompleteView(PasswordResetCompleteView):
 
 # ... existing code ...
 
+
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.shortcuts import render
+from dashboard.models import Plant, TreeAnalysis
+
 @login_required
 def plant_inventory(request):
-    plants_list = Plant.objects.all().order_by('plant_id')  # Fixed ordering field
+    # 🔹 Get all plants (ordered)
+    plants_list = Plant.objects.all().order_by('plant_id')
     paginator = Paginator(plants_list, 5)
     page = request.GET.get('page')
-    
+
     try:
         plants = paginator.page(page)
     except PageNotAnInteger:
@@ -317,51 +323,54 @@ def plant_inventory(request):
     except EmptyPage:
         plants = paginator.page(paginator.num_pages)
 
+    # 🔹 For each plant, try to fetch the latest TreeAnalysis — whether linked or not
     for plant in plants:
-        plant.health_status = 'undetected'
-        plant.status_percentage = None
-        plant.detection_details = None
+        # Try linked first
+        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
 
-        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-created_at').first()
+        # If not linked, try to find by name pattern like "Plant 27"
+        if not latest_analysis:
+            latest_analysis = (
+                TreeAnalysis.objects
+                .filter(name__icontains=f"Plant {plant.plant_id}")
+                .order_by('-id')
+                .first()
+            )
 
         if latest_analysis:
-            latest_analysis.calculate_health()
-           
-            percentages = {
-                'Healthy': latest_analysis.healthy_percentage,
-                'Dried Leaf': getattr(latest_analysis, 'dried_leaf_percentage', 0),
-                'Leaf Rust': latest_analysis.leaf_rust_percentage,
-                'Powdery Mildew': latest_analysis.powdery_mildew_percentage,
-            }
-
+            # 💾 Use latest actual TreeAnalysis values (not recalculated)
             plant.detection_details = {
-                'healthy': round(latest_analysis.healthy_percentage, 1),
-                'dried_leaf': round(getattr(latest_analysis, 'dried_leaf_percentage', 0), 1),
-                'leaf_rust': round(latest_analysis.leaf_rust_percentage, 1),
-                'powdery_mildew': round(latest_analysis.powdery_mildew_percentage, 1),
+                'healthy': round(latest_analysis.healthy_percentage or 0, 1),
+                'dried_leaf': round(latest_analysis.dried_leaf_percentage or 0, 1),
+                'leaf_rust': round(latest_analysis.leaf_rust_percentage or 0, 1),
+                'powdery_mildew': round(latest_analysis.powdery_mildew_percentage or 0, 1),
             }
 
-            if any(v > 0 for v in percentages.values()):
-                most_likely = max(percentages, key=percentages.get)
-                max_val = percentages[most_likely]
+            # Determine health status
+            percentages = {
+                'healthy': latest_analysis.healthy_percentage,
+                'dried leaf': latest_analysis.dried_leaf_percentage,
+                'leaf rust': latest_analysis.leaf_rust_percentage,
+                'powdery mildew': latest_analysis.powdery_mildew_percentage,
+            }
 
-                if most_likely.lower() == 'healthy':
-                    plant.health_status = 'good'
-                else:
-                    plant.health_status = most_likely.lower()
+            most_likely = max(percentages, key=percentages.get)
+            max_val = round(percentages[most_likely], 1)
 
-                plant.status_percentage = round(max_val, 1)
+            plant.health_status = 'good' if most_likely == 'healthy' else most_likely
+            plant.status_percentage = max_val
 
-                print(f"[DEBUG] Plant {plant.plant_id} → {plant.health_status} ({plant.status_percentage}%)")
-            else:
-                print(f"[DEBUG] Plant {plant.plant_id} → No detection results")
-                print(f"[DEBUG] Checking Analysis for Plant {plant.plant_id}")
-                print(f"Healthy: {latest_analysis.healthy_percentage}")
-                print(f"Dried Leaf: {getattr(latest_analysis, 'dried_leaf_percentage', 0)}")
-                print(f"Leaf Rust: {latest_analysis.leaf_rust_percentage}")
-                print(f"Powdery Mildew: {latest_analysis.powdery_mildew_percentage}")
+            print(f"[DEBUG] Plant {plant.plant_id} using TreeAnalysis ID {latest_analysis.id} → {plant.health_status} ({plant.status_percentage}%)")
+
+        else:
+            # No analysis found
+            plant.health_status = 'undetected'
+            plant.status_percentage = None
+            plant.detection_details = None
+            print(f"[DEBUG] Plant {plant.plant_id} → No TreeAnalysis found")
 
     return render(request, 'dashboard/inventory.html', {'plants': plants})
+
 
 
 
@@ -1295,35 +1304,50 @@ def analysis_detail_view(request, analysis_id):
 
 # ... existing code ...
 
+from django.contrib.auth.decorators import login_required
+from .models import TreeAnalysis, PestDetectionSession
+
+@login_required
+@login_required
 def history_view(request):
     tree_analyses = TreeAnalysis.objects.filter(is_completed=True).order_by('-completed_at')
+    pest_sessions = PestDetectionSession.objects.all().order_by('-created_at')
+
     analyses = []
-    
+
+    # 🟢 Tree Analyses (use saved DB values)
     for analysis in tree_analyses:
-        leaf_images = analysis.leaf_images.all()
-        total = leaf_images.count()
-        healthy = leaf_images.filter(prediction='Healthy').count()
-        dried = leaf_images.filter(prediction='Dried Leaf').count()
-        mildew = leaf_images.filter(prediction='Powdery Mildew').count()
-        rust = leaf_images.filter(prediction='Leaf Rust').count()
-        diseased = total - healthy
+        diseased_count = (
+            analysis.dried_leaf_count +
+            analysis.leaf_rust_count +
+            analysis.powdery_mildew_count
+        )
+        diseased_percentage = (
+            (diseased_count / analysis.total_leaves) * 100
+            if analysis.total_leaves > 0 else 0
+        )
 
         analyses.append({
             'id': analysis.id,
             'name': analysis.name,
+            'created_at': analysis.created_at,
             'completed_at': analysis.completed_at,
             'overall_health': analysis.overall_health,
-            'healthy_count': healthy,
-            'diseased_count': diseased,
-            'dried_leaf_count': dried,
-            'powdery_mildew_count': mildew,
-            'leaf_rust_count': rust,
-            'healthy_percentage': (healthy / total) * 100 if total else 0,
-            'diseased_percentage': (diseased / total) * 100 if total else 0,
-            'type': 'tree_analysis'
+            'healthy_count': analysis.healthy_count,
+            'dried_leaf_count': analysis.dried_leaf_count,
+            'leaf_rust_count': analysis.leaf_rust_count,
+            'powdery_mildew_count': analysis.powdery_mildew_count,
+            'healthy_percentage': analysis.healthy_percentage,
+            'dried_leaf_percentage': analysis.dried_leaf_percentage,
+            'leaf_rust_percentage': analysis.leaf_rust_percentage,
+            'powdery_mildew_percentage': analysis.powdery_mildew_percentage,
+            'total_leaves': analysis.total_leaves,
+            'diseased_count': diseased_count,  # ✅ ADD THIS
+            'diseased_percentage': diseased_percentage,  # ✅ AND THIS
+            'type': 'tree_analysis',
         })
 
-    pest_sessions = PestDetectionSession.objects.all().order_by('-created_at')
+    # 🐛 Pest Detection Sessions
     for session in pest_sessions:
         analyses.append({
             'id': session.id,
@@ -1342,6 +1366,7 @@ def history_view(request):
     analyses.sort(key=lambda x: x['completed_at'], reverse=True)
 
     return render(request, 'dashboard/history.html', {'analyses': analyses})
+
 
 # ... existing code ...
 
@@ -1615,3 +1640,141 @@ def export_multiple_analyses(request):
         logger.error(f"Error exporting multiple analyses: {e}")
         traceback.print_exc()
         return HttpResponse(f"Error exporting analyses: {str(e)}", status=500)
+    
+    
+from .models import TreeAnalysis
+
+def tree_analysis_list(request):
+    """Display all tree analyses"""
+    analyses = TreeAnalysis.objects.all()  # pwede mo lagyan ng filter if needed
+    return render(request, 'dashboard/tree_analysis_list.html', {'analyses': analyses})
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.utils import timezone
+from datetime import datetime
+from .models import TreeAnalysis
+
+@login_required
+def update_tree_analysis(request, analysis_id):
+    analysis = get_object_or_404(TreeAnalysis, id=analysis_id)
+
+    if request.method == 'POST':
+        analysis.name = request.POST.get('name')
+        analysis.total_leaves = int(request.POST.get('total_leaves') or 0)
+        analysis.healthy_count = int(request.POST.get('healthy_count') or 0)
+        analysis.dried_leaf_count = int(request.POST.get('dried_leaf_count') or 0)
+        analysis.leaf_rust_count = int(request.POST.get('leaf_rust_count') or 0)
+        analysis.powdery_mildew_count = int(request.POST.get('powdery_mildew_count') or 0)
+        analysis.notes = request.POST.get('notes')
+
+        # Handle created_at
+        created_at_input = request.POST.get('created_at')
+        if created_at_input:
+            try:
+                analysis.created_at = datetime.strptime(created_at_input, "%Y-%m-%dT%H:%M")
+            except ValueError:
+                messages.error(request, "Invalid Created At format")
+
+        # Calculate percentages
+        total = analysis.total_leaves or 0
+        if total > 0:
+            analysis.healthy_percentage = (analysis.healthy_count / total) * 100
+            analysis.dried_leaf_percentage = (analysis.dried_leaf_count / total) * 100
+            analysis.leaf_rust_percentage = (analysis.leaf_rust_count / total) * 100
+            analysis.powdery_mildew_percentage = (analysis.powdery_mildew_count / total) * 100
+
+            analysis.overall_health = (
+                analysis.healthy_percentage * 1 +
+                analysis.powdery_mildew_percentage * 0.6 +
+                analysis.leaf_rust_percentage * 0.2
+            )
+        else:
+            analysis.healthy_percentage = 0
+            analysis.dried_leaf_percentage = 0
+            analysis.leaf_rust_percentage = 0
+            analysis.powdery_mildew_percentage = 0
+            analysis.overall_health = 0
+
+        analysis.completed_at = timezone.now()
+        analysis.is_completed = True
+
+        # 🔗 Link to Plant if not already linked
+        if not analysis.plant:
+            plant_id = request.POST.get('plant_id')
+            if plant_id:
+                try:
+                    from dashboard.models import Plant
+                    plant = Plant.objects.get(plant_id=plant_id)
+                    analysis.plant = plant
+                    plant.tree_analysis = analysis
+                    plant.save()
+                except Plant.DoesNotExist:
+                    print(f"[DEBUG] No matching Plant found for analysis ID {analysis.id}")
+
+        # 💾 Save updated analysis
+        analysis.save()
+
+        # ✅ Always ensure Plant link stays updated
+        if analysis.plant:
+            analysis.plant.tree_analysis = analysis
+            analysis.plant.save()
+
+        messages.success(request, "Tree analysis updated successfully!")
+        return redirect('tree_analysis_list')
+
+    return render(request, 'dashboard/update_tree_analysis.html', {'analysis': analysis})
+
+
+def delete_tree_analysis(request, analysis_id):
+    analysis = get_object_or_404(TreeAnalysis, id=analysis_id)
+    analysis.delete()
+    messages.success(request, 'Tree analysis deleted successfully!')
+    return redirect('tree_analysis_list')
+
+from django.http import JsonResponse
+
+def analysis_detail_json(request, analysis_id):
+    """JSON data for analysis modal"""
+    analysis = get_object_or_404(TreeAnalysis, id=analysis_id)
+
+    # Default to 0 if None
+    healthy_count = analysis.healthy_count or 0
+    dried_leaf_count = analysis.dried_leaf_count or 0
+    leaf_rust_count = analysis.leaf_rust_count or 0
+    powdery_mildew_count = analysis.powdery_mildew_count or 0
+
+    healthy_percentage = analysis.healthy_percentage or 0
+    dried_leaf_percentage = analysis.dried_leaf_percentage or 0
+    leaf_rust_percentage = analysis.leaf_rust_percentage or 0
+    powdery_mildew_percentage = analysis.powdery_mildew_percentage or 0
+
+    total_leaves = analysis.total_leaves or 0
+
+    # Calculate diseased count and percentage
+    diseased_count = dried_leaf_count + leaf_rust_count + powdery_mildew_count
+    diseased_percentage = (diseased_count / total_leaves * 100) if total_leaves else 0
+
+    data = {
+        'id': analysis.id,
+        'name': analysis.name,
+        'created_at': analysis.created_at.isoformat() if analysis.created_at else None,
+        'completed_at': analysis.completed_at.isoformat() if analysis.completed_at else None,
+        'overall_health': analysis.overall_health or 0,
+        'total_leaves': total_leaves,
+        'healthy_count': healthy_count,
+        'diseased_count': diseased_count,
+        'diseased_percentage': diseased_percentage,
+        'dried_leaf_count': dried_leaf_count,
+        'leaf_rust_count': leaf_rust_count,
+        'powdery_mildew_count': powdery_mildew_count,
+        'healthy_percentage': healthy_percentage,
+        'dried_leaf_percentage': dried_leaf_percentage,
+        'leaf_rust_percentage': leaf_rust_percentage,
+        'powdery_mildew_percentage': powdery_mildew_percentage,
+        'notes': analysis.notes or "",
+    }
+
+    return JsonResponse({'success': True, 'analysis': data})
+
+

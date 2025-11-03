@@ -4,6 +4,8 @@ import uuid
 import os
 from django.core.validators import FileExtensionValidator
 from django.conf import settings
+from django.utils import timezone
+
 
 def get_image_path(instance, filename):
     """Generate a unique path for uploaded images"""
@@ -37,16 +39,33 @@ class LeafImage(models.Model):
 
 class TreeAnalysis(models.Model):
     """Model to store tree analysis sessions"""
-    plant = models.ForeignKey('dashboard.Plant', on_delete=models.CASCADE, related_name='tree_analyses', null=True, blank=True)
+    plant = models.ForeignKey(
+        'dashboard.Plant',
+        on_delete=models.CASCADE,
+        related_name='tree_analyses',
+        null=True,
+        blank=True
+    )
     name = models.CharField(max_length=100, default="Unnamed Tree")
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=False, default=timezone.now)
     completed_at = models.DateTimeField(null=True, blank=True)
     is_completed = models.BooleanField(default=False)
-    dried_leaf_confidence = models.FloatField(default=0)  # ✅ NEW
+
+    # Confidence & percentages
+    dried_leaf_confidence = models.FloatField(default=0)
     healthy_percentage = models.FloatField(default=0)
+    dried_leaf_percentage = models.FloatField(default=0)
     leaf_rust_percentage = models.FloatField(default=0)
     powdery_mildew_percentage = models.FloatField(default=0)
-    overall_health = models.FloatField(default=0)  # 0-100 scale
+    overall_health = models.FloatField(default=0)  # 0–100 scale
+
+    # ✅ New count fields
+    total_leaves = models.PositiveIntegerField(default=0)
+    healthy_count = models.PositiveIntegerField(default=0)
+    dried_leaf_count = models.PositiveIntegerField(default=0)
+    leaf_rust_count = models.PositiveIntegerField(default=0)
+    powdery_mildew_count = models.PositiveIntegerField(default=0)
+
     notes = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -57,9 +76,10 @@ class TreeAnalysis(models.Model):
         return f"{self.name} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
     def calculate_health(self):
-        """Calculate detailed health percentages and overall health from leaf image predictions."""
+        """Calculate detailed health counts, percentages, and overall health."""
         leaf_images = self.leaf_images.all()
         total_leaves = leaf_images.count()
+        self.total_leaves = total_leaves
 
         if total_leaves == 0:
             self.healthy_percentage = 0
@@ -67,21 +87,25 @@ class TreeAnalysis(models.Model):
             self.leaf_rust_percentage = 0
             self.powdery_mildew_percentage = 0
             self.overall_health = 0
+            self.healthy_count = 0
+            self.dried_leaf_count = 0
+            self.leaf_rust_count = 0
+            self.powdery_mildew_count = 0
             return 0
 
         # Count leaves per class
-        healthy_count = leaf_images.filter(prediction='Healthy').count()
-        dried_leaf_count = leaf_images.filter(prediction='Dried Leaf').count()
-        leaf_rust_count = leaf_images.filter(prediction='Leaf Rust').count()
-        powdery_mildew_count = leaf_images.filter(prediction='Powdery Mildew').count()
+        self.healthy_count = leaf_images.filter(prediction='Healthy').count()
+        self.dried_leaf_count = leaf_images.filter(prediction='Dried Leaf').count()
+        self.leaf_rust_count = leaf_images.filter(prediction='Leaf Rust').count()
+        self.powdery_mildew_count = leaf_images.filter(prediction='Powdery Mildew').count()
 
         # Compute percentages
-        self.healthy_percentage = (healthy_count / total_leaves) * 100
-        self.dried_leaf_percentage = (dried_leaf_count / total_leaves) * 100
-        self.leaf_rust_percentage = (leaf_rust_count / total_leaves) * 100
-        self.powdery_mildew_percentage = (powdery_mildew_count / total_leaves) * 100
+        self.healthy_percentage = (self.healthy_count / total_leaves) * 100
+        self.dried_leaf_percentage = (self.dried_leaf_count / total_leaves) * 100
+        self.leaf_rust_percentage = (self.leaf_rust_count / total_leaves) * 100
+        self.powdery_mildew_percentage = (self.powdery_mildew_count / total_leaves) * 100
 
-        # Compute overall health score using weighted formula
+        # Compute overall health score
         self.overall_health = (
             self.healthy_percentage * 1 +
             self.powdery_mildew_percentage * 0.6 +

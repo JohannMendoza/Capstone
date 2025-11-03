@@ -458,6 +458,8 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        
     </style>
 </head>
 <body>
@@ -572,8 +574,15 @@
                                                     </h4>
                                                     <div class="analysis-date">
                                                         <i class="bi bi-calendar3 me-1"></i>
-                                                        {{ analysis.completed_at|date:"F d, Y" }} at {{ analysis.completed_at|date:"H:i" }}
+                                                        {% if analysis.created_at %}
+                                                            {{ analysis.created_at|date:"F d, Y" }} at {{ analysis.created_at|date:"H:i" }}
+                                                        {% elif analysis.completed_at %}
+                                                            {{ analysis.completed_at|date:"F d, Y" }} at {{ analysis.completed_at|date:"H:i" }}
+                                                        {% else %}
+                                                            <em>No date available</em>
+                                                        {% endif %}
                                                     </div>
+
                                                 </div>
                                             </div>
                                             <div class="action-buttons" onclick="event.stopPropagation();">
@@ -1111,7 +1120,8 @@
                 modal.show();
                 
                 // Fetch detailed analysis data
-                const response = await fetch(`/analysis/${analysisId}/detail/`);
+                const response = await fetch(`/analysis/${analysisId}/detail/json/`);
+
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -1131,7 +1141,7 @@
                             <i class="bi bi-tree me-2"></i>${analysis.name}
                         </h3>
                         <p class="text-muted">
-                            <i class="bi bi-calendar3 me-1"></i> ${new Date(analysis.completed_at).toLocaleDateString('en-US', {
+                            <i class="bi bi-calendar3 me-1"></i> ${new Date(analysis.created_at || analysis.completed_at).toLocaleDateString('en-US', {
                                 year: 'numeric',
                                 month: 'long', 
                                 day: 'numeric',
@@ -1161,64 +1171,83 @@
                         </div>
                     </div>
                     <div class="row mt-4">
-                        <div class="col-md-3">
-                            <div class="text-center p-3 bg-success bg-opacity-10 rounded">
-                                <h4 class="text-success">${analysis.healthy_count}</h4>
-                                <p class="mb-0">Healthy (${analysis.healthy_percentage.toFixed(1)}%)</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
-                                <h4 class="text-warning">${analysis.dried_leaf_count}</h4>
-                                <p class="mb-0">Dried Leaf (${analysis.dried_leaf_percentage.toFixed(1)}%)</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center p-3 bg-info bg-opacity-10 rounded">
-                                <h4 class="text-info">${analysis.powdery_mildew_count}</h4>
-                                <p class="mb-0">Powdery Mildew (${analysis.powdery_mildew_percentage.toFixed(1)}%)</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="text-center p-3 bg-danger bg-opacity-10 rounded">
-                                <h4 class="text-danger">${analysis.leaf_rust_count}</h4>
-                                <p class="mb-0">Leaf Rust (${analysis.leaf_rust_percentage.toFixed(1)}%)</p>
-                            </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="text-center p-3 bg-success bg-opacity-10 rounded">
+                            <h4 class="text-success">${analysis.healthy_count}</h4>
+                            <p class="mb-0">Healthy (${analysis.healthy_percentage.toFixed(1)}%)</p>
                         </div>
                     </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
+                            <h4 class="text-warning">${analysis.dried_leaf_count}</h4>
+                            <p class="mb-0">Dried Leaf (${analysis.dried_leaf_percentage.toFixed(1)}%)</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="text-center p-3 bg-info bg-opacity-10 rounded">
+                            <h4 class="text-info">${analysis.powdery_mildew_count}</h4>
+                            <p class="mb-0">Powdery Mildew (${analysis.powdery_mildew_percentage.toFixed(1)}%)</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="text-center p-3 bg-danger bg-opacity-10 rounded">
+                            <h4 class="text-danger">${analysis.leaf_rust_count}</h4>
+                            <p class="mb-0">Leaf Rust (${analysis.leaf_rust_percentage.toFixed(1)}%)</p>
+                        </div>
+                    </div>
+                </div>
+
                 `;
 
                 document.getElementById('analysisDetailModalLabel').textContent = `Analysis: ${analysis.name}`;
 
                 // Create chart
-                setTimeout(() => {
-                    const ctx = document.getElementById('detailChart').getContext('2d');
-                    new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['Healthy', 'Dried Leaf', 'Powdery Mildew', 'Leaf Rust'],
-                            datasets: [{
-                                data: [analysis.healthy_count, analysis.dried_leaf_count, analysis.powdery_mildew_count, analysis.leaf_rust_count],
-                                backgroundColor: ['#28a745', '#ffc107', '#0dcaf0', '#dc3545'],
-                                borderWidth: 0,
-                                hoverOffset: 4
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            plugins: {
-                                legend: {
-                                   position: 'bottom',
-                                    labels: {
-                                        padding: 20,
-                                        usePointStyle: true
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }, 100);
+               setTimeout(() => {
+                const ctx = document.getElementById('detailChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Healthy', 'Dried Leaf', 'Powdery Mildew', 'Leaf Rust'],
+                        datasets: [{
+                            data: [
+                                analysis.healthy_count || 0,
+                                analysis.dried_leaf_count || 0,
+                                analysis.powdery_mildew_count || 0,
+                                analysis.leaf_rust_count || 0
+                            ],
+                            backgroundColor: ['#28a745', '#ffc107', '#0dcaf0', '#dc3545'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+    responsive: true,
+    maintainAspectRatio: false, // allow more room for legend
+    plugins: {
+        legend: {
+            position: 'bottom',
+            align: 'center',
+            labels: {
+                usePointStyle: true,
+                boxWidth: 14,
+                padding: 18,
+                font: {
+                    size: 13,
+                    weight: '600'
+                },
+                color: '#333'
+            }
+        }
+    },
+    layout: {
+        padding: { top: 10, bottom: 10 }
+    }
+}
+
+                });
+            }, 100);
+
+
 
             } catch (error) {
                 console.error('Error loading analysis detail:', error);

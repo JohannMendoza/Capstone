@@ -1,0 +1,59 @@
+{% extends 'dashboard/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">Tree Analyses</h2>
+
+    {% if analyses %}
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped text-center align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Plant</th>
+                    <th>Created At</th>
+                    <th>Total Leaves</th>
+                    <th>Healthy</th>
+                    <th>Dried Leaf</th>
+                    <th>Leaf Rust</th>
+                    <th>Powdery Mildew</th>
+                    <th>Overall Health</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for analysis in analyses %}
+                <tr>
+                    <td>{{ analysis.name }}</td>
+                    <td>
+                        {% if analysis.plant %}
+                            {{ analysis.plant.name }}
+                        {% else %}
+                            No Plant
+                        {% endif %}
+                    </td>
+                    <td>{{ analysis.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ analysis.total_leaves }}</td>
+                    <td>{{ analysis.healthy_count }} ({{ analysis.healthy_percentage|floatformat:1 }}%)</td>
+                    <td>{{ analysis.dried_leaf_count }} ({{ analysis.dried_leaf_percentage|floatformat:1 }}%)</td>
+                    <td>{{ analysis.leaf_rust_count }} ({{ analysis.leaf_rust_percentage|floatformat:1 }}%)</td>
+                    <td>{{ analysis.powdery_mildew_count }} ({{ analysis.powdery_mildew_percentage|floatformat:1 }}%)</td>
+                    <td><strong>{{ analysis.overall_health|floatformat:1 }}%</strong></td>
+                    <td>
+                        <a href="{% url 'update_tree_analysis' analysis.id %}" class="btn btn-sm btn-warning">Update</a>
+                        <a href="{% url 'delete_tree_analysis' analysis.id %}" 
+                           class="btn btn-sm btn-danger"
+                           onclick="return confirm('Are you sure you want to delete this analysis?');">
+                           Delete
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">No tree analyses found.</div>
+    {% endif %}
+</div>
+{% endblock %}

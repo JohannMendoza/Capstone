@@ -24,14 +24,9 @@ load_dotenv(BASE_DIR / ".env")  # load local .env if exists
 # 🔐 SECURITY
 # ================================================================
 SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-dev-key")
-DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+DEBUG = True
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "lanzofields.capstoneph.com",
-    ".up.railway.app",
-]
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.7']
 
 # ================================================================
 # 🧱 APPLICATIONS
