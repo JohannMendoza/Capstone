@@ -71,30 +71,26 @@ logger = logging.getLogger(__name__)
 
 # ... existing code ...
 
-from django.core.mail import EmailMessage
-from django.conf import settings
-
-def send_verification_email(subject, body, recipient):
-    try:
-        email = EmailMessage(
-            subject,
-            body,
-            settings.DEFAULT_FROM_EMAIL,
-            [recipient]
-        )
-        email.content_subtype = "html"  # HTML format
-        email.send(fail_silently=False)
-        print(f"✅ Email sent successfully to {recipient}")
-    except Exception as e:
-        print(f"❌ Email send failed: {e}")
-
-
-
 from django.shortcuts import render
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from django.template.loader import render_to_string
+from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
+
+def send_verification_email(subject, html_body, recipient):
+    try:
+        text_body = "Please verify your email by clicking the link provided."
+        email = EmailMultiAlternatives(
+            subject, text_body, settings.DEFAULT_FROM_EMAIL, [recipient]
+        )
+        email.attach_alternative(html_body, "text/html")
+        email.send(fail_silently=False)
+        print(f"✅ Email sent successfully to {recipient}")
+    except Exception as e:
+        print(f"❌ Email send failed: {e}")
+
 
 def register_view(request):
     if request.method == "POST":
@@ -102,41 +98,32 @@ def register_view(request):
         if form.is_valid():
             user = form.save(commit=False)
             user.email = form.cleaned_data['email'].lower()
-            user.is_active = False
+            user.username = user.email.split('@')[0]  # auto username
             user.role = "client"
+            user.is_active = False
             user.save()
 
-            # Generate verification link
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            protocol = 'https' if request.is_secure() else 'http'
-            domain = request.get_host()
-            verification_link = f"{protocol}://{domain}/verify/{uid}/{token}/"
+            domain = "lanzofields.capstoneph.com"  # force your deployed domain
+            verification_link = f"https://{domain}/verify/{uid}/{token}/"
 
-            # Prepare email
-            subject = "Verify Your Email - Escala Plants & Nursery"
             try:
                 body = render_to_string("dashboard/verify_email_template.html", {
                     "user": user,
                     "verification_link": verification_link
                 })
             except Exception as e:
-                print(f"[Template Error] {e}")
-                body = f"<h3>Hello {user.username},</h3><p>Click to verify:</p><a href='{verification_link}'>Verify Email</a>"
+                print("[Template Error]", e)
+                body = f"<p>Hello {user.username},</p><p>Verify here: <a href='{verification_link}'>Click here</a></p>"
 
-            # Send email (direct)
-            send_verification_email(subject, body, user.email)
-
-            return render(request, "dashboard/register.html", {
-                "form": RegisterForm(),
-                "success": True
-            })
+            send_verification_email("Verify Your Email - Escala Plants & Nursery", body, user.email)
+            return render(request, "dashboard/register.html", {"form": RegisterForm(), "success": True})
         else:
+            print("[DEBUG] Form errors:", form.errors)
             return render(request, "dashboard/register.html", {"form": form})
     else:
-        form = RegisterForm()
-    return render(request, "dashboard/register.html", {"form": form})
-
+        return render(request, "dashboard/register.html", {"form": RegisterForm()})
 
 def login_view(request):
     if request.method == "POST":
