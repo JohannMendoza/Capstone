@@ -18,7 +18,7 @@ ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=ce
 # 📂 BASE DIRECTORY & .ENV LOADING
 # ================================================================
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / ".env")  # load local .env if exists
 
 # ================================================================
 # 🔐 SECURITY
@@ -51,7 +51,7 @@ AUTH_USER_MODEL = "dashboard.CustomUser"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # static files in prod
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -128,7 +128,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
-MODEL_PATH = os.path.join(MEDIA_ROOT, "best.pt")
+MODEL_PATH = os.path.join(MEDIA_ROOT, "best.pt")  # YOLOv8 model
 
 # ================================================================
 # 🛡 SECURITY HEADERS (Railway HTTPS)
@@ -147,18 +147,14 @@ if DEBUG:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
     print("⚙️  Using console email backend (development mode)")
 else:
-    # Production: Always use SendGrid
     EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
     SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@lanzofields.capstoneph.com")
+    DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "your-email@example.com")
     SENDGRID_SANDBOX_MODE_IN_DEBUG = False
-    SENDGRID_ECHO_TO_STDOUT = False
+    SENDGRID_ECHO_TO_STDOUT = True
     EMAIL_TIMEOUT = 10
     SENDGRID_TRACK_EMAIL_OPENS = False
     SENDGRID_TRACK_CLICKS = False
-    print(f"⚙️  Using SendGrid email backend - API Key: {bool(SENDGRID_API_KEY)}")
-
-EMAIL_VERIFICATION_TIMEOUT = 24 * 60 * 60  # 24 hours in seconds
 
 # ================================================================
 # 🚀 UPLOADS & LOGIN
