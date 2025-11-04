@@ -70,48 +70,28 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 
-def send_verification_email(user, request=None):
-    """Send email verification link to user"""
+def send_verification_email(user, request):
+    domain = request.get_host()
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    verification_link = f"https://{domain}/verify/{uid}/{token}/"
+
     try:
-        # Generate token
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = default_token_generator.make_token(user)
-        
-        # Use hardcoded domain for production or get from request for development
-        if settings.DEBUG and request:
-            domain = get_current_site(request).domain
-            protocol = "http"
-        else:
-            domain = "lanzofields.capstoneph.com"
-            protocol = "https"
-        
-        verification_link = f"{protocol}://{domain}/verify/{uid}/{token}/"
-        
-        # Render email template
-        html_body = render_to_string("dashboard/verify_email_template.html", {
+        body = render_to_string("dashboard/verify_email_template.html", {
             "user": user,
-            "verification_link": verification_link,
-            "domain": domain
+            "verification_link": verification_link
         })
-        
-        text_body = f"Hello {user.username},\n\nPlease verify your email by clicking the link below:\n{verification_link}\n\nThis link expires in 24 hours."
-        
-        # Send email
-        email = EmailMultiAlternatives(
-            subject="Verify Your Email - Escala Plants & Nursery",
-            body=text_body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[user.email]
-        )
-        email.attach_alternative(html_body, "text/html")
-        email.send(fail_silently=False)
-        
-        logger.info(f"✅ Verification email sent to {user.email}")
-        return True
-        
     except Exception as e:
-        logger.error(f"❌ Failed to send verification email to {user.email}: {str(e)}")
-        return False
+        print("[Template Error]", e)
+        body = f"<p>Hello {user.username},</p><p>Verify here: <a href='{verification_link}'>Click here</a></p>"
+
+    send_mail(
+        "Verify Your Email - Escala Plants & Nursery",
+        body,
+        "no-reply@escalaplants.com",
+        [user.email],
+        fail_silently=False,
+    )
 
 
 def register_view(request):
@@ -125,24 +105,19 @@ def register_view(request):
             user.is_active = False  # Set to False until email verified
             user.save()
 
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            token = default_token_generator.make_token(user)
-            domain = "lanzofields.capstoneph.com"
-            verification_link = f"https://{domain}/verify/{uid}/{token}/"
-
             try:
-                body = render_to_string("dashboard/verify_email_template.html", {
-                    "user": user,
-                    "verification_link": verification_link
-                })
+                send_verification_email(user, request)
+                logger.info(f"Verification email sent to {user.email}")
             except Exception as e:
-                print("[Template Error]", e)
-                body = f"<p>Hello {user.username},</p><p>Verify here: <a href='{verification_link}'>Click here</a></p>"
+                logger.error(f"Failed to send verification email: {str(e)}")
+                return render(request, "dashboard/register.html", {
+                    "error": "email_send_failed",
+                    "form": form
+                })
 
-            send_verification_email("Verify Your Email - Escala Plants & Nursery", body, user.email)
             return render(request, "dashboard/register.html", {"form": RegisterForm(), "success": True})
         else:
-            print("[DEBUG] Form errors:", form.errors)
+            logger.error(f"Registration form errors: {form.errors}")
             return render(request, "dashboard/register.html", {"form": form})
     else:
         return render(request, "dashboard/register.html", {"form": RegisterForm()})
