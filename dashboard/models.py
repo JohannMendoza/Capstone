@@ -170,8 +170,7 @@ class CustomUser(AbstractUser):
     )
     
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='client')  # <-- Ensure default is 'client'
-    email_verified = models.BooleanField(default=False)  # Added email verification tracking
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='client')
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
