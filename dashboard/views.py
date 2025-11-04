@@ -85,45 +85,88 @@ def send_verification_email(subject, body, recipient):
         print(f"❌ Email send failed: {e}")
 
 
+from django.shortcuts import render, redirect
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.contrib.auth.tokens import default_token_generator
+from django.template.loader import render_to_string
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
+from .forms import RegisterForm
+from .utils import send_verification_email
+
 def register_view(request):
+    """Register new user and send verification email"""
     if request.method == "POST":
         form = RegisterForm(request.POST)
         if form.is_valid():
+            # <CHANGE> Create user with role and is_active properly set
             user = form.save(commit=False)
             user.email = form.cleaned_data['email'].lower()
-            user.is_active = False
-            user.role = "client"
+            user.role = "client"  # <CHANGE> Set role to client
+            user.is_active = False  # <CHANGE> Require email verification
             user.save()
+            
+            print(f"[v0] ✅ User created: {user.email} (ID: {user.id})")
 
-            # Generate verification link
+            # <CHANGE> Generate verification token and link
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
             protocol = 'https' if request.is_secure() else 'http'
             domain = request.get_host()
             verification_link = f"{protocol}://{domain}/verify/{uid}/{token}/"
+            
+            print(f"[v0] Verification URL: {verification_link}")
 
-            # Prepare email
+            # <CHANGE> Render verification email template
             subject = "Verify Your Email - Escala Plants & Nursery"
             try:
                 body = render_to_string("dashboard/verify_email_template.html", {
                     "user": user,
-                    "verification_link": verification_link
+                    "verification_link": verification_link,
+                    "domain": domain
                 })
+                print(f"[v0] ✅ Template rendered successfully")
             except Exception as e:
-                print(f"[Template Error] {e}")
-                body = f"<h3>Hello {user.username},</h3><p>Click to verify:</p><a href='{verification_link}'>Verify Email</a>"
+                print(f"[v0] ❌ Template Error: {e}")
+                # Fallback email if template fails
+                body = f"""
+                <html>
+                    <body>
+                        <h3>Hello {user.username},</h3>
+                        <p>Thank you for registering at Escala Plants & Nursery!</p>
+                        <p>Please click the button below to verify your email:</p>
+                        <a href='{verification_link}' style='background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>Verify Email</a>
+                        <p>Or paste this link: {verification_link}</p>
+                        <p>This link expires in 24 hours.</p>
+                    </body>
+                </html>
+                """
 
-            # Send email (direct)
-            send_verification_email(subject, body, user.email)
-
-            return render(request, "dashboard/register.html", {
-                "form": RegisterForm(),
-                "success": True
-            })
+            # <CHANGE> Send verification email with error handling
+            email_sent = send_verification_email(subject, body, user.email)
+            
+            if email_sent:
+                print(f"[v0] ✅ SUCCESS: Verification email sent to {user.email}")
+                return render(request, "dashboard/register.html", {
+                    "form": RegisterForm(),
+                    "success": True,
+                    "message": "✅ Registration successful! Check your email to verify your account."
+                })
+            else:
+                print(f"[v0] ⚠️  WARNING: User created but email failed for {user.email}")
+                # Still show success but warn user
+                return render(request, "dashboard/register.html", {
+                    "form": RegisterForm(),
+                    "success": True,
+                    "warning": "⚠️  Registration successful but we couldn't send verification email. Contact support."
+                })
         else:
-            return render(request, "dashboard/register.html", {"form": form})
+            print(f"[v0] Form validation failed: {form.errors}")
+            return render(request, "dashboard/register.html", {"form": form, "errors": form.errors})
     else:
         form = RegisterForm()
+    
     return render(request, "dashboard/register.html", {"form": form})
 
 def login_view(request):
@@ -152,24 +195,36 @@ def login_view(request):
 
 
 def verify_email_view(request, uidb64, token):
+    """Verify email and activate user account"""
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
-        user = CustomUser.objects.get(pk=uid)
-        if user and default_token_generator.check_token(user, token):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = User.objects.get(pk=uid)
+        
+        print(f"[v0] Verifying email for user: {user.email}")
+        
+        if default_token_generator.check_token(user, token):
+            # <CHANGE> Activate user on successful verification
             user.is_active = True
             user.save()
+            print(f"[v0] ✅ Email verified for {user.email}")
+            
             return render(request, "dashboard/verify_email.html", {
-                "verified": True
+                "verified": True,
+                "message": "✅ Email verified! You can now login."
             })
         else:
+            print(f"[v0] ❌ Invalid token for user: {user.email}")
             return render(request, "dashboard/verify_email.html", {
                 "verified": False,
-                "error": "invalid_token"
+                "error": "Token expired or invalid. Please register again."
             })
-    except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
+    except Exception as e:
+        print(f"[v0] ❌ Verification error: {str(e)}")
         return render(request, "dashboard/verify_email.html", {
             "verified": False,
-            "error": "invalid_request"
+            "error": "Invalid verification link."
         })
 
 
