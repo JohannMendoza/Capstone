@@ -79,53 +79,90 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 
-def send_verification_email(subject, html_body, recipient):
+def send_verification_email(user, request=None):
+    """Send email verification link to user"""
     try:
-        text_body = "Please verify your email by clicking the link provided."
+        # Generate token
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        
+        # Use hardcoded domain for production or get from request for development
+        if settings.DEBUG and request:
+            domain = get_current_site(request).domain
+            protocol = "http"
+        else:
+            domain = "lanzofields.capstoneph.com"
+            protocol = "https"
+        
+        verification_link = f"{protocol}://{domain}/verify/{uid}/{token}/"
+        
+        # Render email template
+        html_body = render_to_string("dashboard/verify_email_template.html", {
+            "user": user,
+            "verification_link": verification_link,
+            "domain": domain
+        })
+        
+        text_body = f"Hello {user.username},\n\nPlease verify your email by clicking the link below:\n{verification_link}\n\nThis link expires in 24 hours."
+        
+        # Send email
         email = EmailMultiAlternatives(
-            subject, text_body, settings.DEFAULT_FROM_EMAIL, [recipient]
+            subject="Verify Your Email - Escala Plants & Nursery",
+            body=text_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email]
         )
         email.attach_alternative(html_body, "text/html")
         email.send(fail_silently=False)
-        print(f"✅ Email sent successfully to {recipient}")
+        
+        logger.info(f"✅ Verification email sent to {user.email}")
+        return True
+        
     except Exception as e:
-        print(f"❌ Email send failed: {e}")
+        logger.error(f"❌ Failed to send verification email to {user.email}: {str(e)}")
+        return False
 
 
 def register_view(request):
+    """User registration view - creates CLIENT users with email verification"""
     if request.method == "POST":
         form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
             user.email = form.cleaned_data['email'].lower()
-            user.username = user.email.split('@')[0]  # auto username
+            user.username = user.email.split('@')[0]
+            
             user.role = "client"
-            user.is_active = False
+            user.is_active = False  # Require email verification
+            user.email_verified = False
+            
             user.save()
-
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            token = default_token_generator.make_token(user)
-            domain = "lanzofields.capstoneph.com"  # force your deployed domain
-            verification_link = f"https://{domain}/verify/{uid}/{token}/"
-
-            try:
-                body = render_to_string("dashboard/verify_email_template.html", {
-                    "user": user,
-                    "verification_link": verification_link
+            
+            # Send verification email
+            email_sent = send_verification_email(user, request)
+            
+            if email_sent:
+                return render(request, "dashboard/register.html", {
+                    "form": RegisterForm(),
+                    "success": True,
+                    "message": "Registration successful! Please check your email to verify your account."
                 })
-            except Exception as e:
-                print("[Template Error]", e)
-                body = f"<p>Hello {user.username},</p><p>Verify here: <a href='{verification_link}'>Click here</a></p>"
-
-            send_verification_email("Verify Your Email - Escala Plants & Nursery", body, user.email)
-            return render(request, "dashboard/register.html", {"form": RegisterForm(), "success": True})
+            else:
+                # Email failed but user created - show warning
+                messages.warning(request, "Account created but verification email failed. Please contact support.")
+                return render(request, "dashboard/register.html", {
+                    "form": RegisterForm(),
+                    "success": True,
+                    "message": "Registration successful but email verification failed. Please contact support."
+                })
         else:
-            print("[DEBUG] Form errors:", form.errors)
+            logger.warning(f"Registration form errors: {form.errors}")
             return render(request, "dashboard/register.html", {"form": form})
     else:
         return render(request, "dashboard/register.html", {"form": RegisterForm()})
 
 def login_view(request):
+    """User login view - checks email verification status"""
     if request.method == "POST":
         email = request.POST.get("email", "").strip().lower()
         password = request.POST.get("password")
@@ -134,41 +171,61 @@ def login_view(request):
 
         if user is not None:
             if not user.is_active:
+                logger.warning(f"Login attempt by unverified user: {email}")
                 return render(request, "dashboard/login.html", {
-                    "error": "not_verified"
+                    "error": "not_verified",
+                    "message": "Please verify your email before logging in."
                 })
+            
             login(request, user)
+            
+            # Route based on role (should always be 'client' for registered users)
             if user.role == "admin":
+                logger.info(f"Admin user logged in: {email}")
                 return redirect("admin_dashboard")
             else:
+                logger.info(f"Client user logged in: {email}")
                 return redirect("client_dashboard")
         else:
+            logger.warning(f"Failed login attempt for email: {email}")
             return render(request, "dashboard/login.html", {
-                "error": "invalid_credentials"
+                "error": "invalid_credentials",
+                "message": "Invalid email or password."
             })
 
     return render(request, "dashboard/login.html")
-
 def verify_email_view(request, uidb64, token):
+    """Email verification view - activates user account after email verification"""
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
         user = CustomUser.objects.get(pk=uid)
-        if user and default_token_generator.check_token(user, token):
+        
+        if default_token_generator.check_token(user, token):
             user.is_active = True
+            user.email_verified = True
             user.save()
+            
+            logger.info(f"✅ Email verified for user: {user.email}")
+            
             return render(request, "dashboard/verify_email.html", {
-                "verified": True
+                "verified": True,
+                "message": "Your email has been verified! You can now log in."
             })
         else:
+            logger.warning(f"Invalid verification token for user ID: {uid}")
             return render(request, "dashboard/verify_email.html", {
                 "verified": False,
-                "error": "invalid_token"
+                "error": "invalid_token",
+                "message": "The verification link is invalid or has expired."
             })
-    except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
+    except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist) as e:
+        logger.error(f"Email verification error: {str(e)}")
         return render(request, "dashboard/verify_email.html", {
             "verified": False,
-            "error": "invalid_request"
+            "error": "invalid_request",
+            "message": "Invalid verification request."
         })
+
 
 
 
