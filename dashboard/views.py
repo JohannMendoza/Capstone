@@ -115,42 +115,61 @@ def send_verification_email(user, request=None):
 
 
 def register_view(request):
-    """User registration view - creates CLIENT users with email verification"""
     if request.method == "POST":
         form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
             user.email = form.cleaned_data['email'].lower()
             user.username = user.email.split('@')[0]
-            
-            user.role = "client"
-            user.is_active = False  # Require email verification
-            user.email_verified = False
-            
+            user.role = "client"  # Explicitly set role to client
+            user.is_active = False  # Set to False until email verified
             user.save()
-            
-            # Send verification email
-            email_sent = send_verification_email(user, request)
-            
-            if email_sent:
-                return render(request, "dashboard/register.html", {
-                    "form": RegisterForm(),
-                    "success": True,
-                    "message": "Registration successful! Please check your email to verify your account."
+
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            domain = "lanzofields.capstoneph.com"
+            verification_link = f"https://{domain}/verify/{uid}/{token}/"
+
+            try:
+                body = render_to_string("dashboard/verify_email_template.html", {
+                    "user": user,
+                    "verification_link": verification_link
                 })
-            else:
-                # Email failed but user created - show warning
-                messages.warning(request, "Account created but verification email failed. Please contact support.")
-                return render(request, "dashboard/register.html", {
-                    "form": RegisterForm(),
-                    "success": True,
-                    "message": "Registration successful but email verification failed. Please contact support."
-                })
+            except Exception as e:
+                print("[Template Error]", e)
+                body = f"<p>Hello {user.username},</p><p>Verify here: <a href='{verification_link}'>Click here</a></p>"
+
+            send_verification_email("Verify Your Email - Escala Plants & Nursery", body, user.email)
+            return render(request, "dashboard/register.html", {"form": RegisterForm(), "success": True})
         else:
-            logger.warning(f"Registration form errors: {form.errors}")
+            print("[DEBUG] Form errors:", form.errors)
             return render(request, "dashboard/register.html", {"form": form})
     else:
         return render(request, "dashboard/register.html", {"form": RegisterForm()})
+
+def login_view(request):
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip().lower()
+        password = request.POST.get("password")
+
+        user = authenticate(request, email=email, password=password)
+
+        if user is not None:
+            if not user.is_active:
+                return render(request, "dashboard/login.html", {
+                    "error": "not_verified"
+                })
+            login(request, user)
+            if user.role == "admin":
+                return redirect("admin_dashboard")
+            else:
+                return redirect("client_dashboard")
+        else:
+            return render(request, "dashboard/login.html", {
+                "error": "invalid_credentials"
+            })
+
+    return render(request, "dashboard/login.html")
 
 def login_view(request):
     """User login view - checks email verification status"""
@@ -185,36 +204,27 @@ def login_view(request):
             })
 
     return render(request, "dashboard/login.html")
+
+
 def verify_email_view(request, uidb64, token):
-    """Email verification view - activates user account after email verification"""
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
         user = CustomUser.objects.get(pk=uid)
-        
-        if default_token_generator.check_token(user, token):
+        if user and default_token_generator.check_token(user, token):
             user.is_active = True
-            user.email_verified = True
             user.save()
-            
-            logger.info(f"✅ Email verified for user: {user.email}")
-            
             return render(request, "dashboard/verify_email.html", {
-                "verified": True,
-                "message": "Your email has been verified! You can now log in."
+                "verified": True
             })
         else:
-            logger.warning(f"Invalid verification token for user ID: {uid}")
             return render(request, "dashboard/verify_email.html", {
                 "verified": False,
-                "error": "invalid_token",
-                "message": "The verification link is invalid or has expired."
+                "error": "invalid_token"
             })
-    except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist) as e:
-        logger.error(f"Email verification error: {str(e)}")
+    except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
         return render(request, "dashboard/verify_email.html", {
             "verified": False,
-            "error": "invalid_request",
-            "message": "Invalid verification request."
+            "error": "invalid_request"
         })
 
 
