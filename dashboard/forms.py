@@ -52,6 +52,9 @@ class RegisterForm(forms.ModelForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data['password'])
+        # <CHANGE> Add these two critical lines
+        user.role = 'client'  # Set default role to client
+        user.is_active = False  # Require email verification
         if commit:
             user.save()
         return user
