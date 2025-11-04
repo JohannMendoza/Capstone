@@ -72,30 +72,33 @@ logger = logging.getLogger(__name__)
 # ... existing code ...
 
 from django.core.mail import EmailMessage
+from django.conf import settings
 
 def send_verification_email(subject, body, recipient):
-    email = EmailMessage(
-        subject,
-        body,
-        settings.DEFAULT_FROM_EMAIL,
-        [recipient]
-    )
-    email.content_subtype = "html"  # ✅ tell Django it's HTML
-    email.send(fail_silently=False)
+    try:
+        email = EmailMessage(
+            subject,
+            body,
+            settings.DEFAULT_FROM_EMAIL,
+            [recipient]
+        )
+        email.content_subtype = "html"  # HTML format
+        email.send(fail_silently=False)
+        print(f"✅ Email sent successfully to {recipient}")
+    except Exception as e:
+        print(f"❌ Email send failed: {e}")
 
 
-from django.contrib.sites.shortcuts import get_current_site
+
+from django.shortcuts import render
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
-from urllib.parse import urljoin
-from django.contrib import messages
-import threading
+from django.template.loader import render_to_string
 
 def register_view(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
-        
         if form.is_valid():
             user = form.save(commit=False)
             user.email = form.cleaned_data['email'].lower()
@@ -103,50 +106,37 @@ def register_view(request):
             user.role = "client"
             user.save()
 
+            # Generate verification link
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            
             protocol = 'https' if request.is_secure() else 'http'
             domain = request.get_host()
             verification_link = f"{protocol}://{domain}/verify/{uid}/{token}/"
 
-            email_subject = "Verify Your Email - Escala Plants & Nursery"
+            # Prepare email
+            subject = "Verify Your Email - Escala Plants & Nursery"
             try:
-                email_body = render_to_string("dashboard/verify_email_template.html", {
+                body = render_to_string("dashboard/verify_email_template.html", {
                     "user": user,
                     "verification_link": verification_link
                 })
             except Exception as e:
-                print(f"[v0] Template error: {str(e)}")
-                email_body = f"<h2>Hello {user.username},</h2><p>Please verify your email by clicking this link:</p><p><a href='{verification_link}'>Verify Email</a></p>"
+                print(f"[Template Error] {e}")
+                body = f"<h3>Hello {user.username},</h3><p>Click to verify:</p><a href='{verification_link}'>Verify Email</a>"
 
-            threading.Thread(
-                target=send_verification_email,
-                args=(email_subject, email_body, user.email),
-                daemon=True
-            ).start()
+            # Send email (direct)
+            send_verification_email(subject, body, user.email)
 
             return render(request, "dashboard/register.html", {
                 "form": RegisterForm(),
                 "success": True
             })
         else:
-            error = None
-            if 'email' in form.errors:
-                error_msg = str(form.errors['email'][0])
-                if 'already registered' in error_msg.lower():
-                    error = 'email_exists'
-                else:
-                    error = 'email_invalid'
-            
-            return render(request, "dashboard/register.html", {
-                "form": form,
-                "error": error
-            })
+            return render(request, "dashboard/register.html", {"form": form})
     else:
         form = RegisterForm()
-
     return render(request, "dashboard/register.html", {"form": form})
+
 
 def login_view(request):
     if request.method == "POST":
