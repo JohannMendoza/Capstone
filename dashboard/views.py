@@ -100,7 +100,7 @@ def register_view(request):
             user = form.save(commit=False)
             user.email = form.cleaned_data['email'].lower()
             user.is_active = False
-            user.role = "admin"
+            user.role = "client"
             user.save()
 
             uid = urlsafe_base64_encode(force_bytes(user.pk))
