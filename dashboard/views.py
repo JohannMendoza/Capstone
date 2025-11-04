@@ -1,6 +1,21 @@
 # ✅ UPDATED: Fixed views.py with lazy loading and model caching
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.shortcuts import render, redirect
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.sites.shortcuts import get_current_site
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
+from django.conf import settings
+from django.contrib import messages
+import logging
+from .forms import RegisterForm
+from .models import CustomUser
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from urllib.parse import urljoin
 from .forms import RegisterForm
 from .models import CustomUser
