@@ -70,28 +70,19 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 
-def send_verification_email(user, request):
-    domain = request.get_host()
-    uid = urlsafe_base64_encode(force_bytes(user.pk))
-    token = default_token_generator.make_token(user)
-    verification_link = f"https://{domain}/verify/{uid}/{token}/"
-
+def send_verification_email(subject, body, recipient):
     try:
-        body = render_to_string("dashboard/verify_email_template.html", {
-            "user": user,
-            "verification_link": verification_link
-        })
+        email = EmailMessage(
+            subject,
+            body,
+            settings.DEFAULT_FROM_EMAIL,
+            [recipient]
+        )
+        email.content_subtype = "html"  # HTML format
+        email.send(fail_silently=False)
+        print(f"✅ Email sent successfully to {recipient}")
     except Exception as e:
-        print("[Template Error]", e)
-        body = f"<p>Hello {user.username},</p><p>Verify here: <a href='{verification_link}'>Click here</a></p>"
-
-    send_mail(
-        "Verify Your Email - Escala Plants & Nursery",
-        body,
-        "no-reply@escalaplants.com",
-        [user.email],
-        fail_silently=False,
-    )
+        print(f"❌ Email send failed: {e}")
 
 
 def register_view(request):
@@ -100,27 +91,40 @@ def register_view(request):
         if form.is_valid():
             user = form.save(commit=False)
             user.email = form.cleaned_data['email'].lower()
-            user.username = user.email.split('@')[0]
-            user.role = "client"  # Explicitly set role to client
-            user.is_active = False  # Set to False until email verified
+            user.is_active = False
+            user.role = "client"
             user.save()
 
-            try:
-                send_verification_email(user, request)
-                logger.info(f"Verification email sent to {user.email}")
-            except Exception as e:
-                logger.error(f"Failed to send verification email: {str(e)}")
-                return render(request, "dashboard/register.html", {
-                    "error": "email_send_failed",
-                    "form": form
-                })
+            # Generate verification link
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            protocol = 'https' if request.is_secure() else 'http'
+            domain = request.get_host()
+            verification_link = f"{protocol}://{domain}/verify/{uid}/{token}/"
 
-            return render(request, "dashboard/register.html", {"form": RegisterForm(), "success": True})
+            # Prepare email
+            subject = "Verify Your Email - Escala Plants & Nursery"
+            try:
+                body = render_to_string("dashboard/verify_email_template.html", {
+                    "user": user,
+                    "verification_link": verification_link
+                })
+            except Exception as e:
+                print(f"[Template Error] {e}")
+                body = f"<h3>Hello {user.username},</h3><p>Click to verify:</p><a href='{verification_link}'>Verify Email</a>"
+
+            # Send email (direct)
+            send_verification_email(subject, body, user.email)
+
+            return render(request, "dashboard/register.html", {
+                "form": RegisterForm(),
+                "success": True
+            })
         else:
-            logger.error(f"Registration form errors: {form.errors}")
             return render(request, "dashboard/register.html", {"form": form})
     else:
-        return render(request, "dashboard/register.html", {"form": RegisterForm()})
+        form = RegisterForm()
+    return render(request, "dashboard/register.html", {"form": form})
 
 def login_view(request):
     if request.method == "POST":
@@ -146,6 +150,7 @@ def login_view(request):
 
     return render(request, "dashboard/login.html")
 
+
 def verify_email_view(request, uidb64, token):
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
@@ -166,6 +171,7 @@ def verify_email_view(request, uidb64, token):
             "verified": False,
             "error": "invalid_request"
         })
+
 
     return render(request, "dashboard/login.html")
 
