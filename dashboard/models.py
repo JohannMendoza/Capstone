@@ -22,7 +22,7 @@ class LeafImage(models.Model):
     
     # Prediction label and confidence scores
     prediction = models.CharField(max_length=50, blank=True, null=True)
-    dried_leaf_confidence = models.FloatField(default=0)  # ✅ NEW
+    dried_leaf_confidence = models.FloatField(default=0)
     healthy_confidence = models.FloatField(default=0)
     leaf_rust_confidence = models.FloatField(default=0)
     powdery_mildew_confidence = models.FloatField(default=0)
@@ -59,7 +59,7 @@ class TreeAnalysis(models.Model):
     powdery_mildew_percentage = models.FloatField(default=0)
     overall_health = models.FloatField(default=0)  # 0–100 scale
 
-    # ✅ New count fields
+    # New count fields
     total_leaves = models.PositiveIntegerField(default=0)
     healthy_count = models.PositiveIntegerField(default=0)
     dried_leaf_count = models.PositiveIntegerField(default=0)
@@ -115,7 +115,7 @@ class TreeAnalysis(models.Model):
         return self.overall_health
 
 
-# ✅ NEW: Pest Detection Session Model
+# NEW: Pest Detection Session Model
 class PestDetectionSession(models.Model):
     """Model to store pest detection sessions"""
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pest_sessions')
@@ -139,7 +139,7 @@ class PestDetectionSession(models.Model):
     def __str__(self):
         return f"{self.session_name} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
-# ✅ NEW: Individual Pest Detection Result Model
+# NEW: Individual Pest Detection Result Model
 class PestDetectionResult(models.Model):
     """Model to store individual pest detection results"""
     session = models.ForeignKey(PestDetectionSession, on_delete=models.CASCADE, related_name='results')
@@ -169,11 +169,18 @@ class CustomUser(AbstractUser):
         ('client', 'Client'),
     )
     
-    email = models.EmailField(unique=True)  # Make email required and unique
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='client')
+    email = models.EmailField(unique=True)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='client')  # <-- Ensure default is 'client'
+    email_verified = models.BooleanField(default=False)  # Added email verification tracking
 
-    USERNAME_FIELD = 'email'  # Use email for authentication
-    REQUIRED_FIELDS = ['username']  # Keep username but not required for login
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username']
+
+    class Meta:
+        ordering = ['-date_joined']
+
+    def __str__(self):
+        return f"{self.email} ({self.role})"
 
 class Plant(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -183,12 +190,12 @@ class Plant(models.Model):
     health_status = models.CharField(max_length=255, default='undetected')
     symptoms = models.CharField(max_length=255, blank=True, null=True)
     tree_analysis = models.OneToOneField(
-    'dashboard.TreeAnalysis',
-    null=True,
-    blank=True,
-    on_delete=models.SET_NULL,
-    related_name='linked_plant'  # ✅ Add this
-)
+        'dashboard.TreeAnalysis',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='linked_plant'
+    )
 
     def save(self, *args, **kwargs):
         symptoms_mapping = {
@@ -206,7 +213,7 @@ class Plant(models.Model):
 
 class PlantInventory(models.Model):
     name = models.CharField(max_length=100)
-    plant_number = models.IntegerField(default=0)  # New column for plant numbers
+    plant_number = models.IntegerField(default=0)
     health_status = models.CharField(
         max_length=20,
         choices=[
@@ -217,10 +224,9 @@ class PlantInventory(models.Model):
             ('good', 'Good')
         ]
     )
-    symptoms = models.CharField(max_length=255, blank=True)  # New column for symptoms
+    symptoms = models.CharField(max_length=255, blank=True)
 
     def save(self, *args, **kwargs):
-        # Automatically insert symptoms based on health status
         symptoms_mapping = {
             'leaf rust': 'gawang ulan',
             'dahon': 'gawa ng puno',
