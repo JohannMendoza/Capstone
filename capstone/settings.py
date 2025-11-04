@@ -143,15 +143,18 @@ CSRF_TRUSTED_ORIGINS = [
 # ================================================================
 # 📧 EMAIL CONFIGURATION (SendGrid / Console for DEBUG)
 # ================================================================
+# ================================================================
+# 📧 EMAIL CONFIGURATION (SendGrid / Console for DEBUG)
+# ================================================================
 if DEBUG:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
     print("⚙️  Using console email backend (development mode)")
 else:
-EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
+    EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
     SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
     DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "aurelioescala15@gmail.com")
     SENDGRID_SANDBOX_MODE_IN_DEBUG = False
-    SENDGRID_ECHO_TO_STDOUT = False  # <CHANGE> Set to False in production
+    SENDGRID_ECHO_TO_STDOUT = False
     EMAIL_TIMEOUT = 10
     SENDGRID_TRACK_EMAIL_OPENS = False
     SENDGRID_TRACK_CLICKS = False
