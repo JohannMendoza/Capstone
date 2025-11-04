@@ -170,7 +170,7 @@ class CustomUser(AbstractUser):
     )
     
     email = models.EmailField(unique=True)  # Make email required and unique
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='admin')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='client')
 
     USERNAME_FIELD = 'email'  # Use email for authentication
     REQUIRED_FIELDS = ['username']  # Keep username but not required for login
