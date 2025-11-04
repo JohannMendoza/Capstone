@@ -171,6 +171,29 @@ def login_view(request):
 
     return render(request, "dashboard/login.html")
 
+def verify_email_view(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = CustomUser.objects.get(pk=uid)
+        if user and default_token_generator.check_token(user, token):
+            user.is_active = True
+            user.save()
+            return render(request, "dashboard/verify_email.html", {
+                "verified": True
+            })
+        else:
+            return render(request, "dashboard/verify_email.html", {
+                "verified": False,
+                "error": "invalid_token"
+            })
+    except (TypeError, ValueError, OverflowError, CustomUser.DoesNotExist):
+        return render(request, "dashboard/verify_email.html", {
+            "verified": False,
+            "error": "invalid_request"
+        })
+
+    return render(request, "dashboard/login.html")
+
 def login_view(request):
     """User login view - checks email verification status"""
     if request.method == "POST":
