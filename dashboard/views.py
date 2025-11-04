@@ -1893,5 +1893,3 @@ def analysis_detail_json(request, analysis_id):
     }
 
     return JsonResponse({'success': True, 'analysis': data})
-
-
