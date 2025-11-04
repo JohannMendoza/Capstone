@@ -1,76 +1,52 @@
 # ✅ UPDATED: Fixed views.py with lazy loading and model caching
-from django.core.validators import validate_email
-from django.core.exceptions import ValidationError
-from django.shortcuts import render, redirect
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.tokens import default_token_generator
-from django.contrib.sites.shortcuts import get_current_site
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
-from django.template.loader import render_to_string
-from django.core.mail import EmailMultiAlternatives
-from django.conf import settings
-from django.contrib import messages
-import logging
-from .forms import RegisterForm
-from .models import CustomUser
-from django.core.validators import validate_email
-from django.core.exceptions import ValidationError
-from urllib.parse import urljoin
-from .forms import RegisterForm
-from .models import CustomUser
-from .utils import send_verification_email, default_token_generator
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
-from django.contrib.sites.shortcuts import get_current_site
-from django.core.mail import send_mail
-from django.contrib import messages
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
-from django.template.loader import render_to_string
-from django.contrib.auth.tokens import default_token_generator
-from django.contrib.auth.views import PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
-from django.urls import reverse_lazy
-from django.http import HttpResponse
-from django.conf import settings
-from .models import CustomUser
-from .forms import RegisterForm
-from .models import Plant
-from .forms import PlantForm  
-from django.contrib.auth import get_user_model
-import csv
-from django.http import HttpResponse
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from collections import Counter
-from django.db.models import Count, Q
-from django.contrib.messages import get_messages
 import os
-import base64
-import json
-import numpy as np
 import csv
+import json
+import base64
+import logging
+import traceback
+import threading
+import numpy as np
 from io import BytesIO
+from collections import Counter
+from urllib.parse import urljoin
 from PIL import Image
-from django.shortcuts import render, redirect, get_object_or_404
-from django.http import JsonResponse, HttpResponse
 from django.conf import settings
+from django.utils import timezone
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.utils import timezone
-import traceback
-import logging
-from .models import TreeAnalysis, LeafImage, PestDetectionSession, PestDetectionResult
-from django.contrib import messages, auth
-from django.urls import reverse
-from PIL import Image
-import numpy as np
-from django.core.files.storage import default_storage
+from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives, send_mail
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-import threading
+from django.contrib import messages, auth
+from django.contrib.auth import authenticate, login, logout, get_user_model
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.views import (
+    PasswordResetView, PasswordResetDoneView,
+    PasswordResetConfirmView, PasswordResetCompleteView
+)
 from django.contrib.sites.shortcuts import get_current_site
+from django.urls import reverse, reverse_lazy
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.db.models import Count, Q
+
+# Third-party / PDF library
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+# Local imports
+from .forms import RegisterForm, PlantForm
+from .models import CustomUser, Plant, TreeAnalysis, LeafImage, PestDetectionSession, PestDetectionResult
+from .utils import send_verification_email
+
 
 
 
