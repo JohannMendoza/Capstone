@@ -63,9 +63,49 @@ class RegisterForm(forms.ModelForm):
 class PlantForm(forms.ModelForm):
     class Meta:
         model = Plant
-        fields = ['plant_number', 'age']  # Changed location to plant_number
-
-User = get_user_model()
+        fields = ['plant_number', 'age']
+        widgets = {
+            'plant_number': forms.NumberInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500',
+                'min': '1',
+                'step': '1',
+                'placeholder': 'Enter plant number',
+                'required': 'required'
+            }),
+            'age': forms.NumberInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500',
+                'min': '0',
+                'step': '1',
+                'placeholder': 'Enter age in years',
+                'required': 'required'
+            })
+        }
+    
+    def clean_plant_number(self):
+        plant_number = self.cleaned_data.get('plant_number')
+        if plant_number is None or plant_number == '':
+            raise forms.ValidationError("Plant number is required.")
+        try:
+            plant_number = int(plant_number)
+        except (ValueError, TypeError):
+            raise forms.ValidationError("Plant number must be a valid number.")
+        if plant_number < 1:
+            raise forms.ValidationError("Plant number must be a positive number (1 or higher).")
+        return plant_number
+    
+    def clean_age(self):
+        age = self.cleaned_data.get('age')
+        if age is None or age == '':
+            raise forms.ValidationError("Age is required.")
+        try:
+            age = int(age)
+        except (ValueError, TypeError):
+            raise forms.ValidationError("Age must be a valid number.")
+        if age < 0:
+            raise forms.ValidationError("Age must be zero or a positive number.")
+        if age > 150:
+            raise forms.ValidationError("Please enter a realistic age (0-150 years).")
+        return age
 
 class CustomPasswordResetForm(PasswordResetForm):
     def send_mail(self, subject_template_name, email_template_name,

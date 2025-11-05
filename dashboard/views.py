@@ -470,21 +470,31 @@ def plant_inventory(request):
 
 @login_required
 def add_plant(request):
-    storage = get_messages(request)
-    for _ in storage:
-        pass
-
+    """Add a new plant to inventory"""
     if request.method == "POST":
         form = PlantForm(request.POST)
+        
         if form.is_valid():
-            plant = form.save(commit=False)
-            plant.user = request.user
-            plant.health_status = "undetected"
-            plant.save()
-            messages.success(request, "✅ Plant added successfully!")
-            return redirect('add_plant')
+            try:
+                plant = form.save(commit=False)
+                plant.user = request.user
+                plant.health_status = "undetected"
+                plant.save()
+                
+                print(f"[v0] Plant added successfully: Plant #{plant.plant_id}")
+                messages.success(request, f"Plant added successfully! Plant ID: {plant.plant_id}")
+                return redirect('add_plant')
+            
+            except Exception as e:
+                print(f"[v0] Error saving plant: {str(e)}")
+                messages.error(request, f"Error adding plant: {str(e)}")
+                return render(request, 'dashboard/add_plant.html', {'form': form})
         else:
-            messages.error(request, "❌ Error adding plant. Please check your inputs.")
+            print(f"[v0] Form validation failed: {form.errors}")
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
+            return render(request, 'dashboard/add_plant.html', {'form': form})
     else:
         form = PlantForm()
 
