@@ -26,13 +26,11 @@
     </button>
 </div>
 
-<!--  Fixed layout structure - moved main content inside flex container -->
 <div class="flex flex-col lg:flex-row min-h-screen overflow-x-hidden">
 
   <!-- Sidebar -->
   <aside id="sidebar" class="bg-gradient-to-b from-green-800 to-emerald-900 text-white w-full lg:w-80 h-auto lg:h-screen p-6 flex-col justify-between hidden lg:flex shadow-2xl flex-shrink-0">
     <div>
-      <!-- Logo Section -->
       <div class="bg-white bg-opacity-15 rounded-2xl p-4 mb-8 backdrop-blur-sm">
         <div class="flex items-center space-x-3">
           <div class="bg-white bg-opacity-20 p-3 rounded-xl">
@@ -118,12 +116,11 @@
       </nav>
     </div>
     
-    <!-- Logout Section -->
     <div class="mt-8">
       <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
         <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
           <svg class="w-5 h-5 text-red-300" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01.99l-2.54 3.38c-.35.47-.35 1.1 0 1.58l2.54 3.38c.47.62 1.21.99 2.01.99h1.54c.8 0 1.54-.37 2.01-.99L22 14v8h-2z"/>
+            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
           </svg>
         </div>
         <span class="font-medium text-red-300">Logout</span>
@@ -131,9 +128,8 @@
     </div>
   </aside>
 
-  <!--  Main content now properly positioned within flex container -->
+  <!-- Main Content -->
   <main class="flex-1 min-h-screen bg-gray-50">
-    <!--  Added content wrapper for better alignment and spacing -->
     <div class="max-w-7xl mx-auto p-6 lg:p-8">
         <!-- Header Section -->
         <div class="bg-gradient-to-r from-green-600 to-emerald-700 text-white p-6 rounded-2xl shadow-xl mb-8">
@@ -157,7 +153,8 @@
                     <h3 class="text-lg font-semibold text-gray-800">Manage Lanzones Trees</h3>
                     <p class="text-gray-500 text-sm">Track health status, age, and manage your plant inventory</p>
                 </div>
-                <a href="{% url 'add_plant' %}" class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors">
+                <!-- Fixed the add plant button to use proper Django URL -->
+                <a href="{% url 'add_plant' %}" class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors shadow-md">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                     </svg>
@@ -165,7 +162,6 @@
                 </a>
             </div>
 
-            <!--  Enhanced table with better responsive behavior -->
             <div class="overflow-x-auto">
                 <table class="min-w-full">
                     <thead>
@@ -191,53 +187,12 @@
                                         </svg>
                                         Pending Detection
                                     </span>
-                                {% elif plant.detection_details %}
-                                    <!-- Display all detection classes with percentages -->
-                                    <div class="space-y-1">
-                                        {% if plant.detection_details.healthy > 0 %}
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M9 12l2 2 4-4"/>
-                                                </svg>
-                                                Healthy: {{ plant.detection_details.healthy }}%
-                                            </span>
-                                        </div>
-                                        {% endif %}
-                                        {% if plant.detection_details.dried_leaf > 0 %}
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                                                </svg>
-                                                Dried Leaf: {{ plant.detection_details.dried_leaf }}%
-                                            </span>
-                                        </div>
-                                        {% endif %}
-                                        {% if plant.detection_details.leaf_rust > 0 %}
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                                                </svg>
-                                                Leaf Rust: {{ plant.detection_details.leaf_rust }}%
-                                            </span>
-                                        </div>
-                                        {% endif %}
-                                        {% if plant.detection_details.powdery_mildew > 0 %}
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
-                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                                                </svg>
-                                                Powdery Mildew: {{ plant.detection_details.powdery_mildew }}%
-                                            </span>
-                                        </div>
-                                        {% endif %}
-                                    </div>
                                 {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                                        No Analysis Data
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M9 12l2 2 4-4"/>
+                                        </svg>
+                                        {{ plant.health_status|title }}
                                     </span>
                                 {% endif %}
                             </td>
@@ -258,7 +213,7 @@
                                             Delete
                                         </button>
                                     </form>
-                                    <a href="{% url 'detector' %}?plant_id={{ plant.plant_id }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors">
+                                    <a href="{% url 'detector' %}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors">
                                         <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                         </svg>
@@ -285,84 +240,6 @@
                     </tbody>
                 </table>
             </div>
-
-            <!-- Added pagination controls -->
-            {% if plants.has_other_pages %}
-            <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex-1 flex justify-between sm:hidden">
-                        {% if plants.has_previous %}
-                            <a href="?page={{ plants.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                                Previous
-                            </a>
-                        {% endif %}
-                        {% if plants.has_next %}
-                            <a href="?page={{ plants.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                                Next
-                            </a>
-                        {% endif %}
-                    </div>
-                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                        <div>
-                            <p class="text-sm text-gray-700">
-                                Showing
-                                <span class="font-medium">{{ plants.start_index }}</span>
-                                to
-                                <span class="font-medium">{{ plants.end_index }}</span>
-                                of
-                                <span class="font-medium">{{ plants.paginator.count }}</span>
-                                results
-                            </p>
-                        </div>
-                        <div>
-                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                {% if plants.has_previous %}
-                                    <a href="?page=1" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                        <span class="sr-only">First</span>
-                                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M15.707 15.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L11.414 10l4.293 4.293a1 1 0 010 1.414zm-6 0a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L5.414 10l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
-                                        </svg>
-                                    </a>
-                                    <a href="?page={{ plants.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                        <span class="sr-only">Previous</span>
-                                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                        </svg>
-                                    </a>
-                                {% endif %}
-
-                                {% for num in plants.paginator.page_range %}
-                                    {% if plants.number == num %}
-                                        <span class="relative inline-flex items-center px-4 py-2 border border-green-500 bg-green-50 text-sm font-medium text-green-600">
-                                            {{ num }}
-                                        </span>
-                                    {% elif num > plants.number|add:'-3' and num < plants.number|add:'3' %}
-                                        <a href="?page={{ num }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                            {{ num }}
-                                        </a>
-                                    {% endif %}
-                                {% endfor %}
-
-                                {% if plants.has_next %}
-                                    <a href="?page={{ plants.next_page_number }}" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                        <span class="sr-only">Next</span>
-                                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                                        </svg>
-                                    </a>
-                                    <a href="?page={{ plants.paginator.num_pages }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                        <span class="sr-only">Last</span>
-                                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M10.293 15.707a1 1 0 010-1.414L8.586 10 4.293 5.707a1 1 0 011.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0zm-6 0a1 1 0 010-1.414L8.586 10 4.293 5.707a1 1 0 011.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                                        </svg>
-                                    </a>
-                                {% endif %}
-                            </nav>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
   </main>
