@@ -245,16 +245,6 @@
                 <span class="font-medium">Inventory Plant</span>
             </a>
 
-            <a href="{% url 'track_plant_health' %}" 
-               class="nav-item flex items-center py-3 px-4 rounded-xl {% if request.resolver_match.url_name == 'track_plant_health' %}bg-green-700 bg-opacity-50 backdrop-blur-sm border border-green-600 border-opacity-30{% else %}hover:bg-green-700 hover:bg-opacity-30{% endif %} transition-all duration-200">
-                <div class="w-10 h-10 bg-white bg-opacity-10 rounded-lg flex items-center justify-center mr-3">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                    </svg>
-                </div>
-                <span class="font-medium">Unhealthy Plant</span>
-            </a>
-
             <a href="{% url 'user_list' %}" 
                class="nav-item flex items-center py-3 px-4 rounded-xl {% if request.resolver_match.url_name == 'user_list' %}bg-green-700 bg-opacity-50 backdrop-blur-sm border border-green-600 border-opacity-30{% else %}hover:bg-green-700 hover:bg-opacity-30{% endif %} transition-all duration-200">
                 <div class="w-10 h-10 bg-white bg-opacity-10 rounded-lg flex items-center justify-center mr-3">
