@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, improved_predict
 from django.conf import settings
 from django.conf.urls.static import static
 from .views import (
@@ -29,6 +29,9 @@ from .views import (
 )
 
 urlpatterns = [
+    path('api/predict-all-leaves/', improved_predict.predict_all_leaves, name='predict_all_leaves'),
+    path('api/predict-from-image/', improved_predict.predict_from_image, name='predict_from_image'),
+    
     path('', home_view, name='home'),
     path('register/', register_view, name='register'),
     path("verify/<uidb64>/<token>/", verify_email_view, name="verify_email"),
@@ -85,7 +88,6 @@ urlpatterns = [
     path('tree-analysis/<int:analysis_id>/update/', views.update_tree_analysis, name='update_tree_analysis'),
     path('tree-analysis/<int:analysis_id>/delete/', views.delete_tree_analysis, name='delete_tree_analysis'),
     path('analysis/<int:analysis_id>/detail/json/', views.analysis_detail_json, name='analysis_detail_json'),
-
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

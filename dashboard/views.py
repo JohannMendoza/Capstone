@@ -777,20 +777,24 @@ def preprocess_image(image):
 # ... existing code ...
 
 ALLOWED_CLASSES = {"healthy", "dried leaf", "leaf rust", "powdery mildew"}
-CONF_THRESHOLD = 0.50
+CONF_THRESHOLD = 0.30  # CHANGED from 0.50 to 0.30 (30% instead of 50%)
 
 @csrf_exempt
 def predict(request):
+    """
+    Improved predict function that detects ALL leaves
+    - Lowered confidence threshold to 30%
+    - Detects all leaves in frame
+    - Better error handling
+    """
     if request.method != 'POST':
         return JsonResponse({"success": False, "error": "Invalid request method"})
 
-    # <CHANGE> Load model using cached function (lazy loads YOLO)
     model = load_yolo_model()
     if model is None:
         return JsonResponse({"success": False, "error": "YOLO model not loaded"})
 
     try:
-        # <CHANGE> Lazy import cv2 only when needed
         import cv2
         
         frame_file = request.FILES.get('frame')
@@ -802,7 +806,7 @@ def predict(request):
         file_bytes = np.frombuffer(frame_file.read(), np.uint8)
         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-        results = model.track(frame, tracker="bytetrack.yaml", persist=True)[0]
+        results = model.predict(frame, conf=CONF_THRESHOLD, verbose=False)[0]
 
         detections = []
 
@@ -810,57 +814,61 @@ def predict(request):
             for box in results.boxes:
                 cls = int(box.cls[0])
                 conf = float(box.conf[0])
-                track_id = int(box.id[0]) if box.id is not None else None
                 class_name = model.names[cls].lower().replace('-', ' ')
 
-                if class_name not in ALLOWED_CLASSES or conf < CONF_THRESHOLD:
+                if class_name not in ALLOWED_CLASSES:
                     continue
 
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
                 detections.append({
-                    "id": track_id,
                     "box": [x1, y1, x2, y2],
                     "confidence": conf,
-                    "class": class_name
+                    "class": class_name.title()
                 })
 
+        logger.info(f"✅ Detected {len(detections)} leaves in frame")
+
+        # Save to database if plant_id provided
         if plant_id:
             from dashboard.models import Plant
-            plant = Plant.objects.get(plant_id=plant_id)
-
-            analysis, created = TreeAnalysis.objects.get_or_create(
-                plant=plant,
-                defaults={"name": f"Analysis for Plant {plant.plant_id}"}
-            )
-
-            for det in detections:
-                LeafImage.objects.create(
-                    image=None,
-                    prediction=det["class"].title(),
-                    healthy_confidence=det["confidence"] if det["class"] == "healthy" else 0,
-                    dried_leaf_confidence=det["confidence"] if det["class"] == "dried leaf" else 0,
-                    leaf_rust_confidence=det["confidence"] if det["class"] == "leaf rust" else 0,
-                    powdery_mildew_confidence=det["confidence"] if det["class"] == "powdery mildew" else 0,
-                    tree_analysis=analysis
+            try:
+                plant = Plant.objects.get(plant_id=plant_id)
+                analysis, created = TreeAnalysis.objects.get_or_create(
+                    plant=plant,
+                    defaults={"name": f"Analysis for Plant {plant.plant_id}"}
                 )
 
-            analysis.calculate_health()
-            analysis.is_completed = True
-            analysis.save()
+                for det in detections:
+                    LeafImage.objects.create(
+                        image=None,
+                        prediction=det["class"],
+                        healthy_confidence=det["confidence"] if det["class"] == "Healthy" else 0,
+                        dried_leaf_confidence=det["confidence"] if det["class"] == "Dried Leaf" else 0,
+                        leaf_rust_confidence=det["confidence"] if det["class"] == "Leaf Rust" else 0,
+                        powdery_mildew_confidence=det["confidence"] if det["class"] == "Powdery Mildew" else 0,
+                        tree_analysis=analysis
+                    )
 
-            plant.tree_analysis = analysis
-            plant.health_status = "good" if analysis.overall_health > 70 else "leaf rust"
-            plant.save()
+                analysis.calculate_health()
+                analysis.is_completed = True
+                analysis.save()
+
+                plant.tree_analysis = analysis
+                plant.health_status = "good" if analysis.overall_health > 70 else "leaf rust"
+                plant.save()
+
+            except Exception as e:
+                logger.error(f"Error saving detections: {e}")
 
         return JsonResponse({
             "success": True,
             "detections": detections,
-            "overall_health": analysis.overall_health if plant_id else None,
-            "healthy_percentage": analysis.healthy_percentage if plant_id else None,
-            "leaf_rust_percentage": analysis.leaf_rust_percentage if plant_id else None,
+            "detection_count": len(detections)
         })
 
     except Exception as e:
+        logger.error(f"Error: {e}")
+        traceback.print_exc()
         return JsonResponse({"success": False, "error": str(e)})
 
 # ... existing code ...
