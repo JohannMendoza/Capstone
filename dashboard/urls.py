@@ -26,9 +26,13 @@ from .views import (
     CustomPasswordResetDoneView,
     CustomPasswordResetConfirmView,
     CustomPasswordResetCompleteView,
+    export_pest_session_pdf
 )
 
 urlpatterns = [
+    # urls.py
+    path('analyses/export-selected/', views.export_multiple_analyses, name='export_multiple_analyses'),
+    path('pest-session/<int:session_id>/export/pdf/', export_pest_session_pdf, name='export_pest_session_pdf'),
     path('api/predict-all-leaves/', improved_predict.predict_all_leaves, name='predict_all_leaves'),
     path('api/predict-from-image/', improved_predict.predict_from_image, name='predict_from_image'),
     
@@ -80,7 +84,6 @@ urlpatterns = [
     path('save-pest-results/', views.save_pest_results, name='save_pest_results'),
     
     path('pest-session/<int:session_id>/delete/', views.delete_pest_session, name='delete_pest_session'),
-    path('pest-session/<int:session_id>/export/csv/', views.export_pest_session_csv, name='export_pest_session_csv'),
     
     path('analyses/export/multiple/', views.export_multiple_analyses, name='export_multiple_analyses'),
 

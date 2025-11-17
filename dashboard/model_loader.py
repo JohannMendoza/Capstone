@@ -1,9 +1,3 @@
-"""
-Model Loader for Pest Detection
-Optimized for Railway deployment
-Auto-downloads model from Supabase if missing
-"""
-
 import os
 import logging
 import tensorflow as tf
@@ -15,17 +9,12 @@ logger = logging.getLogger(__name__)
 
 _MODEL_CACHE = {}
 
-# ====================================
-# CONFIGURATION
-# ====================================
+# Configuration
 SUPABASE_MODEL_URL = "https://lsevojehwifimphiulfa.supabase.co/storage/v1/object/public/Model/improved_pest_model.h5"
 MODEL_FILENAME = "improved_pest_model.h5"
-MEDIA_DIR = "/app/media"  # Railway-safe persistent path
+MEDIA_DIR = "/app/media"
 
 
-# ====================================
-# FILE HANDLING
-# ====================================
 def ensure_media_dir():
     """Ensure /app/media exists"""
     os.makedirs(MEDIA_DIR, exist_ok=True)
@@ -33,7 +22,7 @@ def ensure_media_dir():
 
 
 def get_local_model_path():
-    """Return model path if it exists"""
+    """Return model path if it exists locally"""
     media_dir = ensure_media_dir()
     model_path = os.path.join(media_dir, MODEL_FILENAME)
     if os.path.exists(model_path) and os.path.getsize(model_path) > 1024 * 1024:
@@ -44,33 +33,39 @@ def get_local_model_path():
 
 
 def download_model_from_supabase():
-    """Download model file from Supabase storage"""
+    """Download model file from Supabase storage with error handling"""
     try:
         media_dir = ensure_media_dir()
         model_path = os.path.join(media_dir, MODEL_FILENAME)
-        logger.info(f"[v0] Downloading model from Supabase → {model_path}")
+        logger.info(f"[v0] Attempting to download model from Supabase...")
 
-        response = requests.get(SUPABASE_MODEL_URL, stream=True)
+        # <CHANGE> Added timeout and better error handling
+        response = requests.get(SUPABASE_MODEL_URL, stream=True, timeout=30)
+        
         if response.status_code == 200:
             with open(model_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
-            logger.info(f"[v0] ✅ Model downloaded and saved to {model_path}")
+            logger.info(f"[v0] Model successfully downloaded from Supabase")
             return model_path
         else:
-            logger.error(f"[v0] ❌ Failed to download model (HTTP {response.status_code})")
+            logger.error(f"[v0] Failed to download (HTTP {response.status_code})")
             return None
+            
+    except requests.exceptions.Timeout:
+        logger.warning(f"[v0] Supabase download timeout - model unavailable")
+        return None
+    except requests.exceptions.ConnectionError:
+        logger.warning(f"[v0] Connection error to Supabase - check internet/DNS")
+        return None
     except Exception as e:
-        logger.error(f"[v0] ❌ Error downloading model: {e}", exc_info=True)
+        logger.error(f"[v0] Error downloading model: {e}")
         return None
 
 
-# ====================================
-# MODEL LOADING
-# ====================================
 def load_pest_model(model_path=None):
-    """Load pest detection model (with caching)"""
+    """Load pest detection model with caching"""
     global _MODEL_CACHE
 
     if 'pest_model' in _MODEL_CACHE:
@@ -81,28 +76,25 @@ def load_pest_model(model_path=None):
     if model_path is None:
         model_path = get_local_model_path()
 
-    # Download if not found
+    # <CHANGE> Try download only if local fails
     if model_path is None:
+        logger.info("[v0] Attempting Supabase download...")
         model_path = download_model_from_supabase()
 
     if not model_path or not os.path.exists(model_path):
-        logger.error("[v0] ❌ Model not available after download attempt")
+        logger.error("[v0] Model not available (local or Supabase)")
         return None
 
-    # Load TensorFlow model
     try:
         model = tf.keras.models.load_model(model_path, compile=False)
         _MODEL_CACHE['pest_model'] = model
-        logger.info(f"[v0] ✅ Pest detection model loaded from {model_path}")
+        logger.info(f"[v0] Pest model loaded successfully")
         return model
     except Exception as e:
-        logger.error(f"[v0] ❌ Error loading model: {e}", exc_info=True)
+        logger.error(f"[v0] Error loading model: {e}")
         return None
 
 
-# ====================================
-# IMAGE PREPROCESSING & PREDICTION
-# ====================================
 def preprocess_image(image_array, target_size=(224, 224)):
     """Resize and normalize image"""
     try:
@@ -116,7 +108,7 @@ def preprocess_image(image_array, target_size=(224, 224)):
 
 
 def predict_pest(model, image_array):
-    """Run prediction using the pest model"""
+    """Run prediction using pest model"""
     try:
         if model is None:
             return {'error': 'Model not loaded', 'success': False}
@@ -136,9 +128,8 @@ def predict_pest(model, image_array):
             'all_predictions': predictions[0].tolist(),
             'success': True
         }
-
     except Exception as e:
-        logger.error(f"[v0] Prediction error: {e}", exc_info=True)
+        logger.error(f"[v0] Prediction error: {e}")
         return {'error': str(e), 'success': False}
 
 

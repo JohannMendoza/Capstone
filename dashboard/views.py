@@ -400,13 +400,14 @@ class CustomPasswordResetCompleteView(PasswordResetCompleteView):
 
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-from dashboard.models import Plant, TreeAnalysis
+from .models import Plant, TreeAnalysis
 
 @login_required
 def plant_inventory(request):
     # 🔹 Get all plants (ordered)
-    plants_list = Plant.objects.all().order_by('plant_id')
+    plants_list = Plant.objects.select_related('tree_analysis').all().order_by('plant_id')
     paginator = Paginator(plants_list, 5)
     page = request.GET.get('page')
 
@@ -417,55 +418,65 @@ def plant_inventory(request):
     except EmptyPage:
         plants = paginator.page(paginator.num_pages)
 
-    # 🔹 For each plant, try to fetch the latest TreeAnalysis — whether linked or not
+    # 🔹 For each plant, try to fetch the latest TreeAnalysis
     for plant in plants:
-        # Try linked first
-        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+        try:
+            latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
 
-        # If not linked, try to find by name pattern like "Plant 27"
-        if not latest_analysis:
-            latest_analysis = (
-                TreeAnalysis.objects
-                .filter(name__icontains=f"Plant {plant.plant_id}")
-                .order_by('-id')
-                .first()
-            )
+            if not latest_analysis:
+                latest_analysis = (
+                    TreeAnalysis.objects
+                    .filter(name__icontains=f"Plant {plant.plant_id}")
+                    .order_by('-id')
+                    .first()
+                )
 
-        if latest_analysis:
-            # 💾 Use latest actual TreeAnalysis values (not recalculated)
-            plant.detection_details = {
-                'healthy': round(latest_analysis.healthy_percentage or 0, 1),
-                'dried_leaf': round(latest_analysis.dried_leaf_percentage or 0, 1),
-                'leaf_rust': round(latest_analysis.leaf_rust_percentage or 0, 1),
-                'powdery_mildew': round(latest_analysis.powdery_mildew_percentage or 0, 1),
-            }
+            if latest_analysis:
+                # ✅ Safely get numeric values
+                def safe(val):
+                    try:
+                        return float(val) if val is not None else 0.0
+                    except:
+                        return 0.0
 
-            # Determine health status
-            percentages = {
-                'healthy': latest_analysis.healthy_percentage,
-                'dried leaf': latest_analysis.dried_leaf_percentage,
-                'leaf rust': latest_analysis.leaf_rust_percentage,
-                'powdery mildew': latest_analysis.powdery_mildew_percentage,
-            }
+                plant.detection_details = {
+                    'healthy': round(safe(latest_analysis.healthy_percentage), 1),
+                    'dried_leaf': round(safe(latest_analysis.dried_leaf_percentage), 1),
+                    'leaf_rust': round(safe(latest_analysis.leaf_rust_percentage), 1),
+                    'powdery_mildew': round(safe(latest_analysis.powdery_mildew_percentage), 1),
+                    'overall_health': round(safe(latest_analysis.overall_health), 1),
+                }
 
-            most_likely = max(percentages, key=percentages.get)
-            max_val = round(percentages[most_likely], 1)
+                percentages = {
+                    'healthy': safe(latest_analysis.healthy_percentage),
+                    'dried leaf': safe(latest_analysis.dried_leaf_percentage),
+                    'leaf rust': safe(latest_analysis.leaf_rust_percentage),
+                    'powdery mildew': safe(latest_analysis.powdery_mildew_percentage),
+                }
 
-            plant.health_status = 'good' if most_likely == 'healthy' else most_likely
-            plant.status_percentage = max_val
+                if all(v == 0 for v in percentages.values()):
+                    plant.health_status = 'undetected'
+                    plant.status_percentage = 0
+                else:
+                    most_likely = max(percentages, key=percentages.get)
+                    max_val = round(percentages[most_likely], 1)
+                    plant.health_status = 'good' if most_likely == 'healthy' else most_likely
+                    plant.status_percentage = max_val
 
-            print(f"[DEBUG] Plant {plant.plant_id} using TreeAnalysis ID {latest_analysis.id} → {plant.health_status} ({plant.status_percentage}%)")
+            else:
+                plant.health_status = 'undetected'
+                plant.status_percentage = None
+                plant.detection_details = None
+                plant.overall_health = None
 
-        else:
-            # No analysis found
-            plant.health_status = 'undetected'
+        except Exception as e:
+            print(f"[ERROR] Problem with plant ID {plant.plant_id}: {e}")
+            plant.health_status = 'error'
             plant.status_percentage = None
             plant.detection_details = None
-            print(f"[DEBUG] Plant {plant.plant_id} → No TreeAnalysis found")
 
+    # ✅ Return stays inside the function
     return render(request, 'dashboard/inventory.html', {'plants': plants})
-
-
 
 
 @login_required
@@ -638,67 +649,151 @@ def export_csv(request):
         return HttpResponse("Invalid request", status=400)
 
 # ... existing code ...
+from io import BytesIO
+from datetime import datetime
+import os
+from PIL import Image as PILImage
+from django.http import HttpResponse
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from .models import CustomUser, Plant
 
 def export_pdf(request):
-    if request.method == "POST":
-        response = HttpResponse(content_type="application/pdf")
-        response["Content-Disposition"] = 'attachment; filename="report.pdf"'
-        
-        pdf = canvas.Canvas(response, pagesize=letter)
-        pdf.setTitle("Report")
-        width, height = letter
-        y_position = height - 40
-
-        pdf.setFont("Helvetica-Bold", 14)
-        pdf.drawString(200, y_position, "Escala Plants - Reports")
-        y_position -= 40
-
-        if "export_users" in request.POST:
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(30, y_position, "Users List")
-            y_position -= 20
-
-            users = CustomUser.objects.all().values_list("id", "username", "email", "role", "is_active")
-            pdf.setFont("Helvetica", 10)
-            for user in users:
-                pdf.drawString(30, y_position, f"ID: {user[0]}, Username: {user[1]}, Email: {user[2]}, Role: {user[3]}, Active: {user[4]}")
-                y_position -= 15
-            
-            y_position -= 20
-
-        if "export_total_plants" in request.POST:
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(30, y_position, "Total Plants")
-            y_position -= 15
-            pdf.setFont("Helvetica", 10)
-            pdf.drawString(30, y_position, f"Total Plants: {Plant.objects.count()}")
-            y_position -= 20
-
-        if "export_healthy_plants" in request.POST:
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(30, y_position, "Healthy Plants")
-            y_position -= 15
-            pdf.setFont("Helvetica", 10)
-            healthy_plants = Plant.objects.filter(health_status="good").values_list("plant_id", "age", "health_status", "symptoms")
-            for plant in healthy_plants:
-                pdf.drawString(30, y_position, f"Plant ID: {plant[0]},  Age: {plant[1]}, Status: {plant[2]}, Symptoms: {plant[3]}")
-                y_position -= 15
-            y_position -= 20
-
-        if "export_unhealthy_plants" in request.POST:
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(30, y_position, "Unhealthy Plants")
-            y_position -= 15
-            pdf.setFont("Helvetica", 10)
-            unhealthy_plants = Plant.objects.exclude(health_status="good").values_list("plant_id", "age", "health_status", "symptoms")
-            for plant in unhealthy_plants:
-                pdf.drawString(30, y_position, f"Plant ID: {plant[0]},  Age: {plant[1]}, Status: {plant[2]}, Symptoms: {plant[3]}")
-                y_position -= 15
-
-        pdf.save()
-        return response
-    else:
+    if request.method != "POST":
         return HttpResponse("Invalid request", status=400)
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="Escala_Plants_Report_{datetime.now().strftime("%Y%m%d")}.pdf"'
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=0.7*inch, leftMargin=0.7*inch,
+                            topMargin=0.7*inch, bottomMargin=0.7*inch)
+
+    # --- Colors ---
+    PRIMARY_COLOR = colors.HexColor("#1B5E20")
+    SECONDARY_COLOR = colors.HexColor("#2E7D32")
+    HEADER_TEXT = colors.white
+    LIGHT_BG = colors.HexColor("#F1F8E9")
+    NEUTRAL_TEXT = colors.HexColor("#212121")
+    BORDER_COLOR = colors.HexColor("#A5D6A7")
+
+    # --- Styles ---
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("Title", parent=styles["Heading1"], fontSize=22, leading=28,
+                                 textColor=PRIMARY_COLOR, alignment=1, spaceAfter=12, fontName="Helvetica-Bold")
+    section_style_left = ParagraphStyle("SectionLeft", parent=styles["Heading3"], fontSize=12,
+                                        textColor=PRIMARY_COLOR, spaceBefore=18, spaceAfter=8, fontName="Helvetica-Bold")
+    label_style = ParagraphStyle("Label", parent=styles["Normal"], fontSize=10, textColor=SECONDARY_COLOR,
+                                 alignment=1)
+    footer_style = ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=SECONDARY_COLOR, alignment=1)
+
+    story = []
+
+    # --- Logo ---
+    logo_path = os.path.join('dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo.png')
+    if os.path.exists(logo_path):
+        img = PILImage.open(logo_path).convert("RGBA")
+        bg = PILImage.new("RGBA", img.size, (27, 94, 32, 255))
+        bg.paste(img, (0, 0), img)
+        temp_logo_path = os.path.join('dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo_with_bg.png')
+        bg.save(temp_logo_path)
+        logo_img = Image(temp_logo_path, width=1.5*inch, height=0.5*inch)
+        logo_img.hAlign = "CENTER"
+        story.append(logo_img)
+        story.append(Spacer(1, 0.15*inch))
+
+    # --- Title ---
+    story.append(Paragraph("Escala Plants & Nursery", label_style))
+    story.append(Paragraph("Reports", title_style))
+    story.append(Paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y')}", label_style))
+    story.append(Spacer(1, 0.3*inch))
+
+    page_width = A4[0] - doc.leftMargin - doc.rightMargin
+
+    # --- Users Table ---
+    if "export_users" in request.POST:
+        users = CustomUser.objects.all().values_list("id", "username", "email", "role", "is_active")
+        if users:
+            story.append(Paragraph("Users List", section_style_left))
+            story.append(Spacer(1, 0.1*inch))
+
+            columns = ["ID", "Username", "Email", "Role", "Active"]
+            data = [columns]
+            for u in users:
+                data.append([str(u[0]), u[1], u[2], u[3], "Yes" if u[4] else "No"])
+
+            col_widths = [
+                0.7 * inch,       # ID
+                1.8 * inch,       # Username
+                3.0 * inch,       # Email (wider)
+                1.2 * inch,       # Role
+                0.8 * inch        # Active
+            ]
+
+            table = Table(data, colWidths=col_widths, rowHeights=0.6*inch)
+            table.setStyle(TableStyle([
+                ("BACKGROUND", (0,0), (-1,0), SECONDARY_COLOR),
+                ("TEXTCOLOR", (0,0), (-1,0), HEADER_TEXT),
+                ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+                ("ALIGN", (0,0), (-1,-1), "CENTER"),
+                ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+                ("GRID", (0,0), (-1,-1), 0.5, BORDER_COLOR),
+                ("ROWBACKGROUNDS", (1,1), (-1,-1), [colors.white, LIGHT_BG]),
+                ("ALIGN", (2,1), (2,-1), "LEFT")  # Email left-aligned
+            ]))
+            story.append(table)
+            story.append(Spacer(1, 0.3*inch))
+
+    # --- Plants Table ---
+    plant_keys = ["export_total_plants", "export_healthy_plants", "export_unhealthy_plants"]
+    if any(key in request.POST for key in plant_keys):
+        story.append(Paragraph("Plants Summary", section_style_left))
+        story.append(Spacer(1, 0.1*inch))
+
+        total_plants = Plant.objects.count()
+        healthy_plants = Plant.objects.filter(health_status="good").count()
+        unhealthy_plants = Plant.objects.exclude(health_status="good").count()
+
+        plants_data = [["Category", "Count"]]
+        if "export_total_plants" in request.POST:
+            plants_data.append(["Total Plants", str(total_plants)])
+        if "export_healthy_plants" in request.POST:
+            plants_data.append(["Healthy Plants", str(healthy_plants)])
+        if "export_unhealthy_plants" in request.POST:
+            plants_data.append(["Unhealthy Plants", str(unhealthy_plants)])
+
+        col_widths = [
+            4.0 * inch,   # Category
+            1.8 * inch    # Count
+        ]
+
+        table = Table(plants_data, colWidths=col_widths, rowHeights=0.6*inch)
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), SECONDARY_COLOR),
+            ("TEXTCOLOR", (0,0), (-1,0), HEADER_TEXT),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+            ("ALIGN", (0,0), (-1,-1), "CENTER"),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("GRID", (0,0), (-1,-1), 0.5, BORDER_COLOR),
+            ("ROWBACKGROUNDS", (1,1), (-1,-1), [colors.white, LIGHT_BG]),
+            ("ALIGN", (0,1), (0,-1), "LEFT")  # Category left-aligned
+        ]))
+        story.append(table)
+        story.append(Spacer(1, 0.3*inch))
+
+    # --- Footer ---
+    story.append(Paragraph(f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", footer_style))
+
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+    response.write(pdf)
+    return response
+
+
 
 # <CHANGE> Updated YOLO model loading with caching and lazy import
 CLASS_NAMES = ['dried leaf', 'healthy', 'leaf rust', 'powdery mildew']
@@ -1184,18 +1279,71 @@ def clear_leaves(request, analysis_id):
         })
 
 # ... existing code ...
+from django.core.paginator import Paginator
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from .models import TreeAnalysis, PestDetectionSession
 
 @login_required
 def history(request):
-    """View for analysis history"""
-    analyses = TreeAnalysis.objects.filter(is_completed=True).order_by('-completed_at')
-    
-    context = {
-        'analyses': analyses
-    }
-    
-    return render(request, 'dashboard/history.html', context)
+    # <CHANGE> Fixed pagination handling with proper page context
+    tree_analyses = TreeAnalysis.objects.filter(is_completed=True).order_by('-completed_at')
+    pest_sessions = PestDetectionSession.objects.all().order_by('-created_at')
 
+    analyses = []
+
+    for analysis in tree_analyses:
+        diseased_count = analysis.dried_leaf_count + analysis.leaf_rust_count + analysis.powdery_mildew_count
+        diseased_percentage = (diseased_count / analysis.total_leaves) * 100 if analysis.total_leaves > 0 else 0
+        analyses.append({
+            'id': analysis.id,
+            'name': analysis.name,
+            'created_at': analysis.created_at,
+            'completed_at': analysis.completed_at,
+            'overall_health': analysis.overall_health,
+            'healthy_count': analysis.healthy_count,
+            'dried_leaf_count': analysis.dried_leaf_count,
+            'leaf_rust_count': analysis.leaf_rust_count,
+            'powdery_mildew_count': analysis.powdery_mildew_count,
+            'healthy_percentage': analysis.healthy_percentage,
+            'dried_leaf_percentage': analysis.dried_leaf_percentage,
+            'leaf_rust_percentage': analysis.leaf_rust_percentage,
+            'powdery_mildew_percentage': analysis.powdery_mildew_percentage,
+            'total_leaves': analysis.total_leaves,
+            'diseased_count': diseased_count,
+            'diseased_percentage': diseased_percentage,
+            'type': 'tree_analysis',
+        })
+
+    for session in pest_sessions:
+        analyses.append({
+            'id': session.id,
+            'name': session.session_name,
+            'completed_at': session.completed_at,
+            'total_processed': session.total_processed,
+            'no_pest_count': session.no_pest_count,
+            'pest_count': session.pest_count,
+            'high_risk_count': session.high_risk_count,
+            'uncertain_count': session.uncertain_count,
+            'avg_confidence': session.avg_confidence,
+            'avg_processing_time': session.avg_processing_time,
+            'type': 'pest_detection'
+        })
+
+    analyses.sort(key=lambda x: x['completed_at'], reverse=True)
+
+    # <CHANGE> Proper pagination with Paginator
+    paginator = Paginator(analyses, 5)
+    page_number = request.GET.get('page')
+    
+    try:
+        page_obj = paginator.page(page_number)
+    except PageNotAnInteger:
+        page_obj = paginator.page(1)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+
+    return render(request, 'dashboard/history.html', {'analyses': page_obj})
 # ... existing code ...
 
 @login_required
@@ -1281,107 +1429,471 @@ def delete_multiple_analyses(request):
         })
 
 # ... existing code ...
+import os
+import logging
+from datetime import datetime
+from io import BytesIO
+from django.conf import settings
+from django.http import HttpResponse
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer,
+    Image,
+    PageBreak,
+)
+from dashboard.models import TreeAnalysis
+from PIL import Image as PILImage
+
+logger = logging.getLogger(__name__)
 
 def export_analysis_pdf(request, analysis_id):
+    """Generate a professional Tree Analysis Report PDF with logo on green background."""
+
     try:
         tree_analysis = TreeAnalysis.objects.get(id=analysis_id)
     except TreeAnalysis.DoesNotExist:
         return HttpResponse("Analysis not found", status=404)
 
-    leaf_images = tree_analysis.leaf_images.all()
-    total_leaves = leaf_images.count()
-
-    healthy_count = leaf_images.filter(prediction='Healthy').count()
-    dried_leaf_count = leaf_images.filter(prediction='Dried Leaf').count()
-    powdery_mildew_count = leaf_images.filter(prediction='Powdery Mildew').count()
-    leaf_rust_count = leaf_images.filter(prediction='Leaf Rust').count()
-
-    healthy_percentage = (healthy_count / total_leaves) * 100 if total_leaves else 0
-    dried_leaf_percentage = (dried_leaf_count / total_leaves) * 100 if total_leaves else 0
-    powdery_mildew_percentage = (powdery_mildew_count / total_leaves) * 100 if total_leaves else 0
-    leaf_rust_percentage = (leaf_rust_count / total_leaves) * 100 if total_leaves else 0
-
+    # --- PDF Setup ---
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="tree_analysis_{analysis_id}.pdf"'
+    response['Content-Disposition'] = (
+        f'attachment; filename="tree_analysis_{analysis_id}_{datetime.now().strftime("%Y%m%d")}.pdf"'
+    )
 
-    p = canvas.Canvas(response, pagesize=A4)
-    width, height = A4
-    x = 50
-    y = height - 50
-    line_height = 20
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=0.7 * inch,
+        leftMargin=0.7 * inch,
+        topMargin=0.7 * inch,
+        bottomMargin=0.7 * inch,
+    )
 
-    p.setFont("Helvetica-Bold", 16)
-    p.drawString(x, y, f"Tree Analysis Report: {tree_analysis.name}")
-    y -= line_height * 2
+    # --- Colors ---
+    PRIMARY_COLOR = colors.HexColor("#1B5E20")
+    SECONDARY_COLOR = colors.HexColor("#2E7D32")
+    ACCENT_COLOR = colors.HexColor("#43A047")
+    WARNING_COLOR = colors.HexColor("#F57F17")
+    DANGER_COLOR = colors.HexColor("#C62828")
+    LIGHT_BG = colors.HexColor("#F1F8E9")
+    NEUTRAL_TEXT = colors.HexColor("#212121")
+    SECONDARY_TEXT = colors.HexColor("#616161")
+    BORDER_COLOR = colors.HexColor("#A5D6A7")
 
-    p.setFont("Helvetica", 12)
-    p.drawString(x, y, f"Completed At: {tree_analysis.completed_at.strftime('%Y-%m-%d %H:%M') if tree_analysis.completed_at else 'N/A'}")
-    y -= line_height
-    p.drawString(x, y, f"Total Leaves Analyzed: {total_leaves}")
-    y -= line_height * 2
+    # --- Styles ---
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "ReportTitle", parent=styles["Heading1"], fontSize=28,
+        leading=34, textColor=PRIMARY_COLOR, alignment=1,
+        spaceAfter=6, fontName="Helvetica-Bold"
+    )
+    company_style = ParagraphStyle(
+        "Company", parent=styles["Heading3"], fontSize=12,
+        textColor=SECONDARY_COLOR, alignment=1, spaceAfter=4,
+        fontName="Helvetica-Bold"
+    )
+    section_heading = ParagraphStyle(
+        "SectionHeading", parent=styles["Heading3"], fontSize=12,
+        textColor=PRIMARY_COLOR, spaceBefore=16, spaceAfter=12,
+        fontName="Helvetica-Bold"
+    )
+    body_style = ParagraphStyle(
+        "BodyText", parent=styles["Normal"], fontSize=10,
+        leading=14, textColor=NEUTRAL_TEXT, spaceAfter=6
+    )
+    label_style = ParagraphStyle(
+        "Label", parent=styles["Normal"], fontSize=9,
+        textColor=SECONDARY_TEXT, fontName="Helvetica"
+    )
+    footer_style = ParagraphStyle(
+        "Footer", parent=styles["Normal"], fontSize=8,
+        textColor=SECONDARY_TEXT, alignment=1
+    )
 
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(x, y, "Detection Summary")
-    y -= line_height
-    p.setFont("Helvetica", 12)
+    story = []
 
-    stats = [
-        ('Healthy Leaves', healthy_count, healthy_percentage),
-        ('Dried Leaves', dried_leaf_count, dried_leaf_percentage),
-        ('Powdery Mildew Leaves', powdery_mildew_count, powdery_mildew_percentage),
-        ('Leaf Rust Leaves', leaf_rust_count, leaf_rust_percentage),
+    # --- Prepare Logo with Green Background ---
+    logo_path = os.path.join(settings.BASE_DIR, 'dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo.png')
+    logo_temp_path = os.path.join(settings.BASE_DIR, 'dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo_with_bg.png')
+
+    if os.path.exists(logo_path):
+        # Flatten transparent logo on green background
+        img = PILImage.open(logo_path).convert("RGBA")
+        bg = PILImage.new("RGBA", img.size, (27, 94, 32, 255))  # PRIMARY_COLOR
+        bg.paste(img, (0,0), img)
+        bg.save(logo_temp_path)
+
+        # Add logo to PDF
+        logo_img = Image(logo_temp_path, width=1 * inch, height=0.4 * inch)
+        logo_img.hAlign = "CENTER"
+        story.append(logo_img)
+        story.append(Spacer(1, 0.15 * inch))
+    else:
+        logger.warning(f"Logo not found at path: {logo_path}")
+
+    # --- Title Section ---
+    story.append(Paragraph("Escala Plants & Nursery", company_style))
+    story.append(Paragraph("Tree Health Analysis Report", title_style))
+    story.append(Paragraph(
+        f"Report ID: TREE-{analysis_id} | {datetime.now().strftime('%B %d, %Y')}", label_style
+    ))
+    story.append(Spacer(1, 0.2 * inch))
+
+    # --- Analysis Overview ---
+    story.append(Paragraph("Analysis Overview", section_heading))
+    meta_data = [
+        ["Analysis Name", tree_analysis.name],
+        ["Generated Date", datetime.now().strftime("%B %d, %Y at %I:%M %p")],
+        ["Analysis Date", tree_analysis.completed_at.strftime("%B %d, %Y") if tree_analysis.completed_at else "Pending"],
+        ["Total Leaves Analyzed", str(tree_analysis.total_leaves or 0)],
     ]
+    meta_table = Table(meta_data, colWidths=[2.2 * inch, 4.3 * inch])
+    meta_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), LIGHT_BG),
+        ("BACKGROUND", (1, 0), (1, -1), colors.white),
+        ("TEXTCOLOR", (0, 0), (0, -1), PRIMARY_COLOR),
+        ("TEXTCOLOR", (1, 0), (1, -1), NEUTRAL_TEXT),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("GRID", (0, 0), (-1, -1), 1, BORDER_COLOR),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_BG]),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 0.25 * inch))
 
-    for label, count, percent in stats:
-        p.drawString(x, y, f"{label}: {count} ({percent:.1f}%)")
-        y -= line_height
+    # --- Health Status Summary ---
+    story.append(Paragraph("Health Status Summary", section_heading))
+    overall_health = tree_analysis.overall_health or 0
+    if overall_health >= 80:
+        health_status, health_color, indicator = "Excellent", ACCENT_COLOR, "HEALTHY"
+    elif overall_health >= 50:
+        health_status, health_color, indicator = "Moderate", WARNING_COLOR, "CAUTION"
+    else:
+        health_status, health_color, indicator = "Poor", DANGER_COLOR, "CRITICAL"
 
-    y -= line_height
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(x, y, f"Overall Health: {tree_analysis.overall_health:.1f}%")
+    summary_data = [
+        ["Metric", "Score", "Status"],
+        ["Overall Tree Health", f"{overall_health:.1f}%", f"{health_status} • {indicator}"],
+    ]
+    summary_table = Table(summary_data, colWidths=[2.5 * inch, 1.5 * inch, 2.5 * inch])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), PRIMARY_COLOR),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 11),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("BACKGROUND", (0, 1), (-1, 1), health_color),
+        ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
+        ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 1), (-1, 1), 11),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("GRID", (0, 0), (-1, -1), 1, colors.white),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.25 * inch))
 
-    p.showPage()
-    p.save()
+    # --- Leaf Analysis Breakdown ---
+    story.append(Paragraph("Leaf Analysis Breakdown", section_heading))
+    detection_data = [
+        ["Category", "Count", "Percentage", "Status"],
+        ["Healthy Leaves", str(tree_analysis.healthy_count or 0), f"{tree_analysis.healthy_percentage or 0:.1f}%", "GOOD"],
+        ["Dried Leaves", str(tree_analysis.dried_leaf_count or 0), f"{tree_analysis.dried_leaf_percentage or 0:.1f}%", "WARN"],
+        ["Powdery Mildew", str(tree_analysis.powdery_mildew_count or 0), f"{tree_analysis.powdery_mildew_percentage or 0:.1f}%", "WARN"],
+        ["Leaf Rust", str(tree_analysis.leaf_rust_count or 0), f"{tree_analysis.leaf_rust_percentage or 0:.1f}%", "CRITICAL"],
+    ]
+    detection_table = Table(detection_data, colWidths=[2 * inch, 1.2 * inch, 1.3 * inch, 1.7 * inch])
+    detection_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), SECONDARY_COLOR),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+        ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 1, BORDER_COLOR),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_BG]),
+    ]))
+    story.append(detection_table)
+    story.append(Spacer(1, 0.25 * inch))
+
+    # --- Recommendations ---
+    story.append(Paragraph("Recommendations", section_heading))
+    if overall_health >= 80:
+        recommendation, recommendation_color = (
+            "Tree health is excellent. Continue regular monitoring and maintain current care practices to ensure sustained vitality.",
+            ACCENT_COLOR
+        )
+    elif overall_health >= 50:
+        recommendation, recommendation_color = (
+            "Tree shows moderate concerns. Apply preventive treatments, increase monitoring frequency to weekly inspections, and consider professional consultation.",
+            WARNING_COLOR
+        )
+    else:
+        recommendation, recommendation_color = (
+            "Tree health requires immediate attention. Professional expert consultation is strongly recommended. Implement intensive treatment protocols without delay.",
+            DANGER_COLOR
+        )
+
+    rec_table = Table([[Paragraph(recommendation, body_style)]], colWidths=[6.3 * inch])
+    rec_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F5F5F5")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+        ("TOPPADDING", (0, 0), (-1, -1), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+        ("GRID", (0, 0), (-1, -1), 1, recommendation_color),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    story.append(rec_table)
+    story.append(Spacer(1, 0.3 * inch))
+
+    # --- Footer ---
+    footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Report ID: TREE-{analysis_id}"
+    story.append(Paragraph(footer_text, footer_style))
+
+    # --- Build PDF ---
+    doc.build(story)
+    pdf = buffer.getvalue()
+    buffer.close()
+    response.write(pdf)
+
+    logger.info(f"Tree analysis PDF exported: {analysis_id}")
     return response
 
 # ... existing code ...
 
 def export_all_analyses(request):
-    """Export all tree analyses as CSV"""
+    """Export all completed tree analyses as professional PDF reports, each on a separate page"""
     try:
         analyses = TreeAnalysis.objects.filter(is_completed=True).order_by('-completed_at')
-        
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="all-tree-analyses.csv"'
-        
-        writer = csv.writer(response)
-        
-        writer.writerow(['Lanzones Tree Analyses Report'])
-        writer.writerow(['Generated on', timezone.now().strftime('%Y-%m-%d %H:%M:%S')])
-        writer.writerow(['Total Analyses', analyses.count()])
-        writer.writerow([])
-        
-        writer.writerow(['ID', 'Tree Name', 'Analysis Date', 'Total Leaves', 'Healthy %', 'Dried Leaf %', 'Powdery Mildew %', 'Leaf Rust %', 'Overall Health'])
-        
-        for analysis in analyses:
-            leaf_count = analysis.leaf_images.count()
-            writer.writerow([
-                analysis.id,
-                analysis.name,
-                analysis.completed_at.strftime('%Y-%m-%d %H:%M:%S'),
-                leaf_count,
-                f"{analysis.healthy_percentage:.1f}%",
-                f"{analysis.dried_leaf_percentage:.1f}%",
-                f"{analysis.powdery_mildew_percentage:.1f}%",
-                f"{analysis.leaf_rust_percentage:.1f}%",
-                f"{analysis.overall_health:.1f}%"
-            ])
-        
+
+        # --- PDF Setup ---
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="all-tree-analyses.pdf"'
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=0.7*inch,
+            leftMargin=0.7*inch,
+            topMargin=0.7*inch,
+            bottomMargin=0.7*inch
+        )
+
+        # --- Colors ---
+        PRIMARY_COLOR = colors.HexColor("#1B5E20")
+        SECONDARY_COLOR = colors.HexColor("#2E7D32")
+        ACCENT_COLOR = colors.HexColor("#43A047")
+        WARNING_COLOR = colors.HexColor("#F57F17")
+        DANGER_COLOR = colors.HexColor("#C62828")
+        LIGHT_BG = colors.HexColor("#F1F8E9")
+        NEUTRAL_TEXT = colors.HexColor("#212121")
+        SECONDARY_TEXT = colors.HexColor("#616161")
+        BORDER_COLOR = colors.HexColor("#A5D6A7")
+
+        # --- Styles ---
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle("ReportTitle", parent=styles["Heading1"], fontSize=22,
+                                     leading=26, textColor=PRIMARY_COLOR, alignment=1,
+                                     spaceAfter=6, fontName="Helvetica-Bold")
+        company_style = ParagraphStyle("Company", parent=styles["Heading3"], fontSize=12,
+                                       textColor=SECONDARY_COLOR, alignment=1, spaceAfter=4,
+                                       fontName="Helvetica-Bold")
+        section_heading = ParagraphStyle("SectionHeading", parent=styles["Heading3"], fontSize=12,
+                                        textColor=PRIMARY_COLOR, spaceBefore=16, spaceAfter=12,
+                                        fontName="Helvetica-Bold")
+        body_style = ParagraphStyle("BodyText", parent=styles["Normal"], fontSize=10,
+                                    leading=14, textColor=NEUTRAL_TEXT, spaceAfter=6)
+        label_style = ParagraphStyle("Label", parent=styles["Normal"], fontSize=9,
+                                     textColor=SECONDARY_TEXT, fontName="Helvetica")
+        footer_style = ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8,
+                                      textColor=SECONDARY_TEXT, alignment=1)
+
+        story = []
+
+        # --- Logo paths ---
+        logo_path = os.path.join(settings.BASE_DIR, 'dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo.png')
+        logo_temp_path = os.path.join(settings.BASE_DIR, 'dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo_with_bg.png')
+
+        if os.path.exists(logo_path):
+            img = PILImage.open(logo_path).convert("RGBA")
+            bg = PILImage.new("RGBA", img.size, (27, 94, 32, 255))  # PRIMARY_COLOR
+            bg.paste(img, (0,0), img)
+            bg.save(logo_temp_path)
+
+        # --- Loop through each analysis ---
+        for idx, analysis in enumerate(analyses):
+            # --- Logo ---
+            if os.path.exists(logo_temp_path):
+                logo_img = Image(logo_temp_path, width=1*inch, height=0.4*inch)
+                logo_img.hAlign = "CENTER"
+                story.append(logo_img)
+                story.append(Spacer(1, 0.15*inch))
+
+            # --- Title Section ---
+            story.append(Paragraph("Escala Plants & Nursery", company_style))
+            story.append(Paragraph("Tree Health Analysis Report", title_style))
+            story.append(Paragraph(
+                f"Report ID: TREE-{analysis.id} | Generated: {datetime.now().strftime('%B %d, %Y')}", label_style
+            ))
+            story.append(Spacer(1, 0.2*inch))
+
+            # --- Analysis Overview ---
+            story.append(Paragraph("Analysis Overview", section_heading))
+            meta_data = [
+                ["Analysis Name", analysis.name],
+                ["Generated Date", datetime.now().strftime("%B %d, %Y at %I:%M %p")],
+                ["Analysis Date", analysis.completed_at.strftime("%B %d, %Y") if analysis.completed_at else "Pending"],
+                ["Total Leaves Analyzed", str(analysis.total_leaves or 0)],
+            ]
+            meta_table = Table(meta_data, colWidths=[2.2 * inch, 4.3 * inch])
+            meta_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (0, -1), LIGHT_BG),
+                ("BACKGROUND", (1, 0), (1, -1), colors.white),
+                ("TEXTCOLOR", (0, 0), (0, -1), PRIMARY_COLOR),
+                ("TEXTCOLOR", (1, 0), (1, -1), NEUTRAL_TEXT),
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("GRID", (0, 0), (-1, -1), 1, BORDER_COLOR),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_BG]),
+            ]))
+            story.append(meta_table)
+            story.append(Spacer(1, 0.25*inch))
+
+            # --- Health Status Summary ---
+            story.append(Paragraph("Health Status Summary", section_heading))
+            overall_health = analysis.overall_health or 0
+            if overall_health >= 80:
+                health_status, health_color, indicator = "Excellent", ACCENT_COLOR, "HEALTHY"
+            elif overall_health >= 50:
+                health_status, health_color, indicator = "Moderate", WARNING_COLOR, "CAUTION"
+            else:
+                health_status, health_color, indicator = "Poor", DANGER_COLOR, "CRITICAL"
+
+            summary_data = [
+                ["Metric", "Score", "Status"],
+                ["Overall Tree Health", f"{overall_health:.1f}%", f"{health_status} • {indicator}"],
+            ]
+            summary_table = Table(summary_data, colWidths=[2.5 * inch, 1.5 * inch, 2.5 * inch])
+            summary_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), PRIMARY_COLOR),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 11),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("BACKGROUND", (0, 1), (-1, 1), health_color),
+                ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
+                ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 1), (-1, 1), 11),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("GRID", (0, 0), (-1, -1), 1, colors.white),
+            ]))
+            story.append(summary_table)
+            story.append(Spacer(1, 0.25*inch))
+
+            # --- Leaf Analysis Breakdown ---
+            story.append(Paragraph("Leaf Analysis Breakdown", section_heading))
+            detection_data = [
+                ["Category", "Count", "Percentage", "Status"],
+                ["Healthy Leaves", str(analysis.healthy_count or 0), f"{analysis.healthy_percentage or 0:.1f}%", "GOOD"],
+                ["Dried Leaves", str(analysis.dried_leaf_count or 0), f"{analysis.dried_leaf_percentage or 0:.1f}%", "WARN"],
+                ["Powdery Mildew", str(analysis.powdery_mildew_count or 0), f"{analysis.powdery_mildew_percentage or 0:.1f}%", "WARN"],
+                ["Leaf Rust", str(analysis.leaf_rust_count or 0), f"{analysis.leaf_rust_percentage or 0:.1f}%", "CRITICAL"],
+            ]
+            detection_table = Table(detection_data, colWidths=[2 * inch, 1.2 * inch, 1.3 * inch, 1.7 * inch])
+            detection_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), SECONDARY_COLOR),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("GRID", (0, 0), (-1, -1), 1, BORDER_COLOR),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_BG]),
+            ]))
+            story.append(detection_table)
+            story.append(Spacer(1, 0.25*inch))
+
+            # --- Recommendations ---
+            story.append(Paragraph("Recommendations", section_heading))
+            if overall_health >= 80:
+                recommendation, recommendation_color = (
+                    "Tree health is excellent. Continue regular monitoring and maintain current care practices to ensure sustained vitality.",
+                    ACCENT_COLOR
+                )
+            elif overall_health >= 50:
+                recommendation, recommendation_color = (
+                    "Tree shows moderate concerns. Apply preventive treatments, increase monitoring frequency to weekly inspections, and consider professional consultation.",
+                    WARNING_COLOR
+                )
+            else:
+                recommendation, recommendation_color = (
+                    "Tree health requires immediate attention. Professional expert consultation is strongly recommended. Implement intensive treatment protocols without delay.",
+                    DANGER_COLOR
+                )
+
+            rec_table = Table([[Paragraph(recommendation, body_style)]], colWidths=[6.3 * inch])
+            rec_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F5F5F5")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+                ("TOPPADDING", (0, 0), (-1, -1), 12),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                ("GRID", (0, 0), (-1, -1), 1, recommendation_color),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+            story.append(rec_table)
+            story.append(Spacer(1, 0.3*inch))
+
+            # --- Footer ---
+            footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Report ID: TREE-{analysis.id}"
+            story.append(Paragraph(footer_text, footer_style))
+
+            # --- Page break except last analysis ---
+            if idx < len(analyses) - 1:
+                story.append(PageBreak())
+
+        # --- Build PDF ---
+        doc.build(story)
+        pdf = buffer.getvalue()
+        buffer.close()
+        response.write(pdf)
+
+        logger.info("All tree analyses PDF exported successfully.")
         return response
 
     except Exception as e:
-        logger.error(f"Error exporting all analyses: {e}")
-        traceback.print_exc()
+        logger.error(f"Error exporting all analyses PDF: {e}")
         return HttpResponse(f"Error exporting analyses: {str(e)}", status=500)
 
 # ... existing code ...
@@ -1683,97 +2195,362 @@ def delete_pest_session(request, session_id):
 
 # ... existing code ...
 
-def export_pest_session_csv(request, session_id):
-    """Export pest detection session as CSV"""
+def export_pest_session_pdf(request, session_id):
+    """Export pest detection session as PDF with professional formatting."""
     try:
         session = get_object_or_404(PestDetectionSession, id=session_id)
         results = session.results.all()
-        
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="pest_session_{session_id}.csv"'
-        
-        writer = csv.writer(response)
-        
-        writer.writerow(['Pest Detection Session Report'])
-        writer.writerow(['Session Name', session.session_name])
-        writer.writerow(['Date', session.created_at.strftime('%Y-%m-%d %H:%M:%S')])
-        writer.writerow(['Total Processed', session.total_processed])
-        writer.writerow(['No Pest Count', session.no_pest_count])
-        writer.writerow(['Pest Count', session.pest_count])
-        writer.writerow(['High Risk Count', session.high_risk_count])
-        writer.writerow(['Uncertain Count', session.uncertain_count])
-        writer.writerow(['Average Confidence', f"{session.avg_confidence:.1f}%"])
-        writer.writerow(['Average Processing Time', f"{session.avg_processing_time:.2f}s"])
-        writer.writerow([])
-        
-        writer.writerow(['Individual Results'])
-        writer.writerow(['Filename', 'Prediction', 'Confidence', 'Processing Time', 'Low Confidence', 'Timestamp'])
-        
-        for result in results:
-            writer.writerow([
-                result.filename,
-                result.prediction,
-                f"{result.confidence:.1f}%",
-                f"{result.processing_time:.2f}s",
-                'Yes' if result.is_low_confidence else 'No',
-                result.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+
+        # --- PDF Setup ---
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="pest_session_{session_id}_{datetime.now().strftime("%Y%m%d")}.pdf"'
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=0.7*inch,
+            leftMargin=0.7*inch,
+            topMargin=0.7*inch,
+            bottomMargin=0.7*inch,
+        )
+
+        # --- Colors ---
+        PRIMARY_COLOR = colors.HexColor("#1B5E20")
+        SECONDARY_COLOR = colors.HexColor("#2E7D32")
+        HEADER_TEXT = colors.white
+        LIGHT_BG = colors.HexColor("#F1F8E9")
+        NEUTRAL_TEXT = colors.HexColor("#212121")
+        BORDER_COLOR = colors.HexColor("#A5D6A7")
+
+        # --- Styles ---
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            "Title", parent=styles["Heading1"], fontSize=22, leading=28,
+            textColor=PRIMARY_COLOR, alignment=1, spaceAfter=8, fontName="Helvetica-Bold"
+        )
+        section_style = ParagraphStyle(
+            "Section", parent=styles["Heading3"], fontSize=12, textColor=PRIMARY_COLOR,
+            spaceBefore=16, spaceAfter=8, fontName="Helvetica-Bold"
+        )
+        body_style = ParagraphStyle(
+            "Body", parent=styles["Normal"], fontSize=10, leading=14,
+            textColor=NEUTRAL_TEXT, spaceAfter=6
+        )
+        label_style = ParagraphStyle(
+            "Label", parent=styles["Normal"], fontSize=10, textColor=SECONDARY_COLOR,
+            alignment=1  # center
+        )
+        footer_style = ParagraphStyle(
+            "Footer", parent=styles["Normal"], fontSize=8, textColor=SECONDARY_COLOR, alignment=1
+        )
+        cell_style = ParagraphStyle(
+            "CellStyle", parent=styles["Normal"], fontSize=9, leading=10, alignment=1, textColor=NEUTRAL_TEXT
+        )
+
+        story = []
+
+        # --- Logo ---
+        logo_path = os.path.join('dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo.png')
+        if os.path.exists(logo_path):
+            img = PILImage.open(logo_path).convert("RGBA")
+            bg = PILImage.new("RGBA", img.size, (27, 94, 32, 255))  # Green background
+            bg.paste(img, (0,0), img)
+            temp_logo_path = os.path.join('dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo_with_bg.png')
+            bg.save(temp_logo_path)
+            logo_img = Image(temp_logo_path, width=1*inch, height=0.4*inch)
+            logo_img.hAlign = "CENTER"
+            story.append(logo_img)
+            story.append(Spacer(1, 0.15*inch))
+
+        # --- Title ---
+        story.append(Paragraph("Escala Plants & Nursery", label_style))
+        story.append(Paragraph("Pest Detection Session Report", title_style))
+        story.append(Paragraph(f"Session ID: PEST-{session_id} | {datetime.now().strftime('%B %d, %Y')}", label_style))
+        story.append(Spacer(1, 0.2*inch))
+
+        # --- Session Overview ---
+        story.append(Paragraph("Session Overview", section_style))
+        overview_data = [
+            ["Session Name", session.session_name],
+            ["Date", session.created_at.strftime("%B %d, %Y at %I:%M %p")],
+            ["Total Processed", str(session.total_processed)],
+            ["No Pest Count", str(session.no_pest_count)],
+            ["Pest Count", str(session.pest_count)],
+            ["High Risk Count", str(session.high_risk_count)],
+            ["Uncertain Count", str(session.uncertain_count)],
+            ["Average Confidence", f"{session.avg_confidence:.1f}%"],
+            ["Average Processing Time", f"{session.avg_processing_time:.2f}s"],
+        ]
+        overview_table = Table(overview_data, colWidths=[2.3*inch, 4.2*inch])
+        overview_table.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (0,-1), LIGHT_BG),
+            ("BACKGROUND", (1,0), (1,-1), colors.white),
+            ("TEXTCOLOR", (0,0), (0,-1), PRIMARY_COLOR),
+            ("TEXTCOLOR", (1,0), (1,-1), NEUTRAL_TEXT),
+            ("FONTNAME", (0,0), (0,-1), "Helvetica-Bold"),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 8),
+            ("RIGHTPADDING", (0,0), (-1,-1), 8),
+            ("TOPPADDING", (0,0), (-1,-1), 6),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+            ("GRID", (0,0), (-1,-1), 1, BORDER_COLOR),
+            ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT_BG])
+        ]))
+        story.append(overview_table)
+        story.append(Spacer(1, 0.25*inch))
+
+        # --- Individual Results ---
+        story.append(Paragraph("Individual Results", section_style))
+        results_data = [["Filename", "Prediction", "Confidence", "Processing Time", "Low Confidence", "Timestamp"]]
+        for r in results:
+            filename_para = Paragraph(r.filename, cell_style)
+            results_data.append([
+                filename_para,
+                Paragraph(r.prediction, cell_style),
+                Paragraph(f"{r.confidence:.1f}%", cell_style),
+                Paragraph(f"{r.processing_time:.2f}s", cell_style),
+                Paragraph("Yes" if r.is_low_confidence else "No", cell_style),
+                Paragraph(r.timestamp.strftime("%Y-%m-%d %H:%M:%S"), cell_style)
             ])
-        
-        logger.info(f"Pest detection session {session_id} exported successfully")
+        results_table = Table(results_data, colWidths=[2.0*inch, 1.3*inch, 1*inch, 1.2*inch, 1*inch, 1.5*inch])
+        results_table.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), SECONDARY_COLOR),
+            ("TEXTCOLOR", (0,0), (-1,0), HEADER_TEXT),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+            ("ALIGN", (0,0), (-1,0), "CENTER"),
+            ("ALIGN", (1,1), (-1,-1), "CENTER"),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("FONTSIZE", (0,0), (-1,-1), 9),
+            ("GRID", (0,0), (-1,-1), 0.5, BORDER_COLOR),
+            ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT_BG])
+        ]))
+        story.append(results_table)
+        story.append(Spacer(1, 0.25*inch))
+
+        # --- Footer ---
+        footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Session ID: PEST-{session_id}"
+        story.append(Paragraph(footer_text, footer_style))
+
+        # --- Build PDF ---
+        doc.build(story)
+        pdf = buffer.getvalue()
+        buffer.close()
+        response.write(pdf)
+
+        logger.info(f"Pest session PDF exported: {session_id}")
         return response
 
     except Exception as e:
-        logger.error(f"Error exporting pest session: {e}")
-        traceback.print_exc()
+        logger.error(f"Error exporting pest session PDF: {e}")
         return HttpResponse(f"Error exporting pest session: {str(e)}", status=500)
 
 # ... existing code ...
 
 def export_multiple_analyses(request):
-    """Export multiple tree analyses as CSV"""
+    """Export selected tree analyses as professional PDF reports, each on a separate page"""
     try:
         ids = request.GET.get('ids', '')
         if not ids:
             return HttpResponse("No analysis IDs provided", status=400)
-        
-        analysis_ids = [int(id.strip()) for id in ids.split(',') if id.strip()]
+
+        analysis_ids = [int(i.strip()) for i in ids.split(',') if i.strip()]
         analyses = TreeAnalysis.objects.filter(id__in=analysis_ids, is_completed=True).order_by('-completed_at')
-        
+
         if not analyses:
-            return HttpResponse("No analyses found", status=404)
-        
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="selected-tree-analyses.csv"'
-        
-        writer = csv.writer(response)
-        
-        writer.writerow(['Selected Tree Analyses Report'])
-        writer.writerow(['Generated on', timezone.now().strftime('%Y-%m-%d %H:%M:%S')])
-        writer.writerow(['Total Analyses', analyses.count()])
-        writer.writerow([])
-        
-        writer.writerow(['ID', 'Tree Name', 'Analysis Date', 'Total Leaves', 'Healthy %', 'Dried Leaf %', 'Powdery Mildew %', 'Leaf Rust %', 'Overall Health'])
-        
-        for analysis in analyses:
-            leaf_count = analysis.leaf_images.count()
-            writer.writerow([
-                analysis.id,
-                analysis.name,
-                analysis.completed_at.strftime('%Y-%m-%d %H:%M:%S'),
-                leaf_count,
-                f"{analysis.healthy_percentage:.1f}%",
-                f"{analysis.dried_leaf_percentage:.1f}%",
-                f"{analysis.powdery_mildew_percentage:.1f}%",
-                f"{analysis.leaf_rust_percentage:.1f}%",
-                f"{analysis.overall_health:.1f}%"
-            ])
-        
-        logger.info(f"Multiple tree analyses exported: {len(analysis_ids)} analyses")
+            return HttpResponse("No analyses found for the selected IDs", status=404)
+
+        # --- PDF Setup ---
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="selected-tree-analyses.pdf"'
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=0.7*inch,
+            leftMargin=0.7*inch,
+            topMargin=0.7*inch,
+            bottomMargin=0.7*inch
+        )
+
+        # --- Colors and Styles ---
+        PRIMARY_COLOR = colors.HexColor("#1B5E20")
+        SECONDARY_COLOR = colors.HexColor("#2E7D32")
+        ACCENT_COLOR = colors.HexColor("#43A047")
+        WARNING_COLOR = colors.HexColor("#F57F17")
+        DANGER_COLOR = colors.HexColor("#C62828")
+        LIGHT_BG = colors.HexColor("#F1F8E9")
+        NEUTRAL_TEXT = colors.HexColor("#212121")
+        SECONDARY_TEXT = colors.HexColor("#616161")
+        BORDER_COLOR = colors.HexColor("#A5D6A7")
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle("ReportTitle", parent=styles["Heading1"], fontSize=22,
+                                     leading=26, textColor=PRIMARY_COLOR, alignment=1,
+                                     spaceAfter=6, fontName="Helvetica-Bold")
+        company_style = ParagraphStyle("Company", parent=styles["Heading3"], fontSize=12,
+                                       textColor=SECONDARY_COLOR, alignment=1, spaceAfter=4,
+                                       fontName="Helvetica-Bold")
+        section_heading = ParagraphStyle("SectionHeading", parent=styles["Heading3"], fontSize=12,
+                                        textColor=PRIMARY_COLOR, spaceBefore=16, spaceAfter=12,
+                                        fontName="Helvetica-Bold")
+        body_style = ParagraphStyle("BodyText", parent=styles["Normal"], fontSize=10,
+                                    leading=14, textColor=NEUTRAL_TEXT, spaceAfter=6)
+        label_style = ParagraphStyle("Label", parent=styles["Normal"], fontSize=9,
+                                     textColor=SECONDARY_TEXT, fontName="Helvetica")
+        footer_style = ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8,
+                                      textColor=SECONDARY_TEXT, alignment=1)
+
+        story = []
+
+        # --- Logo paths ---
+        logo_path = os.path.join(settings.BASE_DIR, 'dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo.png')
+        logo_temp_path = os.path.join(settings.BASE_DIR, 'dashboard', 'static', 'dashboard', 'img', 'core-img', 'logo_with_bg.png')
+        if os.path.exists(logo_path):
+            img = PILImage.open(logo_path).convert("RGBA")
+            bg = PILImage.new("RGBA", img.size, (27, 94, 32, 255))  # PRIMARY_COLOR
+            bg.paste(img, (0,0), img)
+            bg.save(logo_temp_path)
+
+        # --- Loop through each selected analysis ---
+        for idx, analysis in enumerate(analyses):
+            # Logo
+            if os.path.exists(logo_temp_path):
+                logo_img = Image(logo_temp_path, width=1*inch, height=0.4*inch)
+                logo_img.hAlign = "CENTER"
+                story.append(logo_img)
+                story.append(Spacer(1, 0.15*inch))
+
+            # Title
+            story.append(Paragraph("Escala Plants & Nursery", company_style))
+            story.append(Paragraph("Tree Health Analysis Report", title_style))
+            story.append(Paragraph(f"Report ID: TREE-{analysis.id} | Generated: {datetime.now().strftime('%B %d, %Y')}", label_style))
+            story.append(Spacer(1, 0.2*inch))
+
+            # Analysis Overview
+            story.append(Paragraph("Analysis Overview", section_heading))
+            meta_data = [
+                ["Analysis Name", analysis.name],
+                ["Generated Date", datetime.now().strftime("%B %d, %Y at %I:%M %p")],
+                ["Analysis Date", analysis.completed_at.strftime("%B %d, %Y") if analysis.completed_at else "Pending"],
+                ["Total Leaves Analyzed", str(analysis.total_leaves or 0)],
+            ]
+            meta_table = Table(meta_data, colWidths=[2.2 * inch, 4.3 * inch])
+            meta_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (0, -1), LIGHT_BG),
+                ("BACKGROUND", (1, 0), (1, -1), colors.white),
+                ("TEXTCOLOR", (0, 0), (0, -1), PRIMARY_COLOR),
+                ("TEXTCOLOR", (1, 0), (1, -1), NEUTRAL_TEXT),
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("GRID", (0, 0), (-1, -1), 1, BORDER_COLOR),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_BG]),
+            ]))
+            story.append(meta_table)
+            story.append(Spacer(1, 0.25*inch))
+
+            # Health Status Summary
+            story.append(Paragraph("Health Status Summary", section_heading))
+            overall_health = analysis.overall_health or 0
+            if overall_health >= 80:
+                health_status, health_color, indicator = "Excellent", ACCENT_COLOR, "HEALTHY"
+            elif overall_health >= 50:
+                health_status, health_color, indicator = "Moderate", WARNING_COLOR, "CAUTION"
+            else:
+                health_status, health_color, indicator = "Poor", DANGER_COLOR, "CRITICAL"
+
+            summary_data = [["Metric", "Score", "Status"], ["Overall Tree Health", f"{overall_health:.1f}%", f"{health_status} • {indicator}"]]
+            summary_table = Table(summary_data, colWidths=[2.5*inch, 1.5*inch, 2.5*inch])
+            summary_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), PRIMARY_COLOR),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("BACKGROUND", (0, 1), (-1, 1), health_color),
+                ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
+                ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+            story.append(summary_table)
+            story.append(Spacer(1, 0.25*inch))
+
+            # Leaf Analysis Breakdown
+            story.append(Paragraph("Leaf Analysis Breakdown", section_heading))
+            detection_data = [
+                ["Category", "Count", "Percentage", "Status"],
+                ["Healthy Leaves", str(analysis.healthy_count or 0), f"{analysis.healthy_percentage or 0:.1f}%", "GOOD"],
+                ["Dried Leaves", str(analysis.dried_leaf_count or 0), f"{analysis.dried_leaf_percentage or 0:.1f}%", "WARN"],
+                ["Powdery Mildew", str(analysis.powdery_mildew_count or 0), f"{analysis.powdery_mildew_percentage or 0:.1f}%", "WARN"],
+                ["Leaf Rust", str(analysis.leaf_rust_count or 0), f"{analysis.leaf_rust_percentage or 0:.1f}%", "CRITICAL"],
+            ]
+            detection_table = Table(detection_data, colWidths=[2*inch, 1.2*inch, 1.3*inch, 1.7*inch])
+            detection_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), SECONDARY_COLOR),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("GRID", (0, 0), (-1, -1), 1, BORDER_COLOR),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT_BG]),
+            ]))
+            story.append(detection_table)
+            story.append(Spacer(1, 0.25*inch))
+
+            # Recommendations
+            story.append(Paragraph("Recommendations", section_heading))
+            if overall_health >= 80:
+                recommendation, recommendation_color = (
+                    "Tree health is excellent. Continue regular monitoring and maintain current care practices to ensure sustained vitality.",
+                    ACCENT_COLOR
+                )
+            elif overall_health >= 50:
+                recommendation, recommendation_color = (
+                    "Tree shows moderate concerns. Apply preventive treatments, increase monitoring frequency to weekly inspections, and consider professional consultation.",
+                    WARNING_COLOR
+                )
+            else:
+                recommendation, recommendation_color = (
+                    "Tree health requires immediate attention. Professional expert consultation is strongly recommended. Implement intensive treatment protocols without delay.",
+                    DANGER_COLOR
+                )
+            rec_table = Table([[Paragraph(recommendation, body_style)]], colWidths=[6.3*inch])
+            rec_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F5F5F5")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+                ("TOPPADDING", (0, 0), (-1, -1), 12),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                ("GRID", (0, 0), (-1, -1), 1, recommendation_color),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+            story.append(rec_table)
+            story.append(Spacer(1, 0.3*inch))
+
+            # Footer
+            footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Report ID: TREE-{analysis.id}"
+            story.append(Paragraph(footer_text, footer_style))
+
+            if idx < len(analyses) - 1:
+                story.append(PageBreak())
+
+        doc.build(story)
+        pdf = buffer.getvalue()
+        buffer.close()
+        response.write(pdf)
+
+        logger.info(f"Selected analyses PDF exported: {len(analyses)} analyses")
         return response
 
     except Exception as e:
-        logger.error(f"Error exporting multiple analyses: {e}")
-        traceback.print_exc()
+        logger.error(f"Error exporting selected analyses PDF: {e}")
         return HttpResponse(f"Error exporting analyses: {str(e)}", status=500)
     
     

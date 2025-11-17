@@ -59,7 +59,7 @@ class TreeAnalysis(models.Model):
     powdery_mildew_percentage = models.FloatField(default=0)
     overall_health = models.FloatField(default=0)  # 0–100 scale
 
-    # ✅ New count fields
+    # Count fields
     total_leaves = models.PositiveIntegerField(default=0)
     healthy_count = models.PositiveIntegerField(default=0)
     dried_leaf_count = models.PositiveIntegerField(default=0)
@@ -75,6 +75,7 @@ class TreeAnalysis(models.Model):
     def __str__(self):
         return f"{self.name} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
+    # ✅ Make sure this method is indented inside the class
     def calculate_health(self):
         """Calculate detailed health counts, percentages, and overall health."""
         leaf_images = self.leaf_images.all()
@@ -82,15 +83,18 @@ class TreeAnalysis(models.Model):
         self.total_leaves = total_leaves
 
         if total_leaves == 0:
-            self.healthy_percentage = 0
-            self.dried_leaf_percentage = 0
-            self.leaf_rust_percentage = 0
-            self.powdery_mildew_percentage = 0
-            self.overall_health = 0
             self.healthy_count = 0
             self.dried_leaf_count = 0
             self.leaf_rust_count = 0
             self.powdery_mildew_count = 0
+
+            self.healthy_percentage = 0
+            self.dried_leaf_percentage = 0
+            self.leaf_rust_percentage = 0
+            self.powdery_mildew_percentage = 0
+
+            self.overall_health = 0
+            self.save()
             return 0
 
         # Count leaves per class
@@ -100,22 +104,17 @@ class TreeAnalysis(models.Model):
         self.powdery_mildew_count = leaf_images.filter(prediction='Powdery Mildew').count()
 
         # Compute percentages
-        self.healthy_percentage = (self.healthy_count / total_leaves) * 100
-        self.dried_leaf_percentage = (self.dried_leaf_count / total_leaves) * 100
-        self.leaf_rust_percentage = (self.leaf_rust_count / total_leaves) * 100
-        self.powdery_mildew_percentage = (self.powdery_mildew_count / total_leaves) * 100
+        self.healthy_percentage = round((self.healthy_count / total_leaves) * 100, 2)
+        self.dried_leaf_percentage = round((self.dried_leaf_count / total_leaves) * 100, 2)
+        self.leaf_rust_percentage = round((self.leaf_rust_count / total_leaves) * 100, 2)
+        self.powdery_mildew_percentage = round((self.powdery_mildew_count / total_leaves) * 100, 2)
 
-        # Compute overall health based on percentages
-        self.overall_health = (
-            self.healthy_percentage -
-            (self.dried_leaf_percentage +
-            self.leaf_rust_percentage +
-            self.powdery_mildew_percentage)
-        )
+        # Compute overall health
+        self.overall_health = self.healthy_percentage
 
-        # Ensure it doesn’t go below 0
-        if self.overall_health < 0:
-            self.overall_health = 0
+        # Save all changes
+        self.save()
+        return self.overall_health
 
 
 # ✅ NEW: Pest Detection Session Model
@@ -186,12 +185,12 @@ class Plant(models.Model):
     health_status = models.CharField(max_length=255, default='undetected')
     symptoms = models.CharField(max_length=255, blank=True, null=True)
     tree_analysis = models.OneToOneField(
-    'dashboard.TreeAnalysis',
-    null=True,
-    blank=True,
-    on_delete=models.SET_NULL,
-    related_name='linked_plant'  # ✅ Add this
-)
+        'dashboard.TreeAnalysis',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='linked_plant'  # ✅ Add this
+    )
 
     def save(self, *args, **kwargs):
         symptoms_mapping = {
@@ -204,8 +203,28 @@ class Plant(models.Model):
         self.symptoms = symptoms_mapping.get(self.health_status, "Unknown")
         super().save(*args, **kwargs)
 
+    @property
+    def overall_health(self):
+        """Return the overall health percentage from the linked TreeAnalysis."""
+        if self.tree_analysis:
+            return self.tree_analysis.overall_health
+        return None
+
+    @property
+    def health_category(self):
+        if not self.tree_analysis:
+            return "Undetected"
+        health = self.tree_analysis.overall_health
+        if health < 40:
+            return "Poor Health"
+        elif 40 <= health < 70:
+            return "Moderate Health"
+        else:
+            return "Excellent Health"
+
     def __str__(self):
         return f"Plant {self.plant_id} - {self.health_status}"
+
 
 class PlantInventory(models.Model):
     name = models.CharField(max_length=100)
