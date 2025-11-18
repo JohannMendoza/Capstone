@@ -24,7 +24,7 @@ load_dotenv(BASE_DIR / ".env")  # load local .env if exists
 # 🔐 SECURITY
 # ================================================================
 SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-dev-key")
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     "localhost",

@@ -8,6 +8,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <!-- The above 4 meta tags *must* come first in the head; any other head content must come *after* these tags -->
 
+    <!-- ✅ PWA META TAGS -->
+    <meta name="theme-color" content="#2E7D32"/>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="LanzoFields">
+    <link rel="apple-touch-icon" href="static/dashboard/img/icon-192x192.png">
+    <link rel="manifest" href="/manifest.json">
+
     <!-- Title -->
     <title>Escala Plants & Nursery</title>
 
@@ -119,6 +127,16 @@
                             <div class="hero-slides-content text-center">
                                 <h2>Escala Plant & Nursery</h2>
                                 <p>Escala Plant and Nursery Farm - Bringing nature closer with premium plants, expert advice, and garden essentials for every green thumb.</p>
+                                
+                                <!-- ✅ PWA INSTALL BUTTON -->
+                                <div id="installContainer" style="margin-top: 20px;">
+                                    <button id="installButton" style="display: none; background: #2E7D32; color: white; border: none; padding: 12px 24px; border-radius: 5px; font-size: 16px; cursor: pointer; margin: 10px;">
+                                        📱 Install Mobile App
+                                    </button>
+                                    <div id="installInfo" style="color: white; font-size: 14px; margin-top: 10px;">
+                                        <p><strong>Tip:</strong> Add to Home Screen for better mobile experience</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -136,6 +154,13 @@
                             <div class="hero-slides-content text-center">
                                 <h2>Escala Plant and Nursery</h2>
                                 <p>Escala Plant and Nursery Farm - Bringing nature closer with premium plants, expert advice, and garden essentials for every green thumb.</p>
+                                
+                                <!-- ✅ MOBILE INSTRUCTIONS -->
+                                <div style="color: white; font-size: 14px; margin-top: 20px;">
+                                    <p><strong>📱 Mobile Users:</strong></p>
+                                    <p>• <strong>Chrome:</strong> Tap ⋮ → "Add to Home Screen"</p>
+                                    <p>• <strong>Safari:</strong> Tap Share → "Add to Home Screen"</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -403,6 +428,80 @@ Copyright &copy;<script>document.write(new Date().getFullYear());</script> All r
     <script src="static/dashboard/js/plugins/plugins.js"></script>
     <!-- Active js -->
     <script src="static/dashboard/js/active.js"></script>
-</body>
 
+    <!-- ✅ PWA INSTALL SCRIPT - NO SERVICE WORKER -->
+    <script>
+        // PWA Install Functionality - No Service Worker
+        let installPrompt;
+        const installButton = document.getElementById('installButton');
+        const installInfo = document.getElementById('installInfo');
+        
+        // Detect if mobile device
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+            console.log('📱 Mobile device detected - PWA ready');
+            if (installInfo) {
+                installInfo.innerHTML = '<p>📱 <strong>Mobile detected:</strong> Install app for better experience</p>';
+            }
+        }
+
+        // Install prompt handler
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            installPrompt = e;
+            
+            console.log('✅ PWA install available');
+            
+            if (installButton) {
+                installButton.style.display = 'inline-block';
+                
+                installButton.addEventListener('click', async () => {
+                    if (installPrompt) {
+                        installPrompt.prompt();
+                        const { outcome } = await installPrompt.userChoice;
+                        
+                        if (outcome === 'accepted') {
+                            console.log('✅ User installed the app');
+                            installButton.style.display = 'none';
+                            
+                            // Show success message
+                            if (installInfo) {
+                                installInfo.innerHTML = '<p>✅ <strong>App installed successfully!</strong> Check your home screen.</p>';
+                            }
+                        } else {
+                            console.log('❌ User dismissed install prompt');
+                            if (installInfo) {
+                                installInfo.innerHTML = '<p>💡 You can install later via browser menu → "Add to Home Screen"</p>';
+                            }
+                        }
+                        installPrompt = null;
+                    }
+                });
+            }
+        });
+
+        // App installed event
+        window.addEventListener('appinstalled', () => {
+            console.log('✅ PWA was successfully installed');
+            if (installButton) {
+                installButton.style.display = 'none';
+            }
+            if (installInfo) {
+                installInfo.innerHTML = '<p>✅ <strong>App installed successfully!</strong> Launch from home screen.</p>';
+            }
+        });
+
+        // Show install instructions for mobile users after page load
+        window.addEventListener('load', () => {
+            if (isMobile && !installPrompt) {
+                setTimeout(() => {
+                    if (installInfo) {
+                        installInfo.innerHTML += '<p style="margin-top: 10px;">💡 <strong>How to install:</strong> Use browser menu → "Add to Home Screen"</p>';
+                    }
+                }, 3000);
+            }
+        });
+    </script>
+</body>
 </html>

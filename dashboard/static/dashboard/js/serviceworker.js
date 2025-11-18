@@ -1,10 +1,9 @@
-// capstone/dashboard/static/dashboard/js/serviceworker.js
 var staticCacheName = "lanzofields-pwa-v" + new Date().getTime();
 var filesToCache = [
     '/',
-    '/static/dashboard/css/style.css',
-    '/static/dashboard/images/icon-192x192.png',
-    '/static/dashboard/images/icon-512x512.png',
+    '/static/img/icon-192x192.png',      // ✅ UPDATE PATH
+    '/static/img/icon-512x512.png',      // ✅ UPDATE PATH
+    '/static/img/splash-640x1136.png',   // ✅ UPDATE PATH
     '/admin_dashboard/',
     '/detector/',
     '/pest-detector/',
