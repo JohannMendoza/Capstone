@@ -4,14 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lanzones Leaf Disease Detector</title>
+    <title>Lanzones Leaf Disease Detector | Escala Plants</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Enhanced custom CSS with modern styling -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         body { 
             font-family: 'Inter', sans-serif; 
@@ -21,381 +16,534 @@
         
         .card-hover { transition: all 0.3s ease; }
         .card-hover:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
-        .nav-item { transition: all 0.2s ease; }
-        .nav-item:hover { transform: translateX(4px); }
         .gradient-bg { background: linear-gradient(135deg, #065f46 0%, #047857 100%); }
-        .stats-gradient { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); }
-
-    /* Fixed sidebar positioning and main content layout */
-    .main-content {
-        margin-left: 0;
-        padding: 2rem;
-        min-height: 100vh;
-        background-color: #f8fafc;
-        width: 100%;
-    }
-
-    @media (min-width: 1024px) {
-        .main-content {
-            margin-left: 18rem;
-            width: calc(100% - 18rem);
-        }
-    }
-
-    /* Enhanced sidebar positioning */
-    .sidebar-fixed {
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 1000;
-        height: 100vh;
-        overflow-y: auto;
-    }
-
-    @media (max-width: 1023px) {
+        
+        /* Fixed sidebar styling */
         .sidebar-fixed {
             position: fixed;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 320px;
+            z-index: 50;
+            overflow-y: auto;
         }
         
-        .sidebar-fixed.show {
+        .main-content {
+            margin-left: 320px;
+            min-height: 100vh;
+            background: #f8fafc;
+        }
+        
+        /* Mobile sidebar styling - FIXED: Not full screen */
+        .mobile-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px; /* Reduced width */
+            z-index: 100;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .mobile-sidebar.open {
             transform: translateX(0);
         }
-    }
-
-    /* Enhanced card styling with better spacing */
-    .card {
-        border: none;
-        border-radius: 1rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        transition: all 0.3s ease;
-        margin-bottom: 1.5rem;
-    }
-
-    .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    }
-
-    /* Better feature card layout */
-    .feature-card {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .feature-card .card-body {
-        display: flex;
-        flex-direction: column;
-        flex-grow: 1;
-        padding: 2rem;
-    }
-
-    .feature-icon {
-        font-size: 3.5rem;
-        color: #059669;
-        margin-bottom: 1.5rem;
-    }
-
-    .pest-feature-icon {
-        font-size: 3.5rem;
-        color: #f59e0b;
-        margin-bottom: 1.5rem;
-    }
-
-    /* Enhanced welcome section */
-    .welcome-section {
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        border: 1px solid #e5e7eb;
-    }
-
-    .quick-start-section {
-        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-        border: 1px solid #bbf7d0;
-    }
-
-    /* Better error alert styling */
-    .error-alert {
-        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-        border: 1px solid #fca5a5;
-        border-radius: 1rem;
-        padding: 2rem;
-        margin-bottom: 2rem;
-    }
-
-    .error-alert h4 {
-        color: #dc2626;
-        margin-bottom: 1rem;
-        font-weight: 600;
-    }
-
-    /* Enhanced modal styling */
-    .modal-content {
-        border: none;
-        border-radius: 1rem;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    }
-
-    .modal-header {
-        border-bottom: 1px solid #e5e7eb;
-        border-radius: 1rem 1rem 0 0;
-        padding: 1.5rem 2rem;
-    }
-
-    .modal-body {
-        padding: 2rem;
-    }
-
-    .camera-container {
-        position: relative;
-        border-radius: 1rem;
-        overflow: hidden;
-        background: #000;
-    }
-
-    /* Enhanced button styling */
-    .btn {
-        border-radius: 0.75rem;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        padding: 0.75rem 1.5rem;
-    }
-
-    .btn:hover {
-        transform: translateY(-1px);
-    }
-
-    .btn-lg {
-        padding: 1rem 2rem;
-        font-size: 1.1rem;
-    }
-
-    /* Better section spacing */
-    .section-spacing {
-        margin-bottom: 3rem;
-    }
-
-    .content-container {
-        max-width: 1400px;
-        margin: 0 auto;
-    }
-</style>
-</head>
-<body class="bg-gray-50 antialiased">
-    <!-- Enhanced mobile header -->
-    <div class="lg:hidden gradient-bg text-white p-4 flex justify-between items-center shadow-lg">
-        <a href="{% url 'admin_dashboard' %}" class="flex items-center space-x-3">
-            <div class="w-10 h-10 bg-transparent border border-white border-opacity-30 rounded-lg flex items-center justify-center">
-                <img src="{% static 'dashboard/img/core-img/logo.png' %}" alt="Logo" class="h-6 w-6 object-contain">
-            </div>
-            <span class="font-semibold text-lg">Escala Plants</span>
-        </a>
-        <button id="menu-toggle" class="focus:outline-none p-2 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-            </svg>
-        </button>
-    </div>
-
-    <div class="flex flex-col lg:flex-row min-h-screen">
-        <!-- Enhanced sidebar with modern design -->
-        <!-- Enhanced sidebar with fixed positioning -->
-<aside id="sidebar" class="gradient-bg text-white w-full lg:w-72 sidebar-fixed flex-col justify-between hidden lg:flex shadow-2xl p-6">
-    <!-- Top Section -->
-    <div>
-        <!-- Logo Section -->
-        <div class="text-center mb-8">
-            <div class="w-16 h-16 bg-transparent border-2 border-white border-opacity-20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-                <img src="{% static 'dashboard/img/core-img/logo.png' %}" alt="Logo" class="h-8 w-8 object-contain">
-            </div>
-            <h1 class="text-xl font-bold tracking-wide text-white">DETECTION</h1>
-            <p class="text-green-200 text-sm mt-1">Escala Plants Management</p>
-        </div>
-
-        <!-- Navigation -->
-        <nav class="space-y-2">
-            <a href="{% url 'admin_dashboard' %}" 
-               class="nav-item flex items-center py-3 px-4 rounded-xl {% if request.resolver_match.url_name == 'admin_dashboard' %}bg-green-700 bg-opacity-50 backdrop-blur-sm border border-green-600 border-opacity-30{% else %}hover:bg-green-700 hover:bg-opacity-30{% endif %} transition-all duration-200">
-                <div class="w-10 h-10 bg-transparent bg-opacity-15 rounded-lg flex items-center justify-center mr-3">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"/>
-                    </svg>
-                </div>
-                <span class="font-medium">Dashboard</span>
-            </a>
-
-            <a href="{% url 'detector' %}" 
-               class="nav-item flex items-center py-3 px-4 rounded-xl {% if request.resolver_match.url_name == 'detector' %}bg-green-700 bg-opacity-50 backdrop-blur-sm border border-green-600 border-opacity-30{% else %}hover:bg-green-700 hover:bg-opacity-30{% endif %} transition-all duration-200">
-                <div class="w-10 h-10 bg-white bg-opacity-10 rounded-lg flex items-center justify-center mr-3">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                </div>
-                <span class="font-medium">Detection</span>
-            </a>
-
-            <a href="{% url 'inventory' %}" 
-               class="nav-item flex items-center py-3 px-4 rounded-xl {% if request.resolver_match.url_name == 'inventory' %}bg-green-700 bg-opacity-50 backdrop-blur-sm border border-green-600 border-opacity-30{% else %}hover:bg-green-700 hover:bg-opacity-30{% endif %} transition-all duration-200">
-                <div class="w-10 h-10 bg-white bg-opacity-10 rounded-lg flex items-center justify-center mr-3">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                    </svg>
-                </div>
-                <span class="font-medium">Inventory Plant</span>
-            </a>
-
-            <a href="{% url 'user_list' %}" 
-               class="nav-item flex items-center py-3 px-4 rounded-xl {% if request.resolver_match.url_name == 'user_list' %}bg-green-700 bg-opacity-50 backdrop-blur-sm border border-green-600 border-opacity-30{% else %}hover:bg-green-700 hover:bg-opacity-30{% endif %} transition-all duration-200">
-                <div class="w-10 h-10 bg-white bg-opacity-10 rounded-lg flex items-center justify-center mr-3">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
-                    </svg>
-                </div>
-                <span class="font-medium">Users</span>
-            </a>
-
-            <a href="{% url 'reports' %}" 
-               class="nav-item flex items-center py-3 px-4 rounded-xl {% if request.resolver_match.url_name == 'reports' %}bg-green-700 bg-opacity-50 backdrop-blur-sm border border-green-600 border-opacity-30{% else %}hover:bg-green-700 hover:bg-opacity-30{% endif %} transition-all duration-200">
-                <div class="w-10 h-10 bg-white bg-opacity-10 rounded-lg flex items-center justify-center mr-3">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                    </svg>
-                </div>
-                <span class="font-medium">Reports</span>
-            </a>
-        </nav>
-    </div>
-
-    <!-- Logout Section -->
-    <div class="mt-8">
-        <a href="{% url 'logout' %}" 
-           class="nav-item flex items-center py-3 px-4 rounded-xl hover:bg-red-600 hover:bg-opacity-80 transition-all duration-200 border border-red-500 border-opacity-30">
-            <div class="w-10 h-10 bg-red-500 bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                </svg>
-            </div>
-            <span class="font-medium">Logout</span>
-        </a>
-    </div>
-</aside>
-
-        <!-- Updated main content with enhanced header -->
-        <!-- Enhanced main content with better organization -->
-<div class="main-content">
-    <!-- Enhanced header section -->
-    <div class="bg-white shadow-sm border border-gray-100 p-6 rounded-2xl mb-8">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">Disease Detection</h2>
-                <p class="text-gray-600">AI-powered lanzones leaf disease detection system</p>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Better organized content container -->
-    <div class="content-container">
-        {% if model_error %}
-        <div class="error-alert section-spacing">
-            <h4><i class="bi bi-exclamation-triangle-fill"></i> Model Loading Error</h4>
-            <p>The application failed to load the TensorFlow model. Please check the following:</p>
-            <ul>
-                <li>Model path: {{ model_path }}</li>
-                <li>File exists: {{ model_exists }}</li>
-            </ul>
-            <p>Make sure the model file exists and is in the correct format (H5).</p>
-        </div>
-        {% endif %}
         
-        <!-- Enhanced welcome and quick start section -->
-        <div class="row section-spacing">
-            <div class="col-md-8">
-                <div class="card card-hover welcome-section">
-                    <div class="card-body p-5">
-                        <h2 class="card-title mb-4 text-2xl font-bold">Welcome to Lanzones Leaf Disease Detector</h2>
-                        <p class="card-text lead mb-4">
-                            This application helps you detect diseases in lanzones trees by analyzing leaf images. 
-                            You can analyze individual leaves or collect multiple images to assess the overall health of a tree.
-                        </p>
-                        <p class="card-text">
-                            Our AI-powered system can detect three conditions:
-                            <span class="badge bg-success ms-2">Healthy</span>
-                            <span class="badge bg-info ms-2">Powdery Mildew</span>
-                            <span class="badge bg-danger ms-2">Leaf Rust</span>
-                        </p>
+        .mobile-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            display: none;
+        }
+        
+        .mobile-overlay.open {
+            display: block;
+        }
+        
+        @media (max-width: 1023px) {
+            .main-content {
+                margin-left: 0;
+            }
+        }
+
+        /* Enhanced card styling */
+        .feature-card {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .welcome-section {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #e5e7eb;
+        }
+
+        .quick-start-section {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #bbf7d0;
+        }
+
+        .error-alert {
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            border: 1px solid #fca5a5;
+            border-radius: 1rem;
+            padding: 2rem;
+        }
+
+        /* Modal styling */
+        .modal-content {
+            border: none;
+            border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .camera-container {
+            position: relative;
+            border-radius: 1rem;
+            overflow: hidden;
+            background: #000;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+<!-- Mobile Overlay -->
+<div id="mobileOverlay" class="mobile-overlay" onclick="closeMobileSidebar()"></div>
+
+<!-- Mobile Navbar -->
+<div class="lg:hidden bg-gradient-to-r from-green-800 to-emerald-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-40">
+    <div class="flex items-center space-x-3">
+        <div class="bg-white bg-opacity-15 p-2 rounded-lg backdrop-blur-sm">
+            <i class="fas fa-leaf text-white text-lg"></i>
+        </div>
+        <span class="text-lg font-bold">Escala Plants</span>
+    </div>
+    <button id="mobileMenuButton" class="focus:outline-none bg-white bg-opacity-15 p-2 rounded-lg backdrop-blur-sm">
+        <i class="fas fa-bars text-white"></i>
+    </button>
+</div>
+
+<div class="flex">
+    <!-- Desktop Sidebar - Fixed -->
+    <aside class="sidebar-fixed bg-gradient-to-b from-green-800 to-emerald-900 text-white hidden lg:flex flex-col shadow-2xl">
+        <div class="p-6 flex-1">
+            <!-- Logo Section -->
+            <div class="bg-white bg-opacity-15 rounded-2xl p-4 mb-8 backdrop-blur-sm">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                        <i class="fas fa-leaf text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Escala Plants</h1>
+                        <p class="text-green-200 text-sm">Detection Center</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card card-hover quick-start-section h-100">
-                    <div class="card-body p-5 d-flex flex-column">
-                        <h3 class="card-title mb-3 text-xl font-semibold">Quick Start</h3>
-                        <p class="card-text mb-4">Choose one of the following options to begin:</p>
-                        <div class="mt-auto space-y-3">
-                            <a href="{% url 'new_tree_analysis' %}" class="btn btn-primary btn-lg w-100 mb-3">
-                                <i class="bi bi-tree me-2"></i> New Tree Analysis
-                            </a>
-                            <a href="{% url 'pest_detector' %}" class="btn btn-warning btn-lg w-100">
-                                <i class="bi bi-bug-fill me-2"></i> Pest Detection
-                            </a>
+
+            <!-- Navigation -->
+            <nav class="space-y-2">
+                {% if user_role == 'admin' %}
+                <a href="{% url 'admin_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Admin Dashboard</span>
+                </a>
+                {% else %}
+                <a href="{% url 'client_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Client Dashboard</span>
+                </a>
+                {% endif %}
+
+                <a href="{% url 'detector' %}" class="flex items-center py-3 px-4 rounded-xl bg-white bg-opacity-20 shadow-lg">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-search text-white"></i>
+                    </div>
+                    <span class="font-medium">Detection</span>
+                </a>
+
+                <a href="{% url 'inventory' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-leaf text-white"></i>
+                    </div>
+                    <span class="font-medium">Inventory Plant</span>
+                </a>
+
+                {% if user_role == 'admin' %}
+                <a href="{% url 'user_list' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-users text-white"></i>
+                    </div>
+                    <span class="font-medium">Users</span>
+                </a>
+
+                <a href="{% url 'reports' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-pie text-white"></i>
+                    </div>
+                    <span class="font-medium">Reports</span>
+                </a>
+                {% endif %}
+
+                <a href="{% url 'history' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-history text-white"></i>
+                    </div>
+                    <span class="font-medium">History</span>
+                </a>
+            </nav>
+        </div>
+        
+        <!-- Logout Section -->
+        <div class="p-6 mt-auto">
+            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
+                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                    <i class="fas fa-sign-out-alt text-red-300"></i>
+                </div>
+                <span class="font-medium text-red-300">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Mobile Sidebar - FIXED: Not full screen -->
+    <aside id="mobileSidebar" class="mobile-sidebar bg-gradient-to-b from-green-800 to-emerald-900 text-white flex flex-col lg:hidden">
+        <div class="p-6 flex-1">
+            <!-- Header with close button -->
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                        <i class="fas fa-leaf text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Escala Plants</h1>
+                        <p class="text-green-200 text-sm">Detection Center</p>
+                    </div>
+                </div>
+                <button onclick="closeMobileSidebar()" class="bg-white bg-opacity-15 p-2 rounded-lg">
+                    <i class="fas fa-times text-white"></i>
+                </button>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="space-y-2">
+                {% if user_role == 'admin' %}
+                <a href="{% url 'admin_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Admin Dashboard</span>
+                </a>
+                {% else %}
+                <a href="{% url 'client_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Client Dashboard</span>
+                </a>
+                {% endif %}
+
+                <a href="{% url 'detector' %}" class="flex items-center py-3 px-4 rounded-xl bg-white bg-opacity-20 shadow-lg" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-search text-white"></i>
+                    </div>
+                    <span class="font-medium">Detection</span>
+                </a>
+
+                <a href="{% url 'inventory' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-leaf text-white"></i>
+                    </div>
+                    <span class="font-medium">Inventory Plant</span>
+                </a>
+
+                {% if user_role == 'admin' %}
+                <a href="{% url 'user_list' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-users text-white"></i>
+                    </div>
+                    <span class="font-medium">Users</span>
+                </a>
+
+                <a href="{% url 'reports' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-pie text-white"></i>
+                    </div>
+                    <span class="font-medium">Reports</span>
+                </a>
+                {% endif %}
+
+                <a href="{% url 'history' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-history text-white"></i>
+                    </div>
+                    <span class="font-medium">History</span>
+                </a>
+            </nav>
+        </div>
+        
+        <!-- Logout Section -->
+        <div class="p-6 mt-auto">
+            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30" onclick="closeMobileSidebar()">
+                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                    <i class="fas fa-sign-out-alt text-red-300"></i>
+                </div>
+                <span class="font-medium text-red-300">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content flex-1 min-h-screen">
+        <div class="max-w-7xl mx-auto p-6 lg:p-8">
+            <!-- Header Section -->
+            <div class="bg-gradient-to-r from-green-600 to-emerald-700 text-white p-6 rounded-2xl shadow-xl mb-8">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                    <div class="flex items-center space-x-4 mb-4 lg:mb-0">
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i class="fas fa-search text-white text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl lg:text-3xl font-bold">Disease Detection</h2>
+                            <p class="text-green-100 mt-1">AI-powered lanzones leaf disease detection system</p>
                         </div>
                     </div>
+                    <div class="bg-white bg-opacity-20 rounded-xl p-3">
+                        <p class="text-green-100 text-sm">Welcome, <span class="font-bold text-white">{{ request.user.username }}</span></p>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Error Alert -->
+            {% if model_error %}
+            <div class="error-alert mb-8">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-xl mr-3"></i>
+                    <h4 class="text-red-800 font-semibold">Model Loading Error</h4>
+                </div>
+                <p class="text-red-700 mb-2">The application failed to load the detection model. Please check the following:</p>
+                <ul class="list-disc list-inside text-red-700 mb-3">
+                    <li>Model path: {{ model_path }}</li>
+                    <li>File exists: {{ model_exists }}</li>
+                </ul>
+                <p class="text-red-700">Make sure the model file exists and is in the correct format.</p>
+            </div>
+            {% endif %}
+
+            <!-- Welcome Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg border border-gray-100 card-hover">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Welcome to Lanzones Leaf Disease Detector</h2>
+                    <p class="text-gray-600 text-lg mb-4">
+                        This application helps you detect diseases in lanzones trees by analyzing leaf images. 
+                        You can analyze individual leaves or collect multiple images to assess the overall health of a tree.
+                    </p>
+                    <p class="text-gray-600">
+                        Our AI-powered system can detect multiple conditions:
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 ml-2">
+                            <i class="fas fa-check-circle mr-1"></i>Healthy
+                        </span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 ml-2">
+                            <i class="fas fa-shield-alt mr-1"></i>Powdery Mildew
+                        </span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 ml-2">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>Leaf Rust
+                        </span>
+                    </p>
+                </div>
+
+                <div class="bg-gradient-to-br from-green-50 to-emerald-100 p-6 rounded-2xl shadow-lg border border-green-200 card-hover">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Quick Start</h3>
+                    <p class="text-gray-600 mb-6">Choose one of the following options to begin:</p>
+                    <div class="space-y-4">
+                        <a href="{% url 'new_tree_analysis' %}" class="w-full bg-green-600 text-white py-3 px-4 rounded-xl hover:bg-green-700 transition-colors font-semibold flex items-center justify-center">
+                            <i class="fas fa-tree mr-2"></i>New Tree Analysis
+                        </a>
+                        <a href="{% url 'pest_detector' %}" class="w-full bg-yellow-500 text-white py-3 px-4 rounded-xl hover:bg-yellow-600 transition-colors font-semibold flex items-center justify-center">
+                            <i class="fas fa-bug mr-2"></i>Pest Detection
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features Section -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Detection Features</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Tree Health Analysis -->
+                    <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 feature-card">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-tree feature-icon text-green-600"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3 text-center">Tree Health Analysis</h3>
+                        <p class="text-gray-600 mb-6 text-center">
+                            Collect multiple leaf images from a single tree to get a comprehensive health assessment.
+                            The system will calculate the overall health percentage of your tree.
+                        </p>
+                        <a href="{% url 'new_tree_analysis' %}" class="w-full bg-green-600 text-white py-3 px-4 rounded-xl hover:bg-green-700 transition-colors font-semibold flex items-center justify-center">
+                            Start Tree Analysis
+                        </a>
+                    </div>
+
+                    <!-- Pest Detection -->
+                    <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 feature-card">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-bug feature-icon text-yellow-600"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3 text-center">Pest Detection</h3>
+                        <p class="text-gray-600 mb-6 text-center">
+                            Detect and identify common plant pests using AI-powered image analysis.
+                            Upload images or use your camera to identify pests and get treatment recommendations.
+                        </p>
+                        <a href="{% url 'pest_detector' %}" class="w-full bg-yellow-500 text-white py-3 px-4 rounded-xl hover:bg-yellow-600 transition-colors font-semibold flex items-center justify-center">
+                            Start Pest Detection
+                        </a>
+                    </div>
+
+                    <!-- Analysis History -->
+                    <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 feature-card">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-history feature-icon text-blue-600"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-3 text-center">Analysis History</h3>
+                        <p class="text-gray-600 mb-6 text-center">
+                            View your previous analysis and track the health of your trees over time.
+                            Access detailed reports and recommendations for plant care.
+                        </p>
+                        <a href="{% url 'history' %}" class="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center">
+                            View History
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Analyses -->
+            {% if recent_analyses %}
+            <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Recent Analyses</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for analysis in recent_analyses %}
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <div class="flex justify-between items-start mb-3">
+                            <h4 class="font-semibold text-gray-800">{{ analysis.name }}</h4>
+                            <span class="text-sm text-gray-500">{{ analysis.completed_at|date:"M d, Y" }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">{{ analysis.total_leaves }} leaves</span>
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium 
+                                {% if analysis.overall_health >= 70 %}bg-green-100 text-green-800
+                                {% elif analysis.overall_health >= 40 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ analysis.overall_health|default:0 }}% Health
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</div>
+
+<!-- Single Leaf Analysis Modal -->
+<div id="singleLeafModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xl font-semibold text-gray-800">Single Leaf Analysis</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
             </div>
         </div>
         
-        <!-- Enhanced features section with better spacing -->
-        <div class="section-spacing">
-            <div class="row mb-4">
-                <div class="col-12">
-                    <h2 class="mb-4 text-2xl font-bold text-gray-800">Features</h2>
+        <div class="p-6">
+            <!-- Options Card -->
+            <div id="modal-options-card">
+                <p class="text-center text-gray-600 mb-6">
+                    Take a photo or upload an image of a lanzones leaf to detect diseases
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button onclick="openCamera()" class="bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-colors font-semibold flex items-center justify-center">
+                        <i class="fas fa-camera mr-2"></i>Open Camera
+                    </button>
+                    <button onclick="openFileInput()" class="bg-blue-600 text-white py-3 px-6 rounded-xl hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center">
+                        <i class="fas fa-upload mr-2"></i>Upload Image
+                    </button>
+                    <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
                 </div>
             </div>
             
-            <div class="row">
-                <div class="col-md-4 mb-4">
-                    <div class="card feature-card card-hover">
-                        <div class="card-body text-center">
-                            <i class="bi bi-tree feature-icon"></i>
-                            <h3 class="card-title mb-3">Tree Health Analysis</h3>
-                            <p class="card-text mb-4">
-                                Collect multiple leaf images from a single tree to get a comprehensive health assessment.
-                                The system will calculate the overall health percentage of your tree.
-                            </p>
-                            <a href="{% url 'new_tree_analysis' %}" class="btn btn-outline-primary mt-auto">
-                                Start Tree Analysis
-                            </a>
-                        </div>
-                    </div>
+            <!-- Camera Card -->
+            <div id="camera-card" class="hidden">
+                <h4 class="text-lg font-semibold text-gray-800 mb-4 text-center">Camera</h4>
+                <div class="camera-container mb-4">
+                    <video id="videoElement" autoplay playsinline class="w-full rounded-xl"></video>
                 </div>
-                <div class="col-md-4 mb-4">
-                    <div class="card feature-card card-hover">
-                        <div class="card-body text-center">
-                            <i class="bi bi-bug-fill pest-feature-icon"></i>
-                            <h3 class="card-title mb-3">Pest Detection</h3>
-                            <p class="card-text mb-4">
-                                Detect and identify common plant pests using AI-powered image analysis.
-                                Upload images or use your camera to identify pests and get treatment recommendations.
-                            </p>
-                            <a href="{% url 'pest_detector' %}" class="btn btn-outline-warning mt-auto">
-                                Start Pest Detection
-                            </a>
-                        </div>
-                    </div>
+                <div class="flex justify-center gap-4">
+                    <button onclick="captureImage()" class="bg-green-600 text-white py-3 px-6 rounded-xl hover:bg-green-700 transition-colors font-semibold">
+                        <i class="fas fa-camera mr-2"></i>Capture
+                    </button>
+                    <button onclick="closeCamera()" class="bg-gray-500 text-white py-3 px-6 rounded-xl hover:bg-gray-600 transition-colors font-semibold">
+                        <i class="fas fa-arrow-left mr-2"></i>Back
+                    </button>
                 </div>
-                <div class="col-md-4 mb-4">
-                    <div class="card feature-card card-hover">
-                        <div class="card-body text-center">
-                            <i class="bi bi-clock-history feature-icon"></i>
-                            <h3 class="card-title mb-3">Analysis History</h3>
-                            <p class="card-text mb-4">
-                                View your previous analysis and track the health of your trees over time.
-                                Access detailed reports and recommendations for plant care.
-                            </p>
-                            <a href="{% url 'history' %}" class="btn btn-outline-primary mt-auto">
-                                View History
-                            </a>
+                <canvas id="canvasElement" class="hidden"></canvas>
+            </div>
+            
+            <!-- Result Card -->
+            <div id="result-card" class="hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4">Leaf Image</h4>
+                        <img id="previewImage" src="#" alt="Leaf image" class="w-full rounded-xl mb-4 max-h-64 object-cover">
+                        <button onclick="resetModal()" class="w-full bg-gray-500 text-white py-3 px-6 rounded-xl hover:bg-gray-600 transition-colors font-semibold">
+                            <i class="fas fa-arrow-left mr-2"></i>Take Another Photo
+                        </button>
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4">Analysis Result</h4>
+                        
+                        <!-- Loading State -->
+                        <div id="loading-container" class="text-center py-8">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                            <p class="text-gray-600">Analyzing leaf image...</p>
+                        </div>
+                        
+                        <!-- Results Container -->
+                        <div id="results-container" class="hidden">
+                            <div class="bg-green-50 p-4 rounded-xl mb-4">
+                                <h5 class="font-semibold text-gray-800 mb-1">Detected Disease:</h5>
+                                <p id="predictionResult" class="text-2xl font-bold text-green-600"></p>
+                            </div>
+                            
+                            <h5 class="font-semibold text-gray-800 mb-3">Confidence Scores:</h5>
+                            <div id="confidenceScores" class="space-y-3">
+                                <!-- Confidence scores will be inserted here -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -403,331 +551,200 @@
         </div>
     </div>
 </div>
-    </div>
 
-    <!-- Single Leaf Analysis Modal -->
-    <div class="modal fade" id="singleLeafModal" tabindex="-1" aria-labelledby="singleLeafModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="singleLeafModalLabel">Single Leaf Analysis</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="modal-close-btn"></button>
-                </div>
-                <div class="modal-body">
-                    
-                    <!-- Options Card -->
-                    <div id="modal-options-card">
-                        <p class="text-center text-muted mb-4">
-                            Take a photo or upload an image of a lanzones leaf to detect diseases
-                        </p>
-                        <div class="d-flex justify-content-center gap-3 flex-wrap">
-                            <button id="modal-open-camera-btn" class="btn btn-success btn-lg">
-                                <i class="bi bi-camera"></i> Open Camera
-                            </button>
-                            <button id="modal-upload-image-btn" class="btn btn-outline-success btn-lg">
-                                <i class="bi bi-upload"></i> Upload Image
-                            </button>
-                            <input type="file" id="modal-file-input" accept="image/*" style="display: none;">
-                        </div>
-                    </div>
-                    
-                    <!-- Camera Card -->
-                    <div id="modal-camera-card" style="display: none;">
-                        <h5 class="mb-3 text-center">Camera</h5>
-                        <div class="camera-container">
-                            <video id="modal-video" autoplay playsinline style="width: 100%; border-radius: 10px;"></video>
-                            <button class="btn btn-success btn-lg position-absolute bottom-0 start-50 translate-middle-x mb-3" id="modal-capture-btn">
-                                <i class="bi bi-camera"></i>
-                            </button>
-                        </div>
-                        <div class="text-center mt-3">
-                            <button id="modal-cancel-camera-btn" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left"></i> Back
-                            </button>
-                        </div>
-                        <canvas id="modal-canvas" style="display: none;"></canvas>
-                    </div>
-                    
-                    <!-- Result Card -->
-                    <div id="modal-result-card" style="display: none;">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h5 class="mb-3">Leaf Image</h5>
-                                <img id="modal-preview-image" src="#" alt="Leaf image" class="img-fluid rounded mb-3" style="max-height: 300px; width: 100%; object-fit: contain;">
-                                <div class="text-center">
-                                    <button id="modal-new-image-btn" class="btn btn-outline-success">
-                                        <i class="bi bi-arrow-left"></i> Take Another Photo
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <h5 class="mb-3">Analysis Result</h5>
-                                
-                                <!-- Error Message -->
-                                <div id="modal-error-container" class="alert alert-danger" style="display: none;">
-                                    <h6><i class="bi bi-exclamation-triangle-fill"></i> Error</h6>
-                                    <p id="modal-error-message"></p>
-                                </div>
-                                
-                                <!-- Loading State -->
-                                <div id="modal-loading-container" class="text-center py-5">
-                                    <div class="spinner-border text-success mb-3" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                    <p class="text-muted">Analyzing leaf image...</p>
-                                </div>
-                                
-                                <!-- Results Container -->
-                                <div id="modal-results-container" style="display: none;">
-                                    <div class="card bg-light p-3 mb-4">
-                                        <h6 class="mb-1">Detected Disease:</h6>
-                                        <p id="modal-prediction-result" class="fs-3 fw-bold text-success mb-0"></p>
-                                    </div>
-                                    
-                                    <h6 class="mb-3">Confidence Scores:</h6>
-                                    <div id="modal-confidence-scores">
-                                        <!-- Confidence scores will be inserted here -->
-                                    </div>
-                                    
-                                    <a id="new-tree-link"
-                                       href="{% url 'new_tree_analysis' %}?plant_id={{ request.GET.plant_id }}"
-                                       class="btn btn-primary btn-lg w-100 mb-3">
-                                       <i class="bi bi-tree"></i> New Tree Analysis
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <form style="display: none;">
-        <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-    </form>
-    
-    <!-- Bootstrap JS Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    
 <script>
-document.getElementById('menu-toggle').addEventListener('click', function () {
-    const sidebar = document.getElementById('sidebar');
-    sidebar.classList.toggle('hidden');
-    sidebar.classList.toggle('show');
-});
+    // Mobile sidebar functions - FIXED VERSION
+    function openMobileSidebar() {
+        console.log('Opening mobile sidebar');
+        const sidebar = document.getElementById('mobileSidebar');
+        const overlay = document.getElementById('mobileOverlay');
+        
+        if (sidebar && overlay) {
+            sidebar.classList.add('open');
+            overlay.classList.add('open');
+            document.body.style.overflow = 'hidden'; // Prevent scrolling
+        }
+    }
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Get URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const plantId = urlParams.get('plant_id');
-    const analysisId = urlParams.get('analysis_id');
-    
-    // Modal elements
-    const singleLeafModal = new bootstrap.Modal(document.getElementById('singleLeafModal'));
-    const modalOptionsCard = document.getElementById('modal-options-card');
-    const modalCameraCard = document.getElementById('modal-camera-card');
-    const modalResultCard = document.getElementById('modal-result-card');
-    const modalPreviewImage = document.getElementById('modal-preview-image');
-    const modalLoadingContainer = document.getElementById('modal-loading-container');
-    const modalResultsContainer = document.getElementById('modal-results-container');
-    const modalErrorContainer = document.getElementById('modal-error-container');
-    const modalErrorMessage = document.getElementById('modal-error-message');
-    const modalPredictionResult = document.getElementById('modal-prediction-result');
-    const modalConfidenceScores = document.getElementById('modal-confidence-scores');
-    
-    // Button elements
-    const singleLeafBtn = document.getElementById('single-leaf-btn');
-    const singleLeafBtn2 = document.getElementById('single-leaf-btn-2');
-    const modalOpenCameraBtn = document.getElementById('modal-open-camera-btn');
-    const modalUploadImageBtn = document.getElementById('modal-upload-image-btn');
-    const modalFileInput = document.getElementById('modal-file-input');
-    const modalCancelCameraBtn = document.getElementById('modal-cancel-camera-btn');
-    const modalCaptureBtn = document.getElementById('modal-capture-btn');
-    const modalNewImageBtn = document.getElementById('modal-new-image-btn');
-    
-    // Camera elements
-    const modalVideo = document.getElementById('modal-video');
-    const modalCanvas = document.getElementById('modal-canvas');
-    
-    let stream = null;
-    
-    // Show single leaf modal
-    function showSingleLeafModal() {
-        modalOptionsCard.style.display = 'block';
-        modalCameraCard.style.display = 'none';
-        modalResultCard.style.display = 'none';
-        singleLeafModal.show();
+    function closeMobileSidebar() {
+        console.log('Closing mobile sidebar');
+        const sidebar = document.getElementById('mobileSidebar');
+        const overlay = document.getElementById('mobileOverlay');
+        
+        if (sidebar && overlay) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+            document.body.style.overflow = ''; // Re-enable scrolling
+        }
     }
-    
-    // Open camera
-    function openCamera() {
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-            .then(function(mediaStream) {
-                stream = mediaStream;
-                modalVideo.srcObject = stream;
-                modalOptionsCard.style.display = 'none';
-                modalCameraCard.style.display = 'block';
-            })
-            .catch(function(error) {
-                console.error('Error accessing camera:', error);
-                alert('Error accessing camera. Please make sure you have granted camera permissions.');
+
+    // Initialize event listeners when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, initializing mobile sidebar');
+        
+        // Add click event to mobile menu button
+        const mobileMenuButton = document.getElementById('mobileMenuButton');
+        if (mobileMenuButton) {
+            mobileMenuButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openMobileSidebar();
             });
+        }
+        
+        // Close sidebar when clicking on overlay
+        const overlay = document.getElementById('mobileOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', closeMobileSidebar);
+        }
+        
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('mobileSidebar');
+            const menuButton = document.getElementById('mobileMenuButton');
+            
+            if (window.innerWidth < 1024 && 
+                sidebar && 
+                sidebar.classList.contains('open') &&
+                !sidebar.contains(event.target) && 
+                !menuButton.contains(event.target)) {
+                closeMobileSidebar();
+            }
+        });
+
+        // Handle escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeMobileSidebar();
+            }
+        });
+    });
+
+    // Modal functionality
+    let stream = null;
+
+    function openModal() {
+        document.getElementById('singleLeafModal').classList.remove('hidden');
+        resetModal();
     }
-    
-    // Stop camera
-    function stopCamera() {
+
+    function closeModal() {
+        document.getElementById('singleLeafModal').classList.add('hidden');
+        closeCamera();
+    }
+
+    function resetModal() {
+        document.getElementById('modal-options-card').classList.remove('hidden');
+        document.getElementById('camera-card').classList.add('hidden');
+        document.getElementById('result-card').classList.add('hidden');
+        document.getElementById('results-container').classList.add('hidden');
+        document.getElementById('loading-container').classList.add('hidden');
+        closeCamera();
+    }
+
+    async function openCamera() {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            const videoElement = document.getElementById('videoElement');
+            videoElement.srcObject = stream;
+            
+            document.getElementById('modal-options-card').classList.add('hidden');
+            document.getElementById('camera-card').classList.remove('hidden');
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            alert('Error accessing camera. Please make sure you have granted camera permissions.');
+        }
+    }
+
+    function closeCamera() {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             stream = null;
         }
+        resetModal();
     }
-    
-    // Capture image from camera
-    function captureImage() {
-        const context = modalCanvas.getContext('2d');
-        modalCanvas.width = modalVideo.videoWidth;
-        modalCanvas.height = modalVideo.videoHeight;
-        context.drawImage(modalVideo, 0, 0);
-        
-        const imageDataUrl = modalCanvas.toDataURL('image/jpeg');
-        modalPreviewImage.src = imageDataUrl;
-        
-        stopCamera();
-        modalCameraCard.style.display = 'none';
-        modalResultCard.style.display = 'block';
-        
-        // Process the image
-        processImage(imageDataUrl, analysisId);
-    }
-    
-    // Process uploaded file
-    function processFile(file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            modalPreviewImage.src = e.target.result;
-            modalOptionsCard.style.display = 'none';
-            modalResultCard.style.display = 'block';
-            
-            // Process the image
-            processImage(e.target.result, analysisId);
-        };
-        reader.readAsDataURL(file);
-    }
-    
-    // Process image and get prediction
-    function processImage(imageData, analysisId) {
-        // Show loading state
-        modalLoadingContainer.style.display = 'block';
-        modalResultsContainer.style.display = 'none';
-        modalErrorContainer.style.display = 'none';
-        
-        // ✅ Use FormData instead of URLSearchParams
-        const formData = new FormData();
-        formData.append('image', imageData);
-        formData.append('tree_analysis_id', analysisId);
-        
-        // Send to server (no manual headers!)
-        fetch('/predict/', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            modalLoadingContainer.style.display = 'none';
-            
-            if (data.success) {
-                modalResultsContainer.style.display = 'block';
-                modalPredictionResult.textContent = data.prediction;
-                modalPredictionResult.className = 'fs-3 fw-bold mb-0';
-                
-                if (data.prediction === 'Healthy') {
-                    modalPredictionResult.classList.add('text-success');
-                } else if (data.prediction === 'Powdery Mildew') {
-                    modalPredictionResult.classList.add('text-info');
-                } else {
-                    modalPredictionResult.classList.add('text-danger');
-                }
-                
-                modalConfidenceScores.innerHTML = '';
-                for (const [className, confidence] of Object.entries(data.confidences)) {
-                    const barColor = className === 'Healthy' ? 'bg-success' :
-                                     className === 'Powdery Mildew' ? 'bg-info' : 'bg-danger';
-                    
-                    const progressBar = `
-                        <div class="mb-3">
-                            <label class="form-label d-flex justify-content-between">
-                                <span>${className}</span>
-                                <span>${confidence.toFixed(1)}%</span>
-                            </label>
-                            <div class="progress">
-                                <div class="progress-bar ${barColor}" role="progressbar"
-                                     style="width: ${confidence}%" aria-valuenow="${confidence}"
-                                     aria-valuemin="0" aria-valuemax="100"></div>
-                            </div>
-                        </div>
-                    `;
-                    modalConfidenceScores.innerHTML += progressBar;
-                }
 
-                // ✅ Keep your complete_analysis logic
-                if (analysisId && plantId) {
-                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
-                    fetch(`/complete_analysis/${analysisId}/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'X-CSRFToken': csrfToken
-                        },
-                        body: new URLSearchParams({
-                            tree_name: 'Tree 1',
-                            plant_id: plantId
-                        })
-                    })
-                    .then(res => res.json())
-                    .then(result => {
-                        console.log("✅ Health updated:", result);
-                        if (!result.success) {
-                            console.warn("Server-side error:", result.error);
-                        }
-                    })
-                    .catch(err => {
-                        console.error("❌ Error completing analysis:", err);
-                    });
-                }
-            } else {
-                modalErrorContainer.style.display = 'block';
-                modalErrorMessage.textContent = data.error || 'An error occurred during prediction';
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            modalLoadingContainer.style.display = 'none';
-            modalErrorContainer.style.display = 'block';
-            modalErrorMessage.textContent = 'Network error: ' + error.message;
-        });
+    function captureImage() {
+        const video = document.getElementById('videoElement');
+        const canvas = document.getElementById('canvasElement');
+        const context = canvas.getContext('2d');
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0);
+        
+        const imageDataUrl = canvas.toDataURL('image/jpeg');
+        document.getElementById('previewImage').src = imageDataUrl;
+        
+        closeCamera();
+        document.getElementById('camera-card').classList.add('hidden');
+        document.getElementById('result-card').classList.remove('hidden');
+        document.getElementById('loading-container').classList.remove('hidden');
+        
+        processImage(imageDataUrl);
     }
-    
-    // Event listeners
-    if (singleLeafBtn) singleLeafBtn.addEventListener('click', showSingleLeafModal);
-    if (singleLeafBtn2) singleLeafBtn2.addEventListener('click', showSingleLeafModal);
-    
-    modalOpenCameraBtn.addEventListener('click', openCamera);
-    modalUploadImageBtn.addEventListener('click', () => modalFileInput.click());
-    modalFileInput.addEventListener('change', function() {
-        if (this.files && this.files[0]) processFile(this.files[0]);
+
+    function openFileInput() {
+        document.getElementById('fileInput').click();
+    }
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('previewImage').src = e.target.result;
+                document.getElementById('modal-options-card').classList.add('hidden');
+                document.getElementById('result-card').classList.remove('hidden');
+                document.getElementById('loading-container').classList.remove('hidden');
+                processImage(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function processImage(imageData) {
+        // Simulate API call - replace with actual implementation
+        setTimeout(() => {
+            document.getElementById('loading-container').classList.add('hidden');
+            document.getElementById('results-container').classList.remove('hidden');
+            
+            // Mock results - replace with actual API response
+            document.getElementById('predictionResult').textContent = 'Healthy';
+            document.getElementById('confidenceScores').innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-700">Healthy</span>
+                    <span class="font-semibold text-green-600">85.2%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-green-600 h-2 rounded-full" style="width: 85.2%"></div>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-700">Powdery Mildew</span>
+                    <span class="font-semibold text-blue-600">10.1%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-blue-600 h-2 rounded-full" style="width: 10.1%"></div>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-700">Leaf Rust</span>
+                    <span class="font-semibold text-red-600">4.7%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-red-600 h-2 rounded-full" style="width: 4.7%"></div>
+                </div>
+            `;
+        }, 2000);
+    }
+
+    // Add event listeners for single leaf analysis buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        const singleLeafButtons = document.querySelectorAll('[id^="single-leaf-btn"]');
+        singleLeafButtons.forEach(button => {
+            button.addEventListener('click', openModal);
+        });
     });
-    modalCancelCameraBtn.addEventListener('click', function() {
-        stopCamera();
-        modalCameraCard.style.display = 'none';
-        modalOptionsCard.style.display = 'block';
-    });
-    modalCaptureBtn.addEventListener('click', captureImage);
-    modalNewImageBtn.addEventListener('click', function() {
-        modalResultCard.style.display = 'none';
-        modalOptionsCard.style.display = 'block';
-    });
-});
 </script>
 </body>
 </html>

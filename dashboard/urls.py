@@ -30,6 +30,10 @@ from .views import (
 )
 
 urlpatterns = [
+     # ✅ ADD THESE NEW ENDPOINTS
+    path('api/check-plants/', views.check_plants, name='check_plants'),
+    path('optimized-predict/', views.optimized_predict, name='optimized_predict'),
+    path('fast-predict/', views.fast_predict, name='fast_predict'),
     # PWA URLs - IDAGDAG ITO
     path('', include('pwa.urls')),  # ✅ PWA URLs
     path('offline/', views.offline, name='offline'),  # ✅ OFFLINE PAGE

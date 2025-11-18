@@ -118,3 +118,76 @@ class CustomPasswordResetForm(PasswordResetForm):
         email_message = EmailMultiAlternatives(subject, text_content, from_email, [to_email])
         email_message.attach_alternative(html_content, "text/html")
         email_message.send()
+
+
+        # forms.py - Add this form
+from django import forms
+from django.contrib.auth import get_user_model
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+
+CustomUser = get_user_model()
+
+class UserEditForm(forms.ModelForm):
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('client', 'Client'),
+    ]
+    
+    STATUS_CHOICES = [
+        (True, 'Active'),
+        (False, 'Inactive'),
+    ]
+    
+    role = forms.ChoiceField(
+        choices=ROLE_CHOICES,
+        widget=forms.Select(attrs={
+            'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent',
+        })
+    )
+    
+    is_active = forms.ChoiceField(
+        choices=STATUS_CHOICES,
+        widget=forms.Select(attrs={
+            'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent',
+        }),
+        label="Account Status"
+    )
+    
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'email', 'role', 'is_active']
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'Enter username'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent',
+                'placeholder': 'Enter email address'
+            }),
+        }
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email', '').strip().lower()
+        
+        # Validate email format
+        try:
+            validate_email(email)
+        except ValidationError:
+            raise forms.ValidationError("Please enter a valid email address.")
+        
+        # Check if email already exists (excluding current user)
+        if CustomUser.objects.filter(email=email).exclude(id=self.instance.id).exists():
+            raise forms.ValidationError("This email is already registered to another user.")
+        
+        return email
+    
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        
+        # Check if username already exists (excluding current user)
+        if CustomUser.objects.filter(username=username).exclude(id=self.instance.id).exists():
+            raise forms.ValidationError("This username is already taken.")
+        
+        return username

@@ -464,6 +464,55 @@
       border-radius: 20px 20px 0 0;
     }
 
+    /* Professional Modal Styles */
+    .professional-modal .modal-dialog {
+      max-width: 500px;
+    }
+
+    .professional-modal .modal-content {
+      border-radius: 20px;
+      border: none;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      overflow: hidden;
+    }
+
+    .professional-modal .modal-header {
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+      color: white;
+      border-bottom: none;
+      padding: 2rem;
+    }
+
+    .professional-modal .modal-title {
+      font-weight: 700;
+      font-size: 1.5rem;
+    }
+
+    .professional-modal .modal-body {
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .professional-modal .modal-icon {
+      font-size: 4rem;
+      color: var(--primary-color);
+      margin-bottom: 1.5rem;
+    }
+
+    .professional-modal .modal-footer {
+      border-top: 1px solid var(--border-color);
+      padding: 1.5rem 2rem;
+      justify-content: center;
+    }
+
+    .professional-modal .btn-primary {
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+      border: none;
+      border-radius: 50px;
+      padding: 0.75rem 2rem;
+      font-weight: 600;
+    }
+
     /* Mobile Responsiveness */
     @media (max-width: 768px) {
       .main-container {
@@ -567,7 +616,6 @@
   </div>
 
   <div class="container py-4 main-container">
-    <!-- Improved main layout structure with better positioning -->
     <div class="row g-4">
       <!-- Main Content Area -->
       <div class="col-lg-8">
@@ -584,7 +632,7 @@
               <strong>Instructions:</strong> Point your camera at tree leaves for real-time health detection. The AI will automatically identify and classify leaf conditions.
             </div>
 
-            <!-- Better positioned video section with improved centering -->
+            <!-- Camera Section -->
             <div class="d-flex justify-content-center mb-4">
               <div class="camera-container">
                 <div class="camera-inner">
@@ -597,7 +645,7 @@
               </div>
             </div>
 
-            <!-- Better positioned control buttons -->
+            <!-- Control Buttons -->
             <div class="d-flex justify-content-center gap-3 mb-4">
               <button class="btn btn-success btn-lg detect-btn" id="start-btn">
                 <i class="bi bi-play-fill me-2"></i> Start Detection
@@ -613,13 +661,12 @@
           </div>
         </div>
 
-        <!-- Better organized statistics section -->
+        <!-- Statistics Section -->
         <div class="card mb-4">
           <div class="card-body">
             <div class="detection-stats">
               <h5 class="mb-4"><i class="bi bi-bar-chart-fill me-2"></i>Detection Statistics</h5>
               
-              <!-- Improved grid layout for statistics -->
               <div class="row g-3 mb-4">
                 <div class="col-6 col-md-3">
                   <div class="stat-item healthy text-center">
@@ -647,7 +694,6 @@
                 </div>
               </div>
               
-              <!-- Better positioned total count -->
               <div class="text-center mb-4">
                 <div class="stat-item p-3 border rounded-3" style="border-left: 4px solid var(--primary-color) !important; display: inline-block; min-width: 200px;">
                   <div class="stat-number text-primary fs-1 fw-bold" id="total-count">0</div>
@@ -655,7 +701,6 @@
                 </div>
               </div>
               
-              <!-- Better positioned analyze button -->
               <div class="text-center" id="detect-button-container" style="display: none;">
                 <button class="btn btn-primary btn-lg px-5" id="analyze-btn">
                   <i class="bi bi-graph-up me-2"></i> Analyze Tree Health
@@ -665,7 +710,7 @@
           </div>
         </div>
 
-        <!-- Better positioned empty state -->
+        <!-- Empty State -->
         <div class="card" id="empty-state-message">
           <div class="card-body text-center py-5">
             <i class="bi bi-camera" style="font-size: 4rem; color: #cbd5e1;"></i>
@@ -681,7 +726,7 @@
               <i class="bi bi-clipboard-data text-primary"></i>Tree Health Analysis
             </h3>
             
-            <!-- Better organized analysis grid -->
+            <!-- Analysis Grid -->
             <div class="row g-4 mb-4">
               <div class="col-md-6">
                 <div class="analysis-item p-3 border rounded-3">
@@ -728,14 +773,14 @@
               </div>
             </div>
             
-            <!-- Better positioned chart -->
+            <!-- Chart -->
             <div class="text-center mb-4">
               <div class="d-inline-block p-3 border rounded-3 bg-light">
                 <canvas id="live-disease-chart" width="400" height="200"></canvas>
               </div>
             </div>
             
-            <!-- Better organized save section -->
+            <!-- Save Section -->
             <div class="border-top pt-4">
               <div class="row align-items-end">
                 <div class="col-md-8">
@@ -753,7 +798,7 @@
         </div>
       </div>
 
-      <!-- Better organized sidebar with improved spacing -->
+      <!-- Sidebar -->
       <div class="col-lg-4">
         <div class="sticky-top" style="top: 2rem;">
           <!-- Summary Card -->
@@ -795,7 +840,7 @@
             </div>
           </div>
 
-          <!-- Better organized tips card -->
+          <!-- Tips Card -->
           <div class="card mb-4">
             <div class="card-body">
               <h3 class="card-title mb-4">
@@ -850,6 +895,38 @@
     </div>
   </div>
 
+  <!-- ✅ NEW: Professional Plant Required Modal -->
+  <div class="modal fade professional-modal" id="plantRequiredModal" tabindex="-1" aria-labelledby="plantRequiredModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="plantRequiredModalLabel">
+            <i class="bi bi-tree me-2"></i>Plant Required
+          </h5>
+        </div>
+        <div class="modal-body">
+          <div class="modal-icon">
+            <i class="bi bi-exclamation-triangle"></i>
+          </div>
+          <h4 class="mb-3">Plant Identification Required</h4>
+          <p class="text-muted mb-4">
+            To start tree health detection, you need to first add a plant to your inventory. 
+            This helps us track and manage the health analysis for specific plants.
+          </p>
+          <div class="alert alert-info border-0">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Note:</strong> Each detection session is linked to a specific plant for better tracking and history.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <a href="/inventory/" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-circle me-2"></i> Add Plant to Inventory
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Success Modal -->
   <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -899,8 +976,14 @@
     let liveDiseaseChart = null;
     let diseaseChart = null;
 
-    const DIST_THRESHOLD = 50;
-    const CONF_THRESHOLD = 0.50;
+    // ✅ IMPROVED: Lower confidence threshold for more detections
+    const CONF_THRESHOLD = 0.25; // Reduced from 0.50 to 0.25 (25%)
+    
+    // ✅ NEW: Performance optimization variables
+    let lastProcessTime = 0;
+    const PROCESS_INTERVAL = 400; // Process every 400ms instead of every frame
+    let frameCounter = 0;
+    const FRAME_SKIP = 2; // Process every 3rd frame
 
     const normalizeClass = cls => cls.toLowerCase().replace(/\s/g, '-');
 
@@ -913,6 +996,18 @@
         });
       }
       return cookieValue;
+    }
+
+    // ✅ NEW: Check if plant exists before starting detection
+    async function checkPlantExists() {
+      try {
+        const response = await fetch('/api/check-plants/');
+        const data = await response.json();
+        return data.has_plants;
+      } catch (error) {
+        console.error('Error checking plants:', error);
+        return false;
+      }
     }
 
     function distance(p1, p2) { return Math.hypot(p1[0] - p2[0], p1[1] - p2[1]); }
@@ -974,7 +1069,11 @@
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' }, 
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 }, // ✅ Limit resolution for better performance
+            height: { ideal: 720 }
+          }, 
           audio: false 
         });
         video.srcObject = stream;
@@ -985,19 +1084,45 @@
       }
     }
 
-    function captureLoop() {
-      if (!detectionRunning || isPredicting) return;
-      isPredicting = true;
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = video.videoWidth;
-      tempCanvas.height = video.videoHeight;
-      tempCanvas.getContext('2d').drawImage(video, 0, 0);
+    // ✅ IMPROVED: Optimized capture loop with frame skipping
+    function optimizedCaptureLoop() {
+      if (!detectionRunning || isPredicting) {
+        requestAnimationFrame(optimizedCaptureLoop);
+        return;
+      }
 
+      const now = Date.now();
+      frameCounter++;
+      
+      // Skip frames for better performance
+      if (frameCounter % FRAME_SKIP !== 0) {
+        requestAnimationFrame(optimizedCaptureLoop);
+        return;
+      }
+      
+      // Limit processing frequency
+      if (now - lastProcessTime < PROCESS_INTERVAL) {
+        requestAnimationFrame(optimizedCaptureLoop);
+        return;
+      }
+
+      isPredicting = true;
+      lastProcessTime = now;
+
+      // ✅ IMPROVED: Use smaller canvas for faster processing
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 640; // Reduced from original size
+      tempCanvas.height = 480;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+
+      // ✅ IMPROVED: Compress image for faster transmission
       tempCanvas.toBlob(blob => {
         const formData = new FormData();
         formData.append('frame', blob);
+        formData.append('quality', 'low'); // Signal for optimized processing
 
-        fetch('/predict/', {
+        fetch('/optimized-predict/', {  // ✅ Use optimized endpoint
           method: 'POST',
           headers: { 'X-CSRFToken': getCookie('csrftoken') },
           body: formData
@@ -1011,9 +1136,11 @@
                 if (!leafClasses.includes(detClass)) return;
                 const detCenter = getCenter(det.box);
                 let matched = false;
+                
+                // ✅ IMPROVED: Better tracking with adjusted threshold
                 for (let leaf of trackedLeaves) {
-                  const dist = getDistThreshold(det.box);
-                  if (distance(detCenter, getCenter(leaf.box)) < dist) {
+                  const distThreshold = getDistThreshold(det.box) * 0.8; // More aggressive matching
+                  if (distance(detCenter, getCenter(leaf.box)) < distThreshold) {
                     leaf.box = det.box;
                     leaf.class = detClass;
                     leaf.confidence = det.confidence;
@@ -1022,6 +1149,7 @@
                     break;
                   }
                 }
+                
                 if (!matched) {
                   trackedLeaves.push({
                     id: nextLeafId++,
@@ -1033,9 +1161,11 @@
                   if (classCounts.hasOwnProperty(detClass)) classCounts[detClass]++;
                 }
               });
-              trackedLeaves = trackedLeaves.filter(l => now - l.lastUpdated < 3000);
+              
+              // ✅ IMPROVED: Keep leaves longer for better continuity
+              trackedLeaves = trackedLeaves.filter(l => now - l.lastUpdated < 5000); // Increased from 3000 to 5000ms
               updateStatsUI();
-              progressText.textContent = `Detected: ${trackedLeaves.length}`;
+              progressText.textContent = `Detected: ${trackedLeaves.length} leaves | ${data.processing_time || '?'}s`;
               
               // Show/hide summary states
               if (Object.values(classCounts).reduce((a, b) => a + b, 0) > 0) {
@@ -1045,15 +1175,20 @@
                 document.getElementById('detect-button-container').style.display = 'flex';
               }
             } else {
-              progressText.textContent = 'No detection';
+              progressText.textContent = 'No detection - Try moving camera closer';
             }
           })
-          .catch(err => console.error('Prediction error:', err))
+          .catch(err => {
+            console.error('Prediction error:', err);
+            progressText.textContent = 'Detection error - Retrying...';
+          })
           .finally(() => {
             isPredicting = false;
-            if (detectionRunning) requestAnimationFrame(captureLoop);
+            if (detectionRunning) {
+              requestAnimationFrame(optimizedCaptureLoop);
+            }
           });
-      }, 'image/jpeg');
+      }, 'image/jpeg', 0.7); // ✅ 70% quality for faster transmission
     }
 
     function initializeDiseaseChart(healthyCount, driedLeafCount, powderyMildewCount, leafRustCount, canvasId) {
@@ -1177,7 +1312,7 @@
                           `Tree Analysis ${new Date().toLocaleDateString()}`;
 
       const plantId = new URLSearchParams(window.location.search).get('plant_id'); 
-      const analysisId = window.location.pathname.split('/')[2]; // /tree-analysis/216/ → "216"
+      const analysisId = window.location.pathname.split('/')[2];
 
       if (!analysisId || analysisId === 'undefined') {
         alert('Error: Invalid analysis ID. Please refresh the page and try again.');
@@ -1190,7 +1325,7 @@
       // Send individual detection counts to properly save as LeafImage records
       const analysisData = {
         tree_name: analysisName,
-        plant_id: plantId,
+        plant_id: plantId || '', // ✅ Handle null plant_id
         healthy_count: classCounts['healthy'],
         dried_leaf_count: classCounts['dried-leaf'],
         powdery_mildew_count: classCounts['powdery-mildew'],
@@ -1250,8 +1385,18 @@
       }
     });
 
-    // Button event handlers
-    startBtn.onclick = () => {
+    // ✅ IMPROVED: Button event handlers with plant check
+    startBtn.onclick = async () => {
+      // Check if plant exists before starting detection
+      const hasPlants = await checkPlantExists();
+      
+      if (!hasPlants) {
+        // Show professional modal
+        const plantRequiredModal = new bootstrap.Modal(document.getElementById('plantRequiredModal'));
+        plantRequiredModal.show();
+        return;
+      }
+
       trackedLeaves = [];
       nextLeafId = 1;
       leafClasses.forEach(k => classCounts[k] = 0);
@@ -1259,10 +1404,10 @@
       detectionRunning = true;
       recordingIndicator.style.display = 'block';
       requestAnimationFrame(drawFrame);
-      captureLoop();
+      optimizedCaptureLoop(); // ✅ Use optimized version
       startBtn.disabled = true;
       stopBtn.disabled = false;
-      progressText.textContent = 'Detection started...';
+      progressText.textContent = 'Detection started - Move camera slowly over leaves';
       document.getElementById('summary-loading').style.display = 'block';
       document.getElementById('summary-empty-state').style.display = 'none';
       document.getElementById('detect-button-container').style.display = 'none';

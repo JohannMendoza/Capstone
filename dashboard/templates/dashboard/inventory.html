@@ -6,400 +6,665 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Management | Escala Plants</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Fixed sidebar styling */
+        .sidebar-fixed {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 320px;
+            z-index: 50;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            margin-left: 320px;
+            min-height: 100vh;
+        }
+        
+        /* Mobile sidebar styling - FIXED: Not full screen and behind header */
+        .mobile-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px; /* Reduced width */
+            z-index: 45; /* Lower than mobile header */
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .mobile-sidebar.open {
+            transform: translateX(0);
+        }
+        
+        .mobile-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 40; /* Lower than sidebar */
+            display: none;
+        }
+        
+        .mobile-overlay.open {
+            display: block;
+        }
+        
+        /* Mobile header - FIXED: Always on top */
+        .mobile-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100; /* Highest z-index */
+            background: linear-gradient(to right, #065f46, #047857);
+        }
+        
+        .main-content-mobile {
+            margin-top: 80px; /* Account for fixed header height */
+        }
+        
+        @media (max-width: 1023px) {
+            .main-content {
+                margin-left: 0;
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .mobile-header {
+                display: none;
+            }
+            .main-content-mobile {
+                margin-top: 0;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-emerald-100 min-h-screen">
 
-<!-- Mobile Navbar -->
-<div class="lg:hidden bg-gradient-to-r from-green-800 to-emerald-900 text-white p-4 flex justify-between items-center shadow-lg">
+<!-- Mobile Overlay -->
+<div id="mobileOverlay" class="mobile-overlay" onclick="closeMobileSidebar()"></div>
+
+<!-- Mobile Navbar - FIXED: Always on top -->
+<div class="mobile-header lg:hidden text-white p-4 flex justify-between items-center shadow-lg">
     <div class="flex items-center space-x-3">
         <div class="bg-white bg-opacity-15 p-2 rounded-lg backdrop-blur-sm">
-            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
+            <i class="fas fa-leaf text-white text-lg"></i>
         </div>
         <span class="text-lg font-bold">Escala Plants</span>
     </div>
-    <button id="menu-toggle" class="focus:outline-none bg-white bg-opacity-15 p-2 rounded-lg backdrop-blur-sm">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
+    <button id="mobileMenuButton" class="focus:outline-none bg-white bg-opacity-15 p-2 rounded-lg backdrop-blur-sm">
+        <i class="fas fa-bars text-white"></i>
     </button>
 </div>
 
-<!--  Fixed layout structure - moved main content inside flex container -->
-<div class="flex flex-col lg:flex-row min-h-screen overflow-x-hidden">
-
-  <!-- Sidebar -->
-  <aside id="sidebar" class="bg-gradient-to-b from-green-800 to-emerald-900 text-white w-full lg:w-80 h-auto lg:h-screen p-6 flex-col justify-between hidden lg:flex shadow-2xl flex-shrink-0">
-    <div>
-      <!-- Logo Section -->
-      <div class="bg-white bg-opacity-15 rounded-2xl p-4 mb-8 backdrop-blur-sm">
-        <div class="flex items-center space-x-3">
-          <div class="bg-white bg-opacity-20 p-3 rounded-xl">
-            <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          </div>
-          <div>
-            <h1 class="text-xl font-bold">Escala Plants</h1>
-            <p class="text-green-200 text-sm">Admin Dashboard</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Navigation -->
-      <nav class="space-y-2">
-        {% if request.user.role == 'admin' %}
-        <a href="{% url 'admin_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/admin_dashboard/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Admin Dashboard</span>
-        </a>
-        {% elif request.user.role == 'client' %}
-        <a href="{% url 'client_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/client_dashboard/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Client Dashboard</span>
-        </a>
-        {% endif %}
-
-        <a href="{% url 'detector' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/detector/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Detection</span>
-        </a>
-
-        <a href="{% url 'inventory' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/inventory/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 0 0-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Inventory Plant</span>
-        </a>
-
-        {% if request.user.is_authenticated and request.user.role == 'admin' %}
-        <a href="{% url 'user_list' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/users/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01.99l-2.54 3.38c-.35.47-.35 1.1 0 1.58l2.54 3.38c.47.62 1.21.99 2.01.99h1.54c.8 0 1.54-.37 2.01-.99L22 14v8h-2z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Users</span>
-        </a>
-
-        <a href="{% url 'reports' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/reports/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Reports</span>
-        </a>
-        {% endif %}
-      </nav>
-    </div>
-    
-    <!-- Logout Section -->
-    <div class="mt-8">
-      <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
-        <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
-          <svg class="w-5 h-5 text-red-300" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01.99l-2.54 3.38c-.35.47-.35 1.1 0 1.58l2.54 3.38c.47.62 1.21.99 2.01.99h1.54c.8 0 1.54-.37 2.01-.99L22 14v8h-2z"/>
-          </svg>
-        </div>
-        <span class="font-medium text-red-300">Logout</span>
-      </a>
-    </div>
-  </aside>
-
-  <!--  Main content now properly positioned within flex container -->
-  <main class="flex-1 min-h-screen bg-gray-50">
-    <!--  Added content wrapper for better alignment and spacing -->
-    <div class="max-w-7xl mx-auto p-6 lg:p-8">
-        <!-- Header Section -->
-        <div class="bg-gradient-to-r from-green-600 to-emerald-700 text-white p-6 rounded-2xl shadow-xl mb-8">
-            <div class="flex items-center space-x-4">
-                <div class="bg-white bg-opacity-20 p-3 rounded-xl">
-                    <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="text-2xl lg:text-3xl font-bold">Plant Inventory Management</h2>
-                    <p class="text-green-100 mt-1">Manage and monitor your Lanzones tree collection</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Table Card -->
-        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center p-4 border-b border-gray-100 gap-4">
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-800">Manage Lanzones Trees</h3>
-                    <p class="text-gray-500 text-sm">Track health status, age, and manage your plant inventory</p>
-                </div>
-                <a href="{% url 'add_plant' %}" class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                    </svg>
-                    Add New Plant
-                </a>
-            </div>
-
-            <!--  Enhanced table with better responsive behavior -->
-            <div class="overflow-x-auto">
-                <table class="min-w-full">
-                    <thead>
-                        <tr class="bg-gradient-to-r from-green-600 to-emerald-700 text-white">
-                            <th class="p-4 text-left font-semibold">Plant ID</th>
-                            <th class="p-4 text-left font-semibold">Plant Number</th>
-                            <th class="p-4 text-left font-semibold">Age</th>
-                            <th class="p-4 text-left font-semibold">Health Status</th>
-                            <th class="p-4 text-left font-semibold">Overall Health</th>
-                            <th class="p-4 text-left font-semibold">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        {% for plant in plants %}
-                        <tr class="hover:bg-green-50 transition-colors duration-200">
-                            <td class="p-4 font-medium text-gray-900">{{ plant.plant_id }}</td>
-                            <td class="p-4 text-gray-700">{{ plant.plant_number }}</td>
-                            <td class="p-4 text-gray-700">{{ plant.age }}</td>
-                            <td class="p-4">
-                                {% if plant.health_status == 'undetected' %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                        </svg>
-                                        Pending Detection
-                                    </span>
-                                {% elif plant.detection_details %}
-                                    <!-- Display all detection classes with percentages -->
-                                    <div class="space-y-1">
-                                        {% if plant.detection_details.healthy > 0 %}
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M9 12l2 2 4-4"/>
-                                                </svg>
-                                                Healthy: {{ plant.detection_details.healthy }}%
-                                            </span>
-                                        </div>
-                                        {% endif %}
-                                        {% if plant.detection_details.dried_leaf > 0 %}
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                                                </svg>
-                                                Dried Leaf: {{ plant.detection_details.dried_leaf }}%
-                                            </span>
-                                        </div>
-                                        {% endif %}
-                                        {% if plant.detection_details.leaf_rust > 0 %}
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800">
-                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                                                </svg>
-                                                Leaf Rust: {{ plant.detection_details.leaf_rust }}%
-                                            </span>
-                                        </div>
-                                        {% endif %}
-                                        {% if plant.detection_details.powdery_mildew > 0 %}
-                                        <div class="flex items-center space-x-2">
-                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
-                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                                                </svg>
-                                                Powdery Mildew: {{ plant.detection_details.powdery_mildew }}%
-                                            </span>
-                                        </div>
-                                        {% endif %}
-                                    </div>
-                                {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                                        No Analysis Data
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td class="p-4 text-gray-700 font-medium">
-                                {% if plant.overall_health is not None %}
-                                    <div class="mb-1 flex items-center justify-between">
-                                        <span>{{ plant.overall_health|floatformat:2 }}%</span>
-                                        <span class="text-sm 
-                                            {% if plant.health_category == 'Excellent Health' %}
-                                                text-green-600 font-semibold
-                                            {% elif plant.health_category == 'Moderate Health' %}
-                                                text-yellow-600 font-semibold
-                                            {% else %}
-                                                text-red-600 font-semibold
-                                            {% endif %}
-                                        ">
-                                            {{ plant.health_category }}
-                                        </span>
-                                    </div>
-
-                                    <!-- ✅ Progress Bar -->
-                                    <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                                        <div class="h-3 rounded-full transition-all duration-500
-                                            {% if plant.overall_health >= 70 %}
-                                                bg-green-500
-                                            {% elif plant.overall_health >= 40 %}
-                                                bg-yellow-400
-                                            {% else %}
-                                                bg-red-500
-                                            {% endif %}
-                                        " style="width: {{ plant.overall_health }}%;">
-                                        </div>
-                                    </div>
-                                {% else %}
-                                    <span class="text-gray-400">N/A</span>
-                                {% endif %}
-                            </td>
-
-                            <td class="p-4">
-                                <div class="flex flex-wrap gap-2">
-                                    <a href="{% url 'update_plant' plant.plant_id %}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
-                                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2V7H6v-2.828l8.586-8.586z"/>
-                                        </svg>
-                                        Edit
-                                    </a>
-                                    <form action="{% url 'delete_plant' plant.plant_id %}" method="post" class="inline">
-                                        {% csrf_token %}
-                                        <button type="submit" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors" onclick="return confirm('Are you sure?')">
-                                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                                            </svg>
-                                            Delete
-                                        </button>
-                                    </form>
-                                    <a href="{% url 'detector' %}?plant_id={{ plant.plant_id }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors">
-                                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                                        </svg>
-                                        Detect
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center p-8">
-                                <div class="flex flex-col items-center space-y-3">
-                                    <div class="bg-gray-100 p-4 rounded-full">
-                                        <svg class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 00-.707.293h-3.172a1 1 0 00-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
-                                        </svg>
-                                    </div>
-                                    <p class="text-gray-500 font-medium">No plants found</p>
-                                    <p class="text-gray-400 text-sm">Add plants to start managing your inventory</p>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Added pagination controls -->
-            {% if plants.has_other_pages %}
-            <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex-1 flex justify-between sm:hidden">
-                        {% if plants.has_previous %}
-                            <a href="?page={{ plants.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                                Previous
-                            </a>
-                        {% endif %}
-                        {% if plants.has_next %}
-                            <a href="?page={{ plants.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                                Next
-                            </a>
-                        {% endif %}
+<div class="flex">
+    <!-- Desktop Sidebar - Fixed -->
+    <aside class="sidebar-fixed bg-gradient-to-b from-green-800 to-emerald-900 text-white hidden lg:flex flex-col shadow-2xl">
+        <div class="p-6 flex-1">
+            <!-- Logo Section -->
+            <div class="bg-white bg-opacity-15 rounded-2xl p-4 mb-8 backdrop-blur-sm">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                        <i class="fas fa-leaf text-white text-xl"></i>
                     </div>
-                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                        <div>
-                            <p class="text-sm text-gray-700">
-                                Showing
-                                <span class="font-medium">{{ plants.start_index }}</span>
-                                to
-                                <span class="font-medium">{{ plants.end_index }}</span>
-                                of
-                                <span class="font-medium">{{ plants.paginator.count }}</span>
-                                results
-                            </p>
+                    <div>
+                        <h1 class="text-xl font-bold">Escala Plants</h1>
+                        <p class="text-green-200 text-sm">Admin Dashboard</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="space-y-2">
+                {% if request.user.role == 'admin' %}
+                <a href="{% url 'admin_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Admin Dashboard</span>
+                </a>
+                {% elif request.user.role == 'client' %}
+                <a href="{% url 'client_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Client Dashboard</span>
+                </a>
+                {% endif %}
+
+                <a href="{% url 'detector' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-search text-white"></i>
+                    </div>
+                    <span class="font-medium">Detection</span>
+                </a>
+
+                <a href="{% url 'inventory' %}" class="flex items-center py-3 px-4 rounded-xl bg-white bg-opacity-20 shadow-lg">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-leaf text-white"></i>
+                    </div>
+                    <span class="font-medium">Inventory Plant</span>
+                </a>
+
+                {% if request.user.is_authenticated and request.user.role == 'admin' %}
+                <a href="{% url 'user_list' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-users text-white"></i>
+                    </div>
+                    <span class="font-medium">Users</span>
+                </a>
+
+                <a href="{% url 'reports' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-pie text-white"></i>
+                    </div>
+                    <span class="font-medium">Reports</span>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+        
+        <!-- Logout Section -->
+        <div class="p-6 mt-auto">
+            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
+                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                    <i class="fas fa-sign-out-alt text-red-300"></i>
+                </div>
+                <span class="font-medium text-red-300">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Mobile Sidebar - FIXED: Behind header -->
+    <aside id="mobileSidebar" class="mobile-sidebar bg-gradient-to-b from-green-800 to-emerald-900 text-white flex flex-col lg:hidden">
+        <div class="p-6 flex-1 pt-20"> <!-- Added pt-20 to account for header -->
+            <!-- Header with close button -->
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                        <i class="fas fa-leaf text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Escala Plants</h1>
+                        <p class="text-green-200 text-sm">Admin Dashboard</p>
+                    </div>
+                </div>
+                <button onclick="closeMobileSidebar()" class="bg-white bg-opacity-15 p-2 rounded-lg">
+                    <i class="fas fa-times text-white"></i>
+                </button>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="space-y-2">
+                {% if request.user.role == 'admin' %}
+                <a href="{% url 'admin_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Admin Dashboard</span>
+                </a>
+                {% elif request.user.role == 'client' %}
+                <a href="{% url 'client_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Client Dashboard</span>
+                </a>
+                {% endif %}
+
+                <a href="{% url 'detector' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-search text-white"></i>
+                    </div>
+                    <span class="font-medium">Detection</span>
+                </a>
+
+                <a href="{% url 'inventory' %}" class="flex items-center py-3 px-4 rounded-xl bg-white bg-opacity-20 shadow-lg" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-leaf text-white"></i>
+                    </div>
+                    <span class="font-medium">Inventory Plant</span>
+                </a>
+
+                {% if request.user.is_authenticated and request.user.role == 'admin' %}
+                <a href="{% url 'user_list' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-users text-white"></i>
+                    </div>
+                    <span class="font-medium">Users</span>
+                </a>
+
+                <a href="{% url 'reports' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-pie text-white"></i>
+                    </div>
+                    <span class="font-medium">Reports</span>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+        
+        <!-- Logout Section -->
+        <div class="p-6 mt-auto">
+            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30" onclick="closeMobileSidebar()">
+                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                    <i class="fas fa-sign-out-alt text-red-300"></i>
+                </div>
+                <span class="font-medium text-red-300">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content flex-1 min-h-screen main-content-mobile">
+        <div class="max-w-7xl mx-auto p-6 lg:p-8">
+            <!-- Header Section -->
+            <div class="bg-gradient-to-r from-green-600 to-emerald-700 text-white p-6 rounded-2xl shadow-xl mb-8">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                    <div class="flex items-center space-x-4 mb-4 lg:mb-0">
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i class="fas fa-leaf text-white text-2xl"></i>
                         </div>
                         <div>
-                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                {% if plants.has_previous %}
-                                    <a href="?page=1" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                        <span class="sr-only">First</span>
-                                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M15.707 15.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L11.414 10l4.293 4.293a1 1 0 010 1.414zm-6 0a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L5.414 10l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
-                                        </svg>
-                                    </a>
-                                    <a href="?page={{ plants.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                        <span class="sr-only">Previous</span>
-                                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                        </svg>
-                                    </a>
-                                {% endif %}
+                            <h2 class="text-2xl lg:text-3xl font-bold">Plant Inventory Management</h2>
+                            <p class="text-green-100 mt-1">Manage and monitor your Lanzones tree collection</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-white bg-opacity-20 rounded-xl p-3">
+                            <p class="text-green-100 text-sm">Total Plants: <span class="font-bold text-white">{{ plants.paginator.count|default:0 }}</span></p>
+                        </div>
+                        <a href="{% url 'add_plant' %}" class="inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-medium bg-white text-green-600 hover:bg-green-50 transition-colors shadow-lg">
+                            <i class="fas fa-plus mr-2"></i>
+                            Add New Plant
+                        </a>
+                    </div>
+                </div>
+            </div>
 
-                                {% for num in plants.paginator.page_range %}
-                                    {% if plants.number == num %}
-                                        <span class="relative inline-flex items-center px-4 py-2 border border-green-500 bg-green-50 text-sm font-medium text-green-600">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-green-100 p-3 rounded-xl">
+                            <i class="fas fa-tree text-green-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-600 text-sm">Total Plants</p>
+                            <p class="text-2xl font-bold text-gray-800">{{ total_plants }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-emerald-100 p-3 rounded-xl">
+                            <i class="fas fa-heart text-emerald-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-600 text-sm">Healthy Plants</p>
+                            <p class="text-2xl font-bold text-gray-800">{{ healthy_plants }}</p>
+                            <p class="text-emerald-600 text-xs font-medium mt-1">
+                                {% if total_plants > 0 %}
+                                    {{ healthy_plants|floatformat:0 }}% of total
+                                {% else %}
+                                    0% of total
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-orange-100 p-3 rounded-xl">
+                            <i class="fas fa-exclamation-triangle text-orange-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-600 text-sm">Needs Attention</p>
+                            <p class="text-2xl font-bold text-gray-800">{{ needs_attention_plants }}</p>
+                            <p class="text-orange-600 text-xs font-medium mt-1">
+                                {% if total_plants > 0 %}
+                                    {{ needs_attention_plants|floatformat:0 }}% of total
+                                {% else %}
+                                    0% of total
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-purple-100 p-3 rounded-xl">
+                            <i class="fas fa-chart-line text-purple-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-600 text-sm">Avg Health Score</p>
+                            <p class="text-2xl font-bold text-gray-800">{{ avg_health_score }}%</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                <div class="h-2 rounded-full transition-all duration-500
+                                    {% if avg_health_score >= 70 %}bg-green-500
+                                    {% elif avg_health_score >= 40 %}bg-yellow-400
+                                    {% else %}bg-red-500{% endif %}" 
+                                    style="width: {{ avg_health_score }}%;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Card -->
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center p-6 border-b border-gray-100 gap-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Lanzones Trees Inventory</h3>
+                        <p class="text-gray-500 text-sm">Track health status, age, and manage your plant inventory</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="relative">
+                            <input type="text" placeholder="Search plants..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced table -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="bg-gradient-to-r from-green-600 to-emerald-700 text-white">
+                                <th class="p-4 text-left font-semibold">Plant ID</th>
+                                <th class="p-4 text-left font-semibold">Plant Number</th>
+                                <th class="p-4 text-left font-semibold">Age</th>
+                                <th class="p-4 text-left font-semibold">Health Status</th>
+                                <th class="p-4 text-left font-semibold">Overall Health</th>
+                                <th class="p-4 text-left font-semibold">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            {% for plant_info in plants_page %}
+                            {% with plant=plant_info.plant %}
+                            <tr class="hover:bg-green-50 transition-colors duration-200">
+                                <td class="p-4 font-medium text-gray-900">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="bg-green-100 p-2 rounded-lg">
+                                            <i class="fas fa-tree text-green-600 text-sm"></i>
+                                        </div>
+                                        <span>#{{ plant.plant_id }}</span>
+                                    </div>
+                                </td>
+                                <td class="p-4 text-gray-700 font-semibold">{{ plant.plant_number }}</td>
+                                <td class="p-4 text-gray-700">
+                                    <span class="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                                        {{ plant.age }} years
+                                    </span>
+                                </td>
+                                <td class="p-4">
+                                    {% if plant_info.health_status == 'undetected' %}
+                                        <span class="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                                            <i class="fas fa-question-circle mr-2"></i>
+                                            Not Analyzed
+                                        </span>
+                                    {% elif plant_info.health_status == 'error' %}
+                                        <span class="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                                            <i class="fas fa-exclamation-circle mr-2"></i>
+                                            Analysis Error
+                                        </span>
+                                    {% else %}
+                                        <!-- Health Status Badge -->
+                                        <div class="mb-3">
+                                            {% if plant_info.health_status == 'good' %}
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">
+                                                    <i class="fas fa-check-circle mr-1"></i>
+                                                    Excellent Health
+                                                </span>
+                                            {% elif plant_info.health_status == 'moderate' %}
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                                                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                    Moderate Health
+                                                </span>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                                                    <i class="fas fa-times-circle mr-1"></i>
+                                                    Needs Attention
+                                                </span>
+                                            {% endif %}
+                                        </div>
+
+                                        <!-- Disease Breakdown -->
+                                        {% if plant_info.detection_details %}
+                                        <div class="space-y-1 text-xs">
+                                            {% if plant_info.detection_details.healthy > 0 %}
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-gray-600">Healthy</span>
+                                                <span class="font-medium text-green-600">{{ plant_info.detection_details.healthy }}%</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if plant_info.detection_details.dried_leaf > 0 %}
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-gray-600">Dried Leaf</span>
+                                                <span class="font-medium text-yellow-600">{{ plant_info.detection_details.dried_leaf }}%</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if plant_info.detection_details.leaf_rust > 0 %}
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-gray-600">Leaf Rust</span>
+                                                <span class="font-medium text-orange-600">{{ plant_info.detection_details.leaf_rust }}%</span>
+                                            </div>
+                                            {% endif %}
+                                            {% if plant_info.detection_details.powdery_mildew > 0 %}
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-gray-600">Powdery Mildew</span>
+                                                <span class="font-medium text-red-600">{{ plant_info.detection_details.powdery_mildew }}%</span>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="p-4">
+                                    {% if plant_info.overall_health is not None %}
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-between">
+                                                <span class="font-semibold text-gray-800 text-lg">{{ plant_info.overall_health|floatformat:1 }}%</span>
+                                                <span class="text-sm font-medium 
+                                                    {% if plant_info.overall_health >= 70 %}text-emerald-600
+                                                    {% elif plant_info.overall_health >= 40 %}text-yellow-600
+                                                    {% else %}text-red-600{% endif %}">
+                                                    {% if plant_info.overall_health >= 70 %}Excellent
+                                                    {% elif plant_info.overall_health >= 40 %}Moderate
+                                                    {% else %}Poor{% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="h-2 rounded-full transition-all duration-500
+                                                    {% if plant_info.overall_health >= 70 %}bg-emerald-500
+                                                    {% elif plant_info.overall_health >= 40 %}bg-yellow-400
+                                                    {% else %}bg-red-500{% endif %}" 
+                                                    style="width: {{ plant_info.overall_health }}%;">
+                                                </div>
+                                            </div>
+                                            <div class="text-xs text-gray-500 text-center">
+                                                {% if plant_info.overall_health >= 70 %}🟢 Healthy
+                                                {% elif plant_info.overall_health >= 40 %}🟡 Needs Monitoring  
+                                                {% else %}🔴 Needs Attention{% endif %}
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-gray-400 text-sm">Not analyzed</span>
+                                    {% endif %}
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex flex-col space-y-2">
+                                        <a href="{% url 'update_plant' plant.plant_id %}" class="inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
+                                            <i class="fas fa-edit mr-1"></i>
+                                            Edit
+                                        </a>
+                                        <a href="{% url 'detector' %}?plant_id={{ plant.plant_id }}" class="inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
+                                            <i class="fas fa-search mr-1"></i>
+                                            Detect
+                                        </a>
+                                        <form action="{% url 'delete_plant' plant.plant_id %}" method="post" class="inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="w-full inline-flex items-center justify-center px-3 py-2 text-sm font-medium bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors" onclick="return confirm('Are you sure you want to delete this plant?')">
+                                                <i class="fas fa-trash mr-1"></i>
+                                                Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endwith %}
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center p-8">
+                                    <div class="flex flex-col items-center space-y-4">
+                                        <div class="bg-gray-100 p-6 rounded-full">
+                                            <i class="fas fa-tree text-gray-400 text-3xl"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-gray-500 font-medium text-lg">No plants found</p>
+                                            <p class="text-gray-400 text-sm">Add plants to start managing your inventory</p>
+                                        </div>
+                                        <a href="{% url 'add_plant' %}" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                                            Add Your First Plant
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if plants_page.has_other_pages %}
+                <div class="bg-white px-6 py-4 border-t border-gray-200">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div class="text-sm text-gray-700">
+                            Showing <span class="font-medium">{{ plants_page.start_index }}</span> to 
+                            <span class="font-medium">{{ plants_page.end_index }}</span> of 
+                            <span class="font-medium">{{ plants_page.paginator.count }}</span> results
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            {% if plants_page.has_previous %}
+                                <a href="?page=1" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                    <i class="fas fa-angle-double-left mr-1"></i>
+                                    First
+                                </a>
+                                <a href="?page={{ plants_page.previous_page_number }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                    <i class="fas fa-chevron-left mr-1"></i>
+                                    Previous
+                                </a>
+                            {% endif %}
+
+                            <div class="flex items-center space-x-1">
+                                {% for num in plants_page.paginator.page_range %}
+                                    {% if plants_page.number == num %}
+                                        <span class="inline-flex items-center px-3 py-2 text-sm font-medium bg-green-600 text-white rounded-lg">
                                             {{ num }}
                                         </span>
-                                    {% elif num > plants.number|add:'-3' and num < plants.number|add:'3' %}
-                                        <a href="?page={{ num }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                    {% elif num > plants_page.number|add:'-3' and num < plants_page.number|add:'3' %}
+                                        <a href="?page={{ num }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                                             {{ num }}
                                         </a>
                                     {% endif %}
                                 {% endfor %}
+                            </div>
 
-                                {% if plants.has_next %}
-                                    <a href="?page={{ plants.next_page_number }}" class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                        <span class="sr-only">Next</span>
-                                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                                        </svg>
-                                    </a>
-                                    <a href="?page={{ plants.paginator.num_pages }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                                        <span class="sr-only">Last</span>
-                                        <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M10.293 15.707a1 1 0 010-1.414L8.586 10 4.293 5.707a1 1 0 011.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0zm-6 0a1 1 0 010-1.414L8.586 10 4.293 5.707a1 1 0 011.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                                        </svg>
-                                    </a>
-                                {% endif %}
-                            </nav>
+                            {% if plants_page.has_next %}
+                                <a href="?page={{ plants_page.next_page_number }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                    Next
+                                    <i class="fas fa-chevron-right ml-1"></i>
+                                </a>
+                                <a href="?page={{ plants_page.paginator.num_pages }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                    Last
+                                    <i class="fas fa-angle-double-right ml-1"></i>
+                                </a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
-    </div>
-  </main>
-
+    </main>
 </div>
 
 <script>
-    document.getElementById('menu-toggle').addEventListener('click', function () {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.classList.toggle('hidden');
+    // Mobile sidebar functions - FIXED VERSION
+    function openMobileSidebar() {
+        console.log('Opening mobile sidebar');
+        const sidebar = document.getElementById('mobileSidebar');
+        const overlay = document.getElementById('mobileOverlay');
+        
+        if (sidebar && overlay) {
+            sidebar.classList.add('open');
+            overlay.classList.add('open');
+            document.body.style.overflow = 'hidden'; // Prevent scrolling
+        }
+    }
+
+    function closeMobileSidebar() {
+        console.log('Closing mobile sidebar');
+        const sidebar = document.getElementById('mobileSidebar');
+        const overlay = document.getElementById('mobileOverlay');
+        
+        if (sidebar && overlay) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+            document.body.style.overflow = ''; // Re-enable scrolling
+        }
+    }
+
+    // Initialize event listeners when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, initializing mobile sidebar');
+        
+        // Add click event to mobile menu button
+        const mobileMenuButton = document.getElementById('mobileMenuButton');
+        if (mobileMenuButton) {
+            mobileMenuButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openMobileSidebar();
+            });
+        }
+        
+        // Close sidebar when clicking on overlay
+        const overlay = document.getElementById('mobileOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', closeMobileSidebar);
+        }
+        
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('mobileSidebar');
+            const menuButton = document.getElementById('mobileMenuButton');
+            
+            if (window.innerWidth < 1024 && 
+                sidebar && 
+                sidebar.classList.contains('open') &&
+                !sidebar.contains(event.target) && 
+                !menuButton.contains(event.target)) {
+                closeMobileSidebar();
+            }
+        });
+
+        // Handle escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeMobileSidebar();
+            }
+        });
     });
 </script>
 </body>

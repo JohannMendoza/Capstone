@@ -2,6 +2,7 @@
 import os
 import csv
 import json
+import time
 import base64
 import logging
 import traceback
@@ -292,16 +293,42 @@ def verify_email_view(request, uidb64, token):
 # ... existing code ...
 
 
+from .forms import UserEditForm  # Add this import
+
+@login_required
 def user_list(request):
+    if request.user.role != "admin":
+        return redirect('home')
+
     if request.method == "POST" and "delete_user_id" in request.POST:
         user_id = request.POST["delete_user_id"]
-        user = get_object_or_404(CustomUser, id=user_id)
-        user.delete()
-        messages.success(request, "User deleted successfully!")
+        # Prevent admin from deleting themselves
+        if int(user_id) != request.user.id:
+            user = get_object_or_404(CustomUser, id=user_id)
+            username = user.username
+            user.delete()
+            messages.success(request, f"User '{username}' deleted successfully!")
+        else:
+            messages.error(request, "You cannot delete your own account!")
+        
         return redirect("user_list")
 
-    users = CustomUser.objects.all()
-    return render(request, "dashboard/user_list.html", {"users": users})
+    # Get all users except superusers if needed
+    users = CustomUser.objects.all().order_by('-date_joined')
+    
+    # Add search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        users = users.filter(
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(role__icontains=search_query)
+        )
+
+    return render(request, "dashboard/user_list.html", {
+        "users": users,
+        "search_query": search_query
+    })
 
 # ... existing code ...
 
@@ -322,21 +349,55 @@ def admin_dashboard(request):
     User = get_user_model()
     total_users = User.objects.count()
 
-    plants = Plant.objects.all()
-    total_plants = plants.count()
-    healthy_plants = plants.filter(health_status="good").count()
-    unhealthy_plants = plants.exclude(health_status__in=["good", "undetected"]).count()
+    # 🔹 GET ALL PLANTS (SAME LOGIC AS PLANT INVENTORY)
+    plants_queryset = Plant.objects.select_related('tree_analysis').all()
+    
+    # 🔹 COUNT PLANTS BY HEALTH STATUS (SAME LOGIC AS PLANT INVENTORY)
+    total_plants = plants_queryset.count()
+    healthy_plants = 0
+    needs_attention_plants = 0
+    total_health_score = 0
+    plants_with_health = 0
 
-    disease_counts = Counter(plant.health_status for plant in plants if plant.health_status not in ["good", "undetected"])
+    for plant in plants_queryset:
+        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+        
+        if not latest_analysis:
+            latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+
+        if latest_analysis and latest_analysis.overall_health is not None:
+            try:
+                overall_health = float(latest_analysis.overall_health)
+                total_health_score += overall_health
+                plants_with_health += 1
+                
+                if overall_health >= 70:
+                    healthy_plants += 1
+                else:
+                    needs_attention_plants += 1
+            except (ValueError, TypeError):
+                needs_attention_plants += 1
+        else:
+            needs_attention_plants += 1
+
+    # Calculate average health score
+    avg_health_score = round(total_health_score / plants_with_health, 1) if plants_with_health > 0 else 0
+
+    # Your original disease distribution
+    disease_counts = Counter()
+    for plant in plants_queryset:
+        if plant.health_status and plant.health_status not in ["good", "undetected"]:
+            disease_counts[plant.health_status] += 1
+    
     disease_labels = list(disease_counts.keys())
     disease_values = list(disease_counts.values())
 
     return render(request, "dashboard/admin_dashboard.html", {
         'total_users': total_users,
         'total_plants': total_plants,
-        'total_plants': total_plants,
-        'healthy_plants': healthy_plants,
-        'unhealthy_plants': unhealthy_plants,
+        'healthy_plants': healthy_plants,  # CORRECT VARIABLE NAME
+        'unhealthy_plants': needs_attention_plants,  # CORRECT VARIABLE NAME  
+        'avg_health_score': avg_health_score,
         'disease_labels': disease_labels,
         'disease_values': disease_values,
     })
@@ -348,15 +409,56 @@ def client_dashboard(request):
     if request.user.role != "client":
         return redirect('home')
 
-    plants = Plant.objects.all()
-    total_plants = plants.count()
-    healthy_plants = plants.filter(health_status='good').count()
-    unhealthy_plants = plants.exclude(health_status='good').count()
+    # 🔹 GET ALL PLANTS (SAME LOGIC AS ADMIN DASHBOARD)
+    plants_queryset = Plant.objects.select_related('tree_analysis').all()
+    
+    # 🔹 COUNT PLANTS BY HEALTH STATUS (SAME LOGIC AS ADMIN DASHBOARD)
+    total_plants = plants_queryset.count()
+    healthy_plants = 0
+    needs_attention_plants = 0
+    total_health_score = 0
+    plants_with_health = 0
+
+    for plant in plants_queryset:
+        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+        
+        if not latest_analysis:
+            latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+
+        if latest_analysis and latest_analysis.overall_health is not None:
+            try:
+                overall_health = float(latest_analysis.overall_health)
+                total_health_score += overall_health
+                plants_with_health += 1
+                
+                if overall_health >= 70:
+                    healthy_plants += 1
+                else:
+                    needs_attention_plants += 1
+            except (ValueError, TypeError):
+                needs_attention_plants += 1
+        else:
+            needs_attention_plants += 1
+
+    # Calculate average health score
+    avg_health_score = round(total_health_score / plants_with_health, 1) if plants_with_health > 0 else 0
+
+    # Disease distribution (same logic as admin dashboard)
+    disease_counts = Counter()
+    for plant in plants_queryset:
+        if plant.health_status and plant.health_status not in ["good", "undetected"]:
+            disease_counts[plant.health_status] += 1
+    
+    disease_labels = list(disease_counts.keys())
+    disease_values = list(disease_counts.values())
 
     context = {
         'total_plants': total_plants,
-        'healthy_plants': healthy_plants,
-        'unhealthy_plants': unhealthy_plants,
+        'healthy_plants': healthy_plants,  # CORRECT VARIABLE NAME (same as admin)
+        'unhealthy_plants': needs_attention_plants,  # CORRECT VARIABLE NAME (same as admin)
+        'avg_health_score': avg_health_score,
+        'disease_labels': disease_labels,
+        'disease_values': disease_values,
         'username': request.user.username,
     }
 
@@ -364,18 +466,28 @@ def client_dashboard(request):
 
 # ... existing code ...
 
+@login_required
 def update_user_view(request, user_id):
+    if request.user.role != "admin":
+        return redirect('home')
+    
     user = get_object_or_404(CustomUser, id=user_id)
+    
     if request.method == "POST":
-        form = RegisterForm(request.POST, instance=user)
+        form = UserEditForm(request.POST, instance=user)
         if form.is_valid():
             form.save()
-            messages.success(request, "User updated successfully!")
+            messages.success(request, f"User '{user.username}' updated successfully!")
             return redirect('user_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
     else:
-        form = RegisterForm(instance=user)
+        form = UserEditForm(instance=user)
 
-    return render(request, "dashboard/update_user.html", {"form": form, "user": user})
+    return render(request, "dashboard/update_user.html", {
+        "form": form, 
+        "user": user
+    })
 
 # ... existing code ...
 
@@ -407,19 +519,15 @@ from .models import Plant, TreeAnalysis
 @login_required
 def plant_inventory(request):
     # 🔹 Get all plants (ordered)
-    plants_list = Plant.objects.select_related('tree_analysis').all().order_by('plant_id')
-    paginator = Paginator(plants_list, 5)
-    page = request.GET.get('page')
+    plants_queryset = Plant.objects.select_related('tree_analysis').all().order_by('plant_id')
+    
+    # 🔹 Count plants by health status
+    total_plants = plants_queryset.count()
+    healthy_plants = 0
+    needs_attention_plants = 0
+    plants_data = []  # Store plant data with calculated fields
 
-    try:
-        plants = paginator.page(page)
-    except PageNotAnInteger:
-        plants = paginator.page(1)
-    except EmptyPage:
-        plants = paginator.page(paginator.num_pages)
-
-    # 🔹 For each plant, try to fetch the latest TreeAnalysis
-    for plant in plants:
+    for plant in plants_queryset:
         try:
             latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
 
@@ -431,6 +539,15 @@ def plant_inventory(request):
                     .first()
                 )
 
+            plant_info = {
+                'plant': plant,
+                'health_status': 'undetected',
+                'health_category': 'Not Analyzed',
+                'overall_health': None,
+                'status_percentage': None,
+                'detection_details': None
+            }
+
             if latest_analysis:
                 # ✅ Safely get numeric values
                 def safe(val):
@@ -439,7 +556,7 @@ def plant_inventory(request):
                     except:
                         return 0.0
 
-                plant.detection_details = {
+                detection_details = {
                     'healthy': round(safe(latest_analysis.healthy_percentage), 1),
                     'dried_leaf': round(safe(latest_analysis.dried_leaf_percentage), 1),
                     'leaf_rust': round(safe(latest_analysis.leaf_rust_percentage), 1),
@@ -447,36 +564,77 @@ def plant_inventory(request):
                     'overall_health': round(safe(latest_analysis.overall_health), 1),
                 }
 
-                percentages = {
-                    'healthy': safe(latest_analysis.healthy_percentage),
-                    'dried leaf': safe(latest_analysis.dried_leaf_percentage),
-                    'leaf rust': safe(latest_analysis.leaf_rust_percentage),
-                    'powdery mildew': safe(latest_analysis.powdery_mildew_percentage),
-                }
-
-                if all(v == 0 for v in percentages.values()):
-                    plant.health_status = 'undetected'
-                    plant.status_percentage = 0
+                overall_health = safe(latest_analysis.overall_health)
+                
+                # 🔹 Determine health category
+                if overall_health >= 70:
+                    health_category = 'Excellent Health'
+                    health_status = 'good'
+                    healthy_plants += 1
+                elif overall_health >= 40:
+                    health_category = 'Moderate Health' 
+                    health_status = 'moderate'
+                    needs_attention_plants += 1
                 else:
-                    most_likely = max(percentages, key=percentages.get)
-                    max_val = round(percentages[most_likely], 1)
-                    plant.health_status = 'good' if most_likely == 'healthy' else most_likely
-                    plant.status_percentage = max_val
+                    health_category = 'Poor Health'
+                    health_status = 'poor'
+                    needs_attention_plants += 1
+                    
+                plant_info.update({
+                    'health_status': health_status,
+                    'health_category': health_category,
+                    'overall_health': overall_health,
+                    'status_percentage': overall_health,
+                    'detection_details': detection_details
+                })
 
             else:
-                plant.health_status = 'undetected'
-                plant.status_percentage = None
-                plant.detection_details = None
-                plant.overall_health = None
+                # No analysis found
+                needs_attention_plants += 1  # Undetected plants need attention
+                plant_info.update({
+                    'health_status': 'undetected',
+                    'health_category': 'Not Analyzed',
+                    'detection_details': None
+                })
+
+            plants_data.append(plant_info)
 
         except Exception as e:
             print(f"[ERROR] Problem with plant ID {plant.plant_id}: {e}")
-            plant.health_status = 'error'
-            plant.status_percentage = None
-            plant.detection_details = None
+            plants_data.append({
+                'plant': plant,
+                'health_status': 'error',
+                'health_category': 'Error',
+                'overall_health': None,
+                'status_percentage': None,
+                'detection_details': None
+            })
+            needs_attention_plants += 1
 
-    # ✅ Return stays inside the function
-    return render(request, 'dashboard/inventory.html', {'plants': plants})
+    # 🔹 Paginate the plants_data list
+    paginator = Paginator(plants_data, 10)  # 10 items per page
+    page_number = request.GET.get('page')
+    
+    try:
+        plants_page = paginator.page(page_number)
+    except PageNotAnInteger:
+        plants_page = paginator.page(1)
+    except EmptyPage:
+        plants_page = paginator.page(paginator.num_pages)
+
+    # 🔹 Calculate average health score
+    plants_with_health = [p for p in plants_data if p['overall_health'] is not None]
+    avg_health_score = sum(p['overall_health'] for p in plants_with_health) / len(plants_with_health) if plants_with_health else 0
+
+    context = {
+        'plants_page': plants_page,  # Use plants_page instead of plants_data
+        'total_plants': total_plants,
+        'healthy_plants': healthy_plants,
+        'needs_attention_plants': needs_attention_plants,
+        'avg_health_score': round(avg_health_score, 1)
+    }
+
+    return render(request, 'dashboard/inventory.html', context)
 
 
 @login_required
@@ -794,15 +952,31 @@ def export_pdf(request):
     return response
 
 
-# <CHANGE> Updated YOLO model loading with caching and lazy import
-CLASS_NAMES = ['dried leaf', 'healthy', 'leaf rust', 'powdery mildew']
+# ✅ FIXED: Model path and caching
+model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
+_MODEL_CACHE = {}
+_YOLO_MODEL = None
+_LAST_MODEL_LOAD = 0
+_MODEL_LOAD_TIMEOUT = 3600  # 1 hour
 
+# Set up logger
+logger = logging.getLogger(__name__)
+
+# ✅ FIXED: Add the missing load_yolo_model function
 def load_yolo_model():
     """Load YOLO model with caching, better error messages and fallback hints."""
-    global _MODEL_CACHE
+    global _MODEL_CACHE, _YOLO_MODEL, _LAST_MODEL_LOAD
+
+    current_time = time.time()
+    
+    # Return cached model if available and not expired
+    if (_YOLO_MODEL is not None and 
+        current_time - _LAST_MODEL_LOAD < _MODEL_LOAD_TIMEOUT):
+        logger.info("✅ Using cached YOLO model")
+        return _YOLO_MODEL
 
     if 'yolo_model' in _MODEL_CACHE:
-        logger.info("✅ Using cached YOLO model")
+        logger.info("✅ Using cached YOLO model from _MODEL_CACHE")
         return _MODEL_CACHE['yolo_model']
 
     model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
@@ -818,6 +992,9 @@ def load_yolo_model():
         model = YOLO(model_path)
 
         _MODEL_CACHE['yolo_model'] = model
+        _YOLO_MODEL = model
+        _LAST_MODEL_LOAD = current_time
+        
         logger.info("✅ YOLO model loaded and cached.")
         try:
             logger.info(f"YOLO classes: {model.names}")
@@ -838,8 +1015,46 @@ def load_yolo_model():
         traceback.print_exc()
         return None
 
+# ✅ FIXED: Add the optimized get_yolo_model function
+def get_yolo_model():
+    """Improved model loading with better caching"""
+    global _YOLO_MODEL, _LAST_MODEL_LOAD
+    
+    current_time = time.time()
+    
+    # Return cached model if available and not expired
+    if (_YOLO_MODEL is not None and 
+        current_time - _LAST_MODEL_LOAD < _MODEL_LOAD_TIMEOUT):
+        logger.debug("✅ Using cached YOLO model")
+        return _YOLO_MODEL
+    
+    try:
+        from ultralytics import YOLO
+        
+        model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
+        if not os.path.exists(model_path):
+            logger.error(f"❌ Model file not found: {model_path}")
+            return None
+        
+        logger.info("🔄 Loading YOLO model...")
+        _YOLO_MODEL = YOLO(model_path)
+        _LAST_MODEL_LOAD = current_time
+        
+        # Warm up the model
+        dummy_input = np.random.randint(0, 255, (640, 640, 3), dtype=np.uint8)
+        _YOLO_MODEL.predict(dummy_input, verbose=False)
+        
+        logger.info("✅ YOLO model loaded and warmed up successfully")
+        return _YOLO_MODEL
+        
+    except Exception as e:
+        logger.error(f"❌ Error loading YOLO model: {e}")
+        traceback.print_exc()
+        return None
 
-# ... existing code ...
+# ... existing code continues ...
+
+CLASS_NAMES = ['dried leaf', 'healthy', 'leaf rust', 'powdery mildew']
 
 def preprocess_image(image):
     """Preprocess the image for prediction"""
@@ -965,6 +1180,193 @@ def predict(request):
         traceback.print_exc()
         return JsonResponse({"success": False, "error": str(e)})
 
+@csrf_exempt
+@require_POST
+def optimized_predict(request):
+    """
+    ✅ IMPROVED: Optimized prediction function
+    - Faster processing with optimized parameters
+    - Better detection with lower confidence threshold
+    - Performance monitoring
+    """
+    start_time = time.time()
+    
+    model = get_yolo_model()
+    if model is None:
+        return JsonResponse({"success": False, "error": "YOLO model not available"})
+
+    try:
+        import cv2
+        
+        frame_file = request.FILES.get('frame')
+        quality = request.POST.get('quality', 'high')
+        plant_id = request.POST.get("plant_id")
+
+        if not frame_file:
+            return JsonResponse({"success": False, "error": "No frame received"})
+
+        # ✅ IMPROVED: Faster image decoding
+        file_bytes = np.frombuffer(frame_file.read(), np.uint8)
+        frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return JsonResponse({"success": False, "error": "Failed to decode frame"})
+
+        # ✅ IMPROVED: Adjust parameters based on quality
+        imgsz = 640 if quality == 'low' else 640
+        conf_threshold = 0.20 if quality == 'low' else CONF_THRESHOLD
+
+        # ✅ IMPROVED: Optimized prediction parameters
+        results = model.predict(
+            frame, 
+            conf=conf_threshold,
+            imgsz=imgsz,
+            verbose=False,
+            max_det=50,  # Limit maximum detections
+            agnostic_nms=True,  # Faster NMS
+            half=False  # Use full precision for better accuracy
+        )[0]
+
+        detections = []
+        detection_count = 0
+
+        if results.boxes is not None:
+            for box in results.boxes:
+                cls = int(box.cls[0])
+                conf = float(box.conf[0])
+                class_name = model.names[cls].lower().replace('-', ' ')
+
+                if class_name not in ALLOWED_CLASSES:
+                    continue
+
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                detections.append({
+                    "box": [x1, y1, x2, y2],
+                    "confidence": conf,
+                    "class": class_name.title()
+                })
+                detection_count += 1
+
+        processing_time = time.time() - start_time
+        
+        logger.info(f"✅ Detection completed: {detection_count} leaves in {processing_time:.2f}s")
+
+        # ✅ IMPROVED: Save to database if plant_id provided (non-blocking)
+        if plant_id and detection_count > 0:
+            try:
+                from dashboard.models import Plant, TreeAnalysis, LeafImage
+                from django.utils import timezone
+                
+                plant = Plant.objects.get(plant_id=plant_id)
+                analysis, created = TreeAnalysis.objects.get_or_create(
+                    plant=plant,
+                    defaults={"name": f"Analysis for Plant {plant.plant_id}"}
+                )
+
+                for det in detections:
+                    LeafImage.objects.create(
+                        image=None,
+                        prediction=det["class"],
+                        healthy_confidence=det["confidence"] if det["class"] == "Healthy" else 0,
+                        dried_leaf_confidence=det["confidence"] if det["class"] == "Dried Leaf" else 0,
+                        leaf_rust_confidence=det["confidence"] if det["class"] == "Leaf Rust" else 0,
+                        powdery_mildew_confidence=det["confidence"] if det["class"] == "Powdery Mildew" else 0,
+                        tree_analysis=analysis
+                    )
+
+                analysis.calculate_health()
+                analysis.is_completed = True
+                analysis.save()
+
+                plant.tree_analysis = analysis
+                plant.health_status = "good" if analysis.overall_health > 70 else "leaf rust"
+                plant.save()
+                
+                logger.info(f"✅ Saved {detection_count} detections to plant {plant_id}")
+
+            except Exception as e:
+                logger.error(f"Error saving detections: {e}")
+                # Don't fail the request if saving fails
+
+        return JsonResponse({
+            "success": True,
+            "detections": detections,
+            "detection_count": detection_count,
+            "processing_time": round(processing_time, 2)
+        })
+
+    except Exception as e:
+        logger.error(f"❌ Prediction error: {e}")
+        traceback.print_exc()
+        return JsonResponse({"success": False, "error": str(e)})
+
+
+@csrf_exempt
+@require_POST
+def fast_predict(request):
+    """
+    Ultra-fast prediction for real-time detection
+    - Minimal processing
+    - Fastest possible response
+    """
+    start_time = time.time()
+    
+    model = get_yolo_model()
+    if model is None:
+        return JsonResponse({"success": False, "error": "Model unavailable"})
+
+    try:
+        frame_file = request.FILES.get('frame')
+        if not frame_file:
+            return JsonResponse({"success": False, "error": "No frame"})
+
+        # Ultra-fast decoding
+        file_bytes = np.frombuffer(frame_file.read(), np.uint8)
+        frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            return JsonResponse({"success": False, "error": "Invalid image"})
+
+        # Minimal prediction parameters
+        results = model.predict(
+            frame, 
+            conf=0.20,  # Very low threshold for maximum detection
+            imgsz=480,  # Smaller size for speed
+            verbose=False,
+            max_det=30,
+            agnostic_nms=True
+        )[0]
+
+        detections = []
+        if results.boxes is not None:
+            for box in results.boxes:
+                cls = int(box.cls[0])
+                conf = float(box.conf[0])
+                class_name = model.names[cls].lower().replace('-', ' ')
+                
+                if class_name not in ALLOWED_CLASSES:
+                    continue
+                    
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                detections.append({
+                    "box": [x1, y1, x2, y2],
+                    "confidence": conf,
+                    "class": class_name.title()
+                })
+
+        processing_time = time.time() - start_time
+        
+        return JsonResponse({
+            "success": True,
+            "detections": detections,
+            "detection_count": len(detections),
+            "processing_time": round(processing_time, 3)  # Millisecond precision
+        })
+
+    except Exception as e:
+        logger.error(f"❌ Fast prediction error: {e}")
+        return JsonResponse({"success": False, "error": str(e)})
+
 # ... existing code ...
 
 @login_required
@@ -972,11 +1374,12 @@ def detector(request):
     plant_id = request.GET.get('plant_id')
     user_role = request.user.role
 
+    # If plant_id is provided, redirect to new_tree_analysis
     if plant_id:
         url = reverse('new_tree_analysis')
-        return redirect(f'{url}?plant_id={plant_id}&role={user_role}')
+        return redirect(f'{url}?plant_id={plant_id}')
 
-    # <CHANGE> Load model using cached function
+    # ✅ FIXED: Now load_yolo_model is defined
     model = load_yolo_model()
     context = {}
 
@@ -987,10 +1390,9 @@ def detector(request):
         context['model_exists'] = os.path.exists(model_path)
 
     context['recent_analyses'] = TreeAnalysis.objects.filter(is_completed=True).order_by('-completed_at')[:5]
-    context['user_role'] = user_role
+    context['user_role'] = user_role  # Pass user role to template
 
     return render(request, 'dashboard/detector.html', context)
-
 # ... existing code ...
 
 def new_tree_analysis(request):
@@ -1053,6 +1455,7 @@ def tree_analysis(request, analysis_id=None):
 
 # ... existing code ...
 
+# ✅ FIXED: complete_analysis function in views.py
 @csrf_exempt
 @require_POST
 def complete_analysis(request, analysis_id):
@@ -1123,25 +1526,42 @@ def complete_analysis(request, analysis_id):
         tree_analysis.completed_at = timezone.now()
         tree_analysis.save()
         
-        plant_id = request.POST.get('plant_id') or tree_analysis.plant_id
-        if plant_id:
+        # ✅ FIXED: Handle plant_id properly
+        plant_id = request.POST.get('plant_id')
+        plant_updated = False
+        
+        if plant_id and plant_id != 'null' and plant_id != 'undefined':
             try:
-                plant = Plant.objects.get(plant_id=plant_id)
-                plant.tree_analysis = tree_analysis
-                if overall_health >= 80:
-                    plant.health_status = "good"
-                elif tree_analysis.powdery_mildew_percentage > 30:
-                    plant.health_status = "amag"
-                elif tree_analysis.leaf_rust_percentage > 20:
-                    plant.health_status = "leaf rust"
-                elif tree_analysis.dried_leaf_percentage > 40:
-                    plant.health_status = "dahon"
+                # Convert to integer if it's a numeric string
+                if plant_id.isdigit():
+                    plant_id_int = int(plant_id)
+                    plant = Plant.objects.get(plant_id=plant_id_int)
+                    plant.tree_analysis = tree_analysis
+                    
+                    # Update plant health status based on analysis
+                    if overall_health >= 80:
+                        plant.health_status = "good"
+                    elif tree_analysis.powdery_mildew_percentage > 30:
+                        plant.health_status = "amag"
+                    elif tree_analysis.leaf_rust_percentage > 20:
+                        plant.health_status = "leaf rust"
+                    elif tree_analysis.dried_leaf_percentage > 40:
+                        plant.health_status = "dahon"
+                    else:
+                        plant.health_status = "good"
+                    
+                    plant.save()
+                    plant_updated = True
+                    logger.info(f"Updated plant {plant_id} health to {plant.health_status}")
                 else:
-                    plant.health_status = "good"
-                plant.save()
-                logger.info(f"Updated plant {plant_id} health to {plant.health_status}")
+                    logger.warning(f"Invalid plant_id format: {plant_id}")
+                    
             except Plant.DoesNotExist:
                 logger.warning(f"Plant ID {plant_id} not found.")
+            except ValueError:
+                logger.warning(f"Invalid plant_id: {plant_id}")
+        else:
+            logger.info("No valid plant_id provided, skipping plant update")
 
         return JsonResponse({
             'success': True,
@@ -1152,7 +1572,7 @@ def complete_analysis(request, analysis_id):
             'powdery_mildew_percentage': tree_analysis.powdery_mildew_percentage,
             'overall_health': overall_health,
             'total_detections': healthy_count + dried_leaf_count + powdery_mildew_count + leaf_rust_count,
-            'plant_updated': bool(plant_id)
+            'plant_updated': plant_updated
         })
 
     except Exception as e:
@@ -1162,8 +1582,21 @@ def complete_analysis(request, analysis_id):
             'success': False,
             'error': str(e)
         })
-
 # ... existing code ...
+
+# ✅ ADD THIS TO views.py
+@login_required
+def check_plants(request):
+    """Check if user has any plants in inventory"""
+    try:
+        plant_count = Plant.objects.count()
+        return JsonResponse({
+            'has_plants': plant_count > 0,
+            'plant_count': plant_count
+        })
+    except Exception as e:
+        logger.error(f"Error checking plants: {e}")
+        return JsonResponse({'has_plants': False})
 
 @csrf_exempt
 def save_analysis(request):

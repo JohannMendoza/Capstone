@@ -1,179 +1,651 @@
-    {% load static %}
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Caretaker Dashboard | Escala Plants</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Dashboard | Escala Plants</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+        }
+        
+        .stat-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .nav-item { 
+            transition: all 0.3s ease; 
+        }
+        
+        .nav-item:hover { 
+            transform: translateX(8px); 
+        }
+        
+        .gradient-bg { 
+            background: linear-gradient(135deg, #065f46 0%, #047857 100%); 
+        }
+        
+        .text-gradient {
+            background: linear-gradient(135deg, #065f46, #047857);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Sidebar Styles - GINAYA MULA SA ADMIN DASHBOARD */
+        .sidebar-fixed {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            height: 100vh;
+            width: 280px;
+            transition: all 0.3s ease;
+            background: linear-gradient(180deg, #065f46 0%, #047857 100%);
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .main-content-expanded {
+            margin-left: 280px;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+        }
+        
+        .sidebar-nav {
+            padding: 1rem;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateX(5px);
+        }
+        
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border-left: 4px solid #10b981;
+        }
+        
+        .nav-icon {
+            width: 20px;
+            margin-right: 0.75rem;
+            text-align: center;
+        }
+        
+        .nav-text {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        
+        .sidebar-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            margin-top: auto;
+        }
+        
+        /* Mobile sidebar styling */
+        .mobile-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px;
+            z-index: 100;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(180deg, #065f46 0%, #047857 100%);
+        }
+        
+        .mobile-sidebar.open {
+            transform: translateX(0);
+        }
+        
+        .mobile-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            display: none;
+        }
+        
+        .mobile-overlay.open {
+            display: block;
+        }
+        
+        @media (max-width: 1023px) {
+            .main-content-expanded {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
 
-    </head>
-    <body class="bg-gray-100">
+    <!-- Mobile Overlay -->
+    <div id="mobileOverlay" class="mobile-overlay" onclick="closeMobileSidebar()"></div>
 
-        <!-- Sidebar -->
-        <div class="flex">
-            <!-- Sidebar -->
-    <aside class="w-64 bg-green-900 text-white h-screen p-5 flex flex-col justify-between">
-        <!-- Top Section (Logo + Navigation Links) -->
-        <div>
-            <a href="{% url 'client_dashboard' %}" class="flex justify-center mb-4">
-                <img src="{% static 'dashboard/img/core-img/logo.png' %}" alt="Logo" class="h-16">
-            </a>
-            <nav class="mt-6 space-y-2">
-                <a href="{% url 'client_dashboard' %}" 
-                class="flex items-center py-2 px-4 rounded {% if request.path == '/client_dashboard/' %}bg-green-700{% else %}hover:bg-green-700{% endif %}">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3m6 3h3m-3 0h-3m3 0v6m0-6h-3m-6 0h3m-3 0H6m3 0H6m0 0v6m0-6H3m3 0V6m6 3v6"/>
-                    </svg>
-                    Client Dashboard
-                </a>
-                <a href="{% url 'detector' %}" 
-        class="flex items-center py-2 px-4 rounded {% if request.path == '/detector/' %}bg-green-700{% else %}hover:bg-green-700{% endif %}">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m0 14v1m8-8h1M3 12H2m15.364-6.364l.707.707M6.343 17.657l-.707.707m0-13.414l.707.707M17.657 17.657l-.707.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
-            </svg>
-            Detection
+    <!-- Mobile Header -->
+    <div class="lg:hidden gradient-bg text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
+        <a href="{% url 'client_dashboard' %}" class="flex items-center space-x-3">
+            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <img src="{% static 'dashboard/img/core-img/logo.png' %}" alt="Logo" class="h-6 w-6 object-contain">
+            </div>
+            <div>
+                <span class="font-bold text-lg">Escala Plants</span>
+                <p class="text-green-200 text-xs">Client Portal</p>
+            </div>
         </a>
+        <button id="mobileMenuButton" class="focus:outline-none p-2 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+    </div>
 
-                <a href="{% url 'inventory' %}" 
-                class="flex items-center py-2 px-4 rounded {% if request.path == '/inventory/' %}bg-green-700{% else %}hover:bg-green-700{% endif %}">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/>
-                    </svg>
-                    Inventory Plant
-                </a>
-
-            </nav>
-        </div>
-
-        <!-- Bottom Section (Logout Button) -->
-        <div>
-            <a href="{% url 'logout' %}" 
-            class="flex items-center py-2 px-4 rounded hover:bg-red-600">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7"/>
-                </svg>
-                Logout
-            </a>
-        </div>
-    </aside>
-
-
-
-
-            <main class="flex-1 p-6">
-            <!-- Navbar -->
-            <div class="flex justify-between items-center bg-white shadow-md p-4 rounded-lg mb-6">
-                <h2 class="text-2xl font-semibold text-gray-700">Dashboard</h2>
+    <div class="flex flex-col lg:flex-row min-h-screen">
+        <!-- Desktop Sidebar - GINAYA MULA SA ADMIN DASHBOARD -->
+        <aside class="sidebar-fixed flex-col justify-between hidden lg:flex">
+            <!-- Header -->
+            <div class="sidebar-header">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                        <img src="{% static 'dashboard/img/core-img/logo.png' %}" alt="Logo" class="h-6 w-6 object-contain">
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-white">Escala Plants</h1>
+                        <p class="text-green-200 text-sm">Client Portal</p>
+                    </div>
+                </div>
             </div>
 
-       
-
-
-            <!-- Dashboard Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">            
-
-                <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h3 class="text-lg font-semibold text-gray-700">Total Plants</h3>
-                    <p class="text-2xl font-bold">{{ total_plants|default:0 }}</p>
+            <!-- User Info -->
+            <div class="px-6 py-4 border-b border-white/10">
+                <div class="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                    <p class="text-sm text-green-100">Welcome back,</p>
+                    <p class="font-semibold text-white text-lg">{{ request.user.username|default:"Client" }}</p>
+                    <p class="text-green-200 text-xs mt-1">Client Account</p>
                 </div>
-                
-                <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h3 class="text-lg font-semibold text-gray-700">Healthy Plants</h3>
-                    <p class="text-2xl font-bold text-green-600">{{ healthy_plants|default:0 }}</p>
+            </div>
+
+            <!-- Navigation -->
+            <div class="sidebar-nav flex-1">
+                <a href="{% url 'client_dashboard' %}" class="nav-link active">
+                    <div class="nav-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+
+                <a href="{% url 'detector' %}" class="nav-link">
+                    <div class="nav-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <span class="nav-text">Plant Detection</span>
+                </a>
+
+                <a href="{% url 'inventory' %}" class="nav-link">
+                    <div class="nav-icon">
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    <span class="nav-text">My Inventory</span>
+                </a>
+
+                <a href="{% url 'history' %}" class="nav-link">
+                    <div class="nav-icon">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <span class="nav-text">Analysis History</span>
+                </a>
+
+                <div class="mt-8 pt-4 border-t border-white/10">
+                    <p class="text-green-200 text-xs font-semibold uppercase tracking-wider px-4 mb-3">Account</p>
+                    
+                    <a href="#" class="nav-link">
+                        <div class="nav-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <span class="nav-text">My Profile</span>
+                    </a>
+
+                    <a href="#" class="nav-link">
+                        <div class="nav-icon">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <span class="nav-text">Settings</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="sidebar-footer">
+                <a href="{% url 'logout' %}" class="flex items-center justify-center w-full py-3 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-white rounded-xl transition-all duration-300 border border-red-400/30">
+                    <i class="fas fa-sign-out-alt mr-2"></i>
+                    <span class="font-semibold">Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Mobile Sidebar - GINAYA MULA SA ADMIN DASHBOARD -->
+        <aside id="mobileSidebar" class="mobile-sidebar flex flex-col lg:hidden">
+            <div class="flex-1">
+                <!-- Header -->
+                <div class="sidebar-header">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                <img src="{% static 'dashboard/img/core-img/logo.png' %}" alt="Logo" class="h-6 w-6 object-contain">
+                            </div>
+                            <div>
+                                <h1 class="text-lg font-bold text-white">Escala Plants</h1>
+                                <p class="text-green-200 text-sm">Client Portal</p>
+                            </div>
+                        </div>
+                        <button onclick="closeMobileSidebar()" class="bg-white bg-opacity-15 p-2 rounded-lg">
+                            <i class="fas fa-times text-white"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h3 class="text-lg font-semibold text-gray-700">Unhealthy Plants</h3>
-                    <p class="text-2xl font-bold text-red-600">{{ unhealthy_plants|default:0 }}</p>
+                <!-- User Info -->
+                <div class="px-6 py-4 border-b border-white/10">
+                    <div class="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+                        <p class="text-sm text-green-100">Welcome back,</p>
+                        <p class="font-semibold text-white text-lg">{{ request.user.username|default:"Client" }}</p>
+                        <p class="text-green-200 text-xs mt-1">Client Account</p>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="sidebar-nav">
+                    <a href="{% url 'client_dashboard' %}" class="nav-link active" onclick="closeMobileSidebar()">
+                        <div class="nav-icon">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+
+                    <a href="{% url 'detector' %}" class="nav-link" onclick="closeMobileSidebar()">
+                        <div class="nav-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <span class="nav-text">Plant Detection</span>
+                    </a>
+
+                    <a href="{% url 'inventory' %}" class="nav-link" onclick="closeMobileSidebar()">
+                        <div class="nav-icon">
+                            <i class="fas fa-leaf"></i>
+                        </div>
+                        <span class="nav-text">My Inventory</span>
+                    </a>
+
+                    <a href="{% url 'history' %}" class="nav-link" onclick="closeMobileSidebar()">
+                        <div class="nav-icon">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <span class="nav-text">Analysis History</span>
+                    </a>
+
+                    <div class="mt-8 pt-4 border-t border-white/10">
+                        <p class="text-green-200 text-xs font-semibold uppercase tracking-wider px-4 mb-3">Account</p>
+                        
+                        <a href="#" class="nav-link" onclick="closeMobileSidebar()">
+                            <div class="nav-icon">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <span class="nav-text">My Profile</span>
+                        </a>
+
+                        <a href="#" class="nav-link" onclick="closeMobileSidebar()">
+                            <div class="nav-icon">
+                                <i class="fas fa-cog"></i>
+                            </div>
+                            <span class="nav-text">Settings</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="sidebar-footer">
+                <a href="{% url 'logout' %}" class="flex items-center justify-center w-full py-3 px-4 bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-white rounded-xl transition-all duration-300 border border-red-400/30" onclick="closeMobileSidebar()">
+                    <i class="fas fa-sign-out-alt mr-2"></i>
+                    <span class="font-semibold">Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 main-content-expanded">
+            <div class="p-6 lg:p-8">
+                <!-- Welcome Header -->
+                <div class="glass-card p-8 mb-8 shadow-lg">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+                        <div class="flex-1">
+                            <h1 class="text-4xl font-bold text-gradient mb-3">Welcome to Your Dashboard</h1>
+                            <p class="text-gray-600 text-lg mb-4">Monitor your plant health and get insights about your lanzones trees</p>
+                            <div class="flex flex-wrap gap-4">
+                                <div class="bg-green-50 border border-green-200 rounded-2xl px-4 py-2">
+                                    <span class="text-green-800 text-sm font-medium">👋 Hello, {{ request.user.username|default:"Client" }}</span>
+                                </div>
+                                <div class="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-2">
+                                    <span class="text-blue-800 text-sm font-medium">📅 {{ current_date|date:"F j, Y" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-6 lg:mt-0">
+                            <a href="{% url 'detector' %}" class="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-4 px-8 rounded-2xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center space-x-3">
+                                <i class="fas fa-search text-white"></i>
+                                <span>Start Detection</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Total Plants Card -->
+                    <div class="stat-card bg-white border-l-4 border-blue-500 rounded-2xl p-6 shadow-lg hover:shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm font-semibold mb-2">TOTAL PLANTS</p>
+                                <p class="text-3xl font-bold text-gray-800">{{ total_plants|default:0 }}</p>
+                                <p class="text-blue-600 text-sm font-medium mt-2 flex items-center">
+                                    <i class="fas fa-database mr-2"></i>In your collection
+                                </p>
+                            </div>
+                            <div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center">
+                                <i class="fas fa-leaf text-blue-600 text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Healthy Plants Card -->
+                    <div class="stat-card bg-white border-l-4 border-green-500 rounded-2xl p-6 shadow-lg hover:shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm font-semibold mb-2">HEALTHY PLANTS</p>
+                                <p class="text-3xl font-bold text-green-600">{{ healthy_plants|default:0 }}</p>
+                                <p class="text-green-600 text-sm font-medium mt-2 flex items-center">
+                                    <i class="fas fa-check-circle mr-2"></i>Good condition
+                                </p>
+                            </div>
+                            <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center">
+                                <i class="fas fa-heart text-green-600 text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Unhealthy Plants Card -->
+                    <div class="stat-card bg-white border-l-4 border-red-500 rounded-2xl p-6 shadow-lg hover:shadow-xl">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-600 text-sm font-semibold mb-2">NEEDS ATTENTION</p>
+                                <p class="text-3xl font-bold text-red-600">{{ unhealthy_plants|default:0 }}</p>
+                                <p class="text-red-600 text-sm font-medium mt-2 flex items-center">
+                                    <i class="fas fa-exclamation-triangle mr-2"></i>Require care
+                                </p>
+                            </div>
+                            <div class="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center">
+                                <i class="fas fa-first-aid text-red-600 text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts and Additional Content -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Health Distribution Chart -->
+                    <div class="glass-card p-6 shadow-lg rounded-2xl">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-bold text-gray-800">Plant Health Distribution</h3>
+                            <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-chart-pie text-green-600"></i>
+                            </div>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="healthChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="glass-card p-6 shadow-lg rounded-2xl">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-bold text-gray-800">Quick Actions</h3>
+                            <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                                <i class="fas fa-bolt text-blue-600"></i>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <a href="{% url 'detector' %}" class="flex items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl hover:shadow-md transition-all duration-300 group">
+                                <div class="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center mr-4 group-hover:bg-green-600 transition-colors">
+                                    <i class="fas fa-camera text-white text-lg"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-semibold text-gray-800">New Plant Analysis</h4>
+                                    <p class="text-gray-600 text-sm">Scan and analyze plant health</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-400 group-hover:text-green-600 transition-colors"></i>
+                            </a>
+
+                            <a href="{% url 'inventory' %}" class="flex items-center p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-2xl hover:shadow-md transition-all duration-300 group">
+                                <div class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mr-4 group-hover:bg-blue-600 transition-colors">
+                                    <i class="fas fa-leaf text-white text-lg"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-semibold text-gray-800">View Inventory</h4>
+                                    <p class="text-gray-600 text-sm">Check all your plants</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-400 group-hover:text-blue-600 transition-colors"></i>
+                            </a>
+
+                            <a href="{% url 'history' %}" class="flex items-center p-4 bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-2xl hover:shadow-md transition-all duration-300 group">
+                                <div class="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center mr-4 group-hover:bg-purple-600 transition-colors">
+                                    <i class="fas fa-history text-white text-lg"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-semibold text-gray-800">Analysis History</h4>
+                                    <p class="text-gray-600 text-sm">View past reports</p>
+                                </div>
+                                <i class="fas fa-chevron-right text-gray-400 group-hover:text-purple-600 transition-colors"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity / Tips Section -->
+                <div class="glass-card p-6 shadow-lg rounded-2xl mt-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold text-gray-800">Plant Care Tips</h3>
+                        <div class="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-lightbulb text-yellow-600"></i>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="bg-white p-4 rounded-2xl border border-gray-200 hover:shadow-md transition-shadow">
+                            <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mb-3">
+                                <i class="fas fa-tint text-green-600"></i>
+                            </div>
+                            <h4 class="font-semibold text-gray-800 mb-2">Proper Watering</h4>
+                            <p class="text-gray-600 text-sm">Water your lanzones trees regularly but avoid overwatering to prevent root rot.</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-2xl border border-gray-200 hover:shadow-md transition-shadow">
+                            <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mb-3">
+                                <i class="fas fa-sun text-blue-600"></i>
+                            </div>
+                            <h4 class="font-semibold text-gray-800 mb-2">Sunlight Exposure</h4>
+                            <p class="text-gray-600 text-sm">Ensure adequate sunlight for optimal growth and fruit production.</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-2xl border border-gray-200 hover:shadow-md transition-shadow">
+                            <div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center mb-3">
+                                <i class="fas fa-bug text-red-600"></i>
+                            </div>
+                            <h4 class="font-semibold text-gray-800 mb-2">Pest Control</h4>
+                            <p class="text-gray-600 text-sm">Regularly check for pests and use organic pesticides when necessary.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        // Ensure data is correctly formatted
-var healthyPlants = Number("{{ healthy_plants|default:0 }}");
-var unhealthyPlants = Number("{{ unhealthy_plants|default:0 }}");
-var diseaseLabels = JSON.parse('{{ disease_labels|safe|escapejs }}'.replace(/'/g, '"'));
-var diseaseValues = JSON.parse('{{ disease_values|safe|escapejs }}'.replace(/'/g, '"'));
-
-// Calculate total plants and percentages
-var totalPlants = healthyPlants + unhealthyPlants;
-var healthyPercentage = totalPlants ? ((healthyPlants / totalPlants) * 100).toFixed(2) : 0;
-var unhealthyPercentage = totalPlants ? ((unhealthyPlants / totalPlants) * 100).toFixed(2) : 0;
-
-// Calculate disease percentages
-var totalDiseases = diseaseValues.reduce((a, b) => a + b, 0);
-var diseasePercentages = diseaseValues.map(value => totalDiseases ? ((value / totalDiseases) * 100).toFixed(2) : 0);
-
-// Register Chart.js datalabels plugin
-Chart.register(ChartDataLabels);
-
-// Plant Health Trends Chart (Bar Chart with % Labels)
-var ctx1 = document.getElementById('plantHealthChart').getContext('2d');
-new Chart(ctx1, {
-    type: 'bar',
-    data: {
-        labels: ['Healthy Plants', 'Unhealthy Plants'],
-        datasets: [{
-            label: '', // Keep this empty instead of removing it
-            data: [healthyPlants, unhealthyPlants],
-            backgroundColor: ['#4CAF50', '#FF0000']
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            datalabels: {
-                anchor: 'end',
-                align: 'top',
-                formatter: (value, context) => {
-                    let percentage = totalPlants ? ((value / totalPlants) * 100).toFixed(2) + "%" : "0%";
-                    return value + " (" + percentage + ")";
-                },
-                color: '#000',
-                font: { weight: 'bold', size: 12 }
-            }
-        },
-        scales: {
-            y: { beginAtZero: true }
-        }
-    }
-});
-
-
-
-// Most Common Plant Diseases Chart (Pie Chart with % Labels)
-var ctx2 = document.getElementById('diseaseChart').getContext('2d');
-new Chart(ctx2, {
-    type: 'pie',
-    data: {
-        labels: diseaseLabels,
-        datasets: [{
-            data: diseaseValues,
-            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#8A2BE2', '#FF4500']
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            datalabels: {
-                formatter: (value, context) => {
-                    let percentage = totalDiseases ? ((value / totalDiseases) * 100).toFixed(2) + "%" : "0%";
-                    return value + " (" + percentage + ")";
-                },
-                color: '#fff',
-                font: { weight: 'bold', size: 12 }
+        // Mobile sidebar functions
+        function openMobileSidebar() {
+            console.log('Opening mobile sidebar');
+            const sidebar = document.getElementById('mobileSidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            if (sidebar && overlay) {
+                sidebar.classList.add('open');
+                overlay.classList.add('open');
+                document.body.style.overflow = 'hidden';
             }
         }
-    }
-});
 
+        function closeMobileSidebar() {
+            console.log('Closing mobile sidebar');
+            const sidebar = document.getElementById('mobileSidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            
+            if (sidebar && overlay) {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('open');
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Initialize event listeners when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing mobile sidebar');
+            
+            // Add click event to mobile menu button
+            const mobileMenuButton = document.getElementById('mobileMenuButton');
+            if (mobileMenuButton) {
+                mobileMenuButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    openMobileSidebar();
+                });
+            }
+            
+            // Close sidebar when clicking on overlay
+            const overlay = document.getElementById('mobileOverlay');
+            if (overlay) {
+                overlay.addEventListener('click', closeMobileSidebar);
+            }
+            
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', function(event) {
+                const sidebar = document.getElementById('mobileSidebar');
+                const menuButton = document.getElementById('mobileMenuButton');
+                
+                if (window.innerWidth < 1024 && 
+                    sidebar && 
+                    sidebar.classList.contains('open') &&
+                    !sidebar.contains(event.target) && 
+                    menuButton && !menuButton.contains(event.target)) {
+                    closeMobileSidebar();
+                }
+            });
+
+            // Handle escape key
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    closeMobileSidebar();
+                }
+            });
+        });
+
+        // Health Distribution Chart (Donut)
+        const healthChart = document.getElementById('healthChart');
+        if (healthChart) {
+            const ctx = healthChart.getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Healthy Plants', 'Needs Attention'],
+                    datasets: [{
+                        data: [{{ healthy_plants|default:0 }}, {{ unhealthy_plants|default:0 }}],
+                        backgroundColor: ['#10b981', '#ef4444'],
+                        borderWidth: 0,
+                        cutout: '70%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = {{ total_plants|default:1 }};
+                                    const value = context.raw;
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) + '%' : '0%';
+                                    return `${context.label}: ${value} (${percentage})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Add current date
+        document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            const currentDate = now.toLocaleDateString('en-US', options);
+        });
     </script>
-    </body>
-    </html>
+</body>
+</html>

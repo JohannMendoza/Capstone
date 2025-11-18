@@ -2,225 +2,530 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Reports | Escala Plants</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports | Escala Plants</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: #f8fafc;
+        }
+        .sidebar-fixed {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 320px;
+            z-index: 50;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            margin-left: 320px;
+            min-height: 100vh;
+        }
+        
+        /* Mobile sidebar styling - FIXED: Not full screen */
+        .mobile-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px; /* Reduced width */
+            z-index: 100;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .mobile-sidebar.open {
+            transform: translateX(0);
+        }
+        
+        .mobile-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            display: none;
+        }
+        
+        .mobile-overlay.open {
+            display: block;
+        }
+        
+        @media (max-width: 1023px) {
+            .main-content {
+                margin-left: 0;
+            }
+        }
+        
+        .card-hover { 
+            transition: all 0.3s ease; 
+        }
+        .card-hover:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); 
+        }
+    </style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-emerald-100 min-h-screen">
 
+<!-- Mobile Overlay -->
+<div id="mobileOverlay" class="mobile-overlay" onclick="closeMobileSidebar()"></div>
+
 <!-- Mobile Navbar -->
-<div class="lg:hidden bg-gradient-to-r from-green-800 to-emerald-900 text-white p-4 flex justify-between items-center shadow-lg">
+<div class="lg:hidden bg-gradient-to-r from-green-800 to-emerald-900 text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-40">
     <div class="flex items-center space-x-3">
         <div class="bg-white bg-opacity-15 p-2 rounded-lg backdrop-blur-sm">
-            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
+            <i class="fas fa-leaf text-white text-lg"></i>
         </div>
         <span class="text-lg font-bold">Escala Plants</span>
     </div>
-    <button id="menu-toggle" class="focus:outline-none bg-white bg-opacity-15 p-2 rounded-lg backdrop-blur-sm">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
+    <button id="mobileMenuButton" class="focus:outline-none bg-white bg-opacity-15 p-2 rounded-lg backdrop-blur-sm">
+        <i class="fas fa-bars text-white"></i>
     </button>
 </div>
 
-<!--  Fixed layout structure - moved main content inside flex container with sidebar -->
-<div class="flex flex-col lg:flex-row min-h-screen">
-  <!-- Sidebar -->
-  <aside id="sidebar" class="bg-gradient-to-b from-green-800 to-emerald-900 text-white w-full lg:w-80 h-auto lg:h-screen p-6 flex-col justify-between hidden lg:flex shadow-2xl">
-    <!-- ... existing code ... -->
-    <div>
-      <!-- Logo Section -->
-      <div class="bg-white bg-opacity-15 rounded-2xl p-4 mb-8 backdrop-blur-sm">
-        <div class="flex items-center space-x-3">
-          <div class="bg-white bg-opacity-20 p-3 rounded-xl">
-            <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          </div>
-          <div>
-            <h1 class="text-xl font-bold">Escala Plants</h1>
-            <p class="text-green-200 text-sm">Admin Dashboard</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Navigation -->
-      <nav class="space-y-2">
-        {% if request.user.role == 'admin' %}
-        <a href="{% url 'admin_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/admin_dashboard/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Admin Dashboard</span>
-        </a>
-        {% elif request.user.role == 'client' %}
-        <a href="{% url 'client_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/client_dashboard/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Client Dashboard</span>
-        </a>
-        {% endif %}
-
-        <a href="{% url 'detector' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/detector/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Detection</span>
-        </a>
-
-        <a href="{% url 'inventory' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/inventory/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 0 0-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Inventory Plant</span>
-        </a>
-
-        {% if request.user.is_authenticated and request.user.role == 'admin' %}
-        <a href="{% url 'user_list' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/users/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zm4 18v-6h2.5l-2.54-7.63A1.5 1.5 0 0 0 18.54 8H17c-.8 0-1.54.37-2.01.99l-2.54 3.38c-.35.47-.35 1.1 0 1.58l2.54 3.38c.47.62 1.21.99 2.01.99h1.54c.8 0 1.54-.37 2.01-.99L22 14v8h-2z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Users</span>
-        </a>
-
-        <a href="{% url 'reports' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 {% if request.path == '/reports/' %}bg-white bg-opacity-20 shadow-lg{% else %}hover:bg-white hover:bg-opacity-10{% endif %}">
-          <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-            </svg>
-          </div>
-          <span class="font-medium">Reports</span>
-        </a>
-        {% endif %}
-      </nav>
-    </div>
-    
-    <!-- Logout Section -->
-    <div class="mt-8">
-      <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
-        <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
-          <svg class="w-5 h-5 text-red-300" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-          </svg>
-        </div>
-        <span class="font-medium text-red-300">Logout</span>
-      </a>
-    </div>
-  </aside>
-
-  <!--  Main content now properly positioned within flex container -->
-  <main class="flex-1 p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen overflow-x-hidden">
-    <!--  Added content wrapper for better alignment -->
-    <div class="max-w-7xl mx-auto">
-      <!-- Header -->
-      <div class="bg-gradient-to-r from-green-800 to-emerald-900 p-4 rounded-lg shadow-lg">
-        <h2 class="text-xl sm:text-2xl font-bold text-white">Reports</h2>
-      </div>
-
-      <!-- Overview Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-600">
-          <h3 class="text-lg font-semibold text-gray-700">Total Users</h3>
-          <p class="text-2xl font-bold text-green-700">{{ total_users|default:0 }}</p>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-600">
-          <h3 class="text-lg font-semibold text-gray-700">Total Plants</h3>
-          <p class="text-2xl font-bold text-green-700">{{ total_plants|default:0 }}</p>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-green-600">
-          <h3 class="text-lg font-semibold text-gray-700">Healthy Plants</h3>
-          <p class="text-2xl font-bold text-green-600">{{ healthy_plants|default:0 }}</p>
-        </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-600">
-          <h3 class="text-lg font-semibold text-gray-700">Unhealthy Plants</h3>
-          <p class="text-2xl font-bold text-red-600">{{ unhealthy_plants|default:0 }}</p>
-        </div>
-      </div>
-
-      <!-- Export Form -->
-      <form id="export-form" method="post" action="{% url 'export_pdf' %}" class="bg-white shadow-lg p-6 rounded-xl mt-6 border border-gray-200">
-        {% csrf_token %}
-        <div class="mb-4">
-          <label class="block text-gray-700 font-semibold mb-3">Select Data to Export:</label>
-          <div class="grid grid-cols-1 gap-3">
-            <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition">
-              <label class="flex items-center gap-2">
-                <input type="checkbox" name="export_users" value="yes" class="accent-green-600">
-                <span class="text-gray-800 font-medium">Users</span>
-              </label>
+<div class="flex">
+    <!-- Desktop Sidebar - Fixed -->
+    <aside class="sidebar-fixed bg-gradient-to-b from-green-800 to-emerald-900 text-white hidden lg:flex flex-col shadow-2xl">
+        <div class="p-6 flex-1">
+            <!-- Logo Section -->
+            <div class="bg-white bg-opacity-15 rounded-2xl p-4 mb-8 backdrop-blur-sm">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                        <i class="fas fa-leaf text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Escala Plants</h1>
+                        <p class="text-green-200 text-sm">Admin Dashboard</p>
+                    </div>
+                </div>
             </div>
-            <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition">
-              <label class="flex items-center gap-2">
-                <input type="checkbox" name="export_total_plants" value="yes" class="accent-green-600">
-                <span class="text-gray-800 font-medium">Total Plants</span>
-              </label>
-            </div>
-            <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition">
-              <label class="flex items-center gap-2">
-                <input type="checkbox" name="export_healthy_plants" value="yes" class="accent-green-600">
-                <span class="text-gray-800 font-medium">Healthy Plants</span>
-              </label>
-            </div>
-            <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition">
-              <label class="flex items-center gap-2">
-                <input type="checkbox" name="export_unhealthy_plants" value="yes" class="accent-green-600">
-                <span class="text-gray-800 font-medium">Unhealthy Plants</span>
-              </label>
-            </div>
-          </div>
+
+            <!-- Navigation -->
+            <nav class="space-y-2">
+                {% if request.user.role == 'admin' %}
+                <a href="{% url 'admin_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Admin Dashboard</span>
+                </a>
+                {% elif request.user.role == 'client' %}
+                <a href="{% url 'client_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Client Dashboard</span>
+                </a>
+                {% endif %}
+
+                <a href="{% url 'detector' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-search text-white"></i>
+                    </div>
+                    <span class="font-medium">Detection</span>
+                </a>
+
+                <a href="{% url 'inventory' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-leaf text-white"></i>
+                    </div>
+                    <span class="font-medium">Inventory Plant</span>
+                </a>
+
+                {% if request.user.is_authenticated and request.user.role == 'admin' %}
+                <a href="{% url 'user_list' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-users text-white"></i>
+                    </div>
+                    <span class="font-medium">Users</span>
+                </a>
+
+                <a href="{% url 'reports' %}" class="flex items-center py-3 px-4 rounded-xl bg-white bg-opacity-20 shadow-lg">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-pie text-white"></i>
+                    </div>
+                    <span class="font-medium">Reports</span>
+                </a>
+                {% endif %}
+            </nav>
         </div>
-
-        <div class="flex flex-col sm:flex-row gap-4 mt-4">
-          <button type="submit" class="bg-green-700 text-white px-4 py-2 rounded-lg hover:bg-green-800 shadow-md transition">
-            Export as PDF
-          </button>
-          <button type="button" onclick="exportCSV()" class="bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-800 shadow-md transition">
-            Export as CSV
-          </button>
+        
+        <!-- Logout Section -->
+        <div class="p-6 mt-auto">
+            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
+                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                    <i class="fas fa-sign-out-alt text-red-300"></i>
+                </div>
+                <span class="font-medium text-red-300">Logout</span>
+            </a>
         </div>
-      </form>
-    </div>
+    </aside>
 
-    <!-- JS -->
-    <script>
-      document.getElementById('menu-toggle').addEventListener('click', function () {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.classList.toggle('hidden');
-      });
+    <!-- Mobile Sidebar - FIXED: Not full screen -->
+    <aside id="mobileSidebar" class="mobile-sidebar bg-gradient-to-b from-green-800 to-emerald-900 text-white flex flex-col lg:hidden">
+        <div class="p-6 flex-1">
+            <!-- Header with close button -->
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                        <i class="fas fa-leaf text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Escala Plants</h1>
+                        <p class="text-green-200 text-sm">Admin Dashboard</p>
+                    </div>
+                </div>
+                <button onclick="closeMobileSidebar()" class="bg-white bg-opacity-15 p-2 rounded-lg">
+                    <i class="fas fa-times text-white"></i>
+                </button>
+            </div>
 
-      function exportCSV() {
+            <!-- Navigation -->
+            <nav class="space-y-2">
+                {% if request.user.role == 'admin' %}
+                <a href="{% url 'admin_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Admin Dashboard</span>
+                </a>
+                {% elif request.user.role == 'client' %}
+                <a href="{% url 'client_dashboard' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-bar text-white"></i>
+                    </div>
+                    <span class="font-medium">Client Dashboard</span>
+                </a>
+                {% endif %}
+
+                <a href="{% url 'detector' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-search text-white"></i>
+                    </div>
+                    <span class="font-medium">Detection</span>
+                </a>
+
+                <a href="{% url 'inventory' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-leaf text-white"></i>
+                    </div>
+                    <span class="font-medium">Inventory Plant</span>
+                </a>
+
+                {% if request.user.is_authenticated and request.user.role == 'admin' %}
+                <a href="{% url 'user_list' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-users text-white"></i>
+                    </div>
+                    <span class="font-medium">Users</span>
+                </a>
+
+                <a href="{% url 'reports' %}" class="flex items-center py-3 px-4 rounded-xl bg-white bg-opacity-20 shadow-lg" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-chart-pie text-white"></i>
+                    </div>
+                    <span class="font-medium">Reports</span>
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+        
+        <!-- Logout Section -->
+        <div class="p-6 mt-auto">
+            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30" onclick="closeMobileSidebar()">
+                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                    <i class="fas fa-sign-out-alt text-red-300"></i>
+                </div>
+                <span class="font-medium text-red-300">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content flex-1 min-h-screen">
+        <div class="max-w-7xl mx-auto p-6 lg:p-8">
+            <!-- Header Section -->
+            <div class="bg-gradient-to-r from-green-600 to-emerald-700 text-white p-6 rounded-2xl shadow-xl mb-8">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+                    <div class="flex items-center space-x-4 mb-4 lg:mb-0">
+                        <div class="bg-white bg-opacity-20 p-3 rounded-xl">
+                            <i class="fas fa-chart-pie text-white text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl lg:text-3xl font-bold">System Reports & Analytics</h2>
+                            <p class="text-green-100 mt-1">Comprehensive overview and export options</p>
+                        </div>
+                    </div>
+                    <div class="bg-white bg-opacity-20 rounded-xl p-3">
+                        <p class="text-green-100 text-sm">Welcome back, <span class="font-bold text-white">{{ request.user.username }}</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Users Card -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 card-hover border border-gray-100">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-blue-100 p-3 rounded-xl">
+                            <i class="fas fa-users text-blue-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-600 text-sm">Total Users</p>
+                            <p class="text-2xl font-bold text-gray-800">{{ total_users|default:"0" }}</p>
+                            <p class="text-blue-600 text-xs font-medium mt-1">Registered users</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Plants Card -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 card-hover border border-gray-100">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-green-100 p-3 rounded-xl">
+                            <i class="fas fa-tree text-green-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-600 text-sm">Total Plants</p>
+                            <p class="text-2xl font-bold text-gray-800">{{ total_plants|default:0 }}</p>
+                            <p class="text-green-600 text-xs font-medium mt-1">In inventory</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Healthy Plants Card -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 card-hover border border-gray-100">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-emerald-100 p-3 rounded-xl">
+                            <i class="fas fa-heart text-emerald-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-600 text-sm">Healthy Plants</p>
+                            <p class="text-2xl font-bold text-emerald-600">{{ healthy_plants|default:0 }}</p>
+                            <p class="text-emerald-600 text-xs font-medium mt-1">Good condition</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unhealthy Plants Card -->
+                <div class="bg-white rounded-2xl shadow-lg p-6 card-hover border border-gray-100">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-orange-100 p-3 rounded-xl">
+                            <i class="fas fa-exclamation-triangle text-orange-600 text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-600 text-sm">Needs Attention</p>
+                            <p class="text-2xl font-bold text-orange-600">{{ unhealthy_plants|default:0 }}</p>
+                            <p class="text-orange-600 text-xs font-medium mt-1">Require care</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Section -->
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <div class="bg-gradient-to-r from-green-600 to-emerald-700 p-6">
+                    <h3 class="text-xl font-semibold text-white">Export Reports</h3>
+                    <p class="text-green-100 mt-1">Generate comprehensive reports in multiple formats</p>
+                </div>
+
+                <div class="p-6">
+                    <form id="export-form" method="post" action="{% url 'export_pdf' %}">
+                        {% csrf_token %}
+                        
+                        <!-- Export Options -->
+                        <div class="mb-6">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-4">Select Data to Export:</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <label class="flex items-center p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition cursor-pointer">
+                                    <input type="checkbox" name="export_users" value="yes" class="h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500">
+                                    <span class="ml-3 text-gray-700 font-medium">
+                                        <i class="fas fa-users mr-2 text-blue-500"></i>
+                                        Users Data
+                                    </span>
+                                </label>
+
+                                <label class="flex items-center p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition cursor-pointer">
+                                    <input type="checkbox" name="export_total_plants" value="yes" class="h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500">
+                                    <span class="ml-3 text-gray-700 font-medium">
+                                        <i class="fas fa-tree mr-2 text-green-500"></i>
+                                        Total Plants
+                                    </span>
+                                </label>
+
+                                <label class="flex items-center p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition cursor-pointer">
+                                    <input type="checkbox" name="export_healthy_plants" value="yes" class="h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500">
+                                    <span class="ml-3 text-gray-700 font-medium">
+                                        <i class="fas fa-heart mr-2 text-emerald-500"></i>
+                                        Healthy Plants
+                                    </span>
+                                </label>
+
+                                <label class="flex items-center p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition cursor-pointer">
+                                    <input type="checkbox" name="export_unhealthy_plants" value="yes" class="h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500">
+                                    <span class="ml-3 text-gray-700 font-medium">
+                                        <i class="fas fa-exclamation-triangle mr-2 text-orange-500"></i>
+                                        Unhealthy Plants
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Export Buttons -->
+                        <div class="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-200">
+                            <button type="submit" class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-700 text-white font-semibold rounded-xl hover:from-green-700 hover:to-emerald-800 transition shadow-lg">
+                                <i class="fas fa-file-pdf mr-2"></i>
+                                Export as PDF
+                            </button>
+                            <button type="button" onclick="exportCSV()" class="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition shadow-lg">
+                                <i class="fas fa-file-csv mr-2"></i>
+                                Export as CSV
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Additional Info Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                        Report Information
+                    </h4>
+                    <ul class="space-y-3 text-gray-600">
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            PDF reports include detailed analytics and charts
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            CSV files are optimized for spreadsheet software
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            All data is exported in real-time
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-lg p-6">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-clock text-orange-500 mr-2"></i>
+                        Last Generated
+                    </h4>
+                    <p class="text-gray-600 mb-4">Your most recent report exports:</p>
+                    <div class="space-y-2 text-sm text-gray-500">
+                        <p>PDF Report: <span class="font-medium text-gray-700">Not yet generated</span></p>
+                        <p>CSV Export: <span class="font-medium text-gray-700">Not yet generated</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // Mobile sidebar functions - FIXED VERSION
+    function openMobileSidebar() {
+        console.log('Opening mobile sidebar');
+        const sidebar = document.getElementById('mobileSidebar');
+        const overlay = document.getElementById('mobileOverlay');
+        
+        if (sidebar && overlay) {
+            sidebar.classList.add('open');
+            overlay.classList.add('open');
+            document.body.style.overflow = 'hidden'; // Prevent scrolling
+        }
+    }
+
+    function closeMobileSidebar() {
+        console.log('Closing mobile sidebar');
+        const sidebar = document.getElementById('mobileSidebar');
+        const overlay = document.getElementById('mobileOverlay');
+        
+        if (sidebar && overlay) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+            document.body.style.overflow = ''; // Re-enable scrolling
+        }
+    }
+
+    // Initialize event listeners when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, initializing mobile sidebar');
+        
+        // Add click event to mobile menu button
+        const mobileMenuButton = document.getElementById('mobileMenuButton');
+        if (mobileMenuButton) {
+            mobileMenuButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openMobileSidebar();
+            });
+        }
+        
+        // Close sidebar when clicking on overlay
+        const overlay = document.getElementById('mobileOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', closeMobileSidebar);
+        }
+        
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('mobileSidebar');
+            const menuButton = document.getElementById('mobileMenuButton');
+            
+            if (window.innerWidth < 1024 && 
+                sidebar && 
+                sidebar.classList.contains('open') &&
+                !sidebar.contains(event.target) && 
+                !menuButton.contains(event.target)) {
+                closeMobileSidebar();
+            }
+        });
+
+        // Handle escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeMobileSidebar();
+            }
+        });
+    });
+
+    function exportCSV() {
         const form = document.getElementById('export-form');
         const checkboxes = form.querySelectorAll('input[type=checkbox]:checked');
 
         if (checkboxes.length === 0) {
-          alert("Please select at least one option to export.");
-          return;
+            alert("Please select at least one option to export.");
+            return;
         }
 
         const params = new URLSearchParams();
         checkboxes.forEach(cb => {
-          params.append(cb.name, cb.value);
+            params.append(cb.name, cb.value);
         });
 
         window.location.href = "{% url 'export_csv' %}?" + params.toString();
-      }
-    </script>
-  </main>
-</div>
+    }
 
+    // Add hover effects to checkboxes
+    document.querySelectorAll('label').forEach(label => {
+        label.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+        });
+        label.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+</script>
 </body>
 </html>
