@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "dashboard",
+    "pwa",  # ✅ ADD PWA SUPPORT
 ]
 
 AUTH_USER_MODEL = "dashboard.CustomUser"
@@ -143,9 +144,6 @@ CSRF_TRUSTED_ORIGINS = [
 # ================================================================
 # 📧 EMAIL CONFIGURATION (SendGrid / Console for DEBUG)
 # ================================================================
-# ================================================================
-# 📧 EMAIL CONFIGURATION (SendGrid / Console for DEBUG)
-# ================================================================
 if DEBUG:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
     print("⚙️  Using console email backend (development mode)")
@@ -164,3 +162,42 @@ else:
 # ================================================================
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52_428_800  # 50 MB
 LOGIN_URL = "/login/"
+
+# ================================================================
+# 📱 PWA CONFIGURATION FOR LANZOFIELDS
+# ================================================================
+PWA_APP_NAME = 'LanzoFields'
+PWA_APP_DESCRIPTION = "Crop Disease Detection using YOLOv8"
+PWA_APP_THEME_COLOR = '#2E7D32'  # Green color for agriculture
+PWA_APP_BACKGROUND_COLOR = '#FFFFFF'
+PWA_APP_DISPLAY = 'standalone'
+PWA_APP_SCOPE = '/'
+PWA_APP_ORIENTATION = 'any'
+PWA_APP_START_URL = '/'
+PWA_APP_STATUS_BAR_COLOR = 'default'
+PWA_APP_ICONS = [
+    {
+        'src': '/static/dashboard/img/192x192.png',  # ✅ EXISTING PATH
+        'sizes': '192x192',
+        'type': 'image/png'
+    },
+    {
+        'src': '/static/dashboard/img/512x512.png',  # ✅ EXISTING PATH
+        'sizes': '512x512',
+        'type': 'image/png'
+    }
+]
+PWA_APP_ICONS_APPLE = [
+    {
+        'src': '/static/dashboard/img/192x192.png',  # ✅ EXISTING PATH
+        'sizes': '192x192',
+        'type': 'image/png'
+    }
+]
+PWA_APP_SPLASH_SCREEN = [
+    {
+        'src': '/static/dashboard/img/640x1136.png',  # ✅ EXISTING PATH
+        'media': '(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)'
+    }
+]
+PWA_SERVICE_WORKER_PATH = os.path.join(BASE_DIR, 'capstone', 'dashboard', 'static', 'dashboard', 'js', 'serviceworker.js')  # ✅ EXISTING PATH

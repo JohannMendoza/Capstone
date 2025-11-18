@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include  # ✅ IDAGDAG ANG INCLUDE
 from . import views, improved_predict
 from django.conf import settings
 from django.conf.urls.static import static
@@ -30,7 +30,11 @@ from .views import (
 )
 
 urlpatterns = [
-    # urls.py
+    # PWA URLs - IDAGDAG ITO
+    path('', include('pwa.urls')),  # ✅ PWA URLs
+    path('offline/', views.offline, name='offline'),  # ✅ OFFLINE PAGE
+    
+    # Existing URLs - I-KOPY ANG LAHAT NG IYONG EXISTING URL PATTERNS
     path('analyses/export-selected/', views.export_multiple_analyses, name='export_multiple_analyses'),
     path('pest-session/<int:session_id>/export/pdf/', export_pest_session_pdf, name='export_pest_session_pdf'),
     path('api/predict-all-leaves/', improved_predict.predict_all_leaves, name='predict_all_leaves'),

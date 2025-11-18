@@ -794,7 +794,6 @@ def export_pdf(request):
     return response
 
 
-
 # <CHANGE> Updated YOLO model loading with caching and lazy import
 CLASS_NAMES = ['dried leaf', 'healthy', 'leaf rust', 'powdery mildew']
 
@@ -2688,3 +2687,7 @@ def analysis_detail_json(request, analysis_id):
     }
 
     return JsonResponse({'success': True, 'analysis': data})
+
+    # Idagdag ito sa iyong existing views.py
+def offline(request):
+    return render(request, 'dashboard/offline.html')

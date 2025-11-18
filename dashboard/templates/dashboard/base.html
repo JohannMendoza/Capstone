@@ -3,7 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Dashboard{% endblock %}</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2E7D32"/>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="LanzoFields">
+    <link rel="apple-touch-icon" href="/static/images/icon-192x192.png">
+    <link rel="manifest" href="/manifest.json">
+    
+    <title>{% block title %}LanzoFields - Crop Disease Detection{% endblock %}</title>
+    {% load static %}
 </head>
 <body>
     <nav>
@@ -14,5 +24,66 @@
     <main>
         {% block content %}{% endblock %}
     </main>
+
+    <!-- PWA Script -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+
+        // Prompt user to install PWA
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            // Show install button or notification
+            showInstallPromotion();
+        });
+
+        function showInstallPromotion() {
+            // You can show a custom install button here
+            console.log('App can be installed');
+            
+            // Example: Show install button
+            const installBtn = document.createElement('button');
+            installBtn.textContent = 'Install LanzoFields App';
+            installBtn.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #2E7D32;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 5px;
+                cursor: pointer;
+                z-index: 1000;
+            `;
+            installBtn.onclick = installApp;
+            document.body.appendChild(installBtn);
+        }
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+    </script>
 </body>
 </html>
