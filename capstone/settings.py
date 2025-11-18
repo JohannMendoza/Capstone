@@ -167,7 +167,7 @@ LOGIN_URL = "/login/"
 # 📱 PWA CONFIGURATION FOR LANZOFIELDS
 # ================================================================
 PWA_APP_NAME = 'LanzoFields'
-PWA_APP_DESCRIPTION = "Crop Disease Detection using YOLOv8"
+PWA_APP_DESCRIPTION = "Disease Detection using YOLOv8"
 PWA_APP_THEME_COLOR = '#2E7D32'  # Green color for agriculture
 PWA_APP_BACKGROUND_COLOR = '#FFFFFF'
 PWA_APP_DISPLAY = 'standalone'
