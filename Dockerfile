@@ -1,13 +1,9 @@
-# ============================================
-# LANZOFIELDS - DOCKERFILE WITH PWA SUPPORT
-# ============================================
-
 # ---- Build Stage ----
 FROM python:3.10-slim as builder
 
 WORKDIR /app
 
-# Environment variables
+# Avoid writing .pyc files and enable unbuffered stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
@@ -31,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies
+# Install Python dependencies globally
 RUN pip install --upgrade pip && \
     pip install torch==2.9.1 -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
     pip install --no-cache-dir -r requirements.txt
@@ -39,11 +35,12 @@ RUN pip install --upgrade pip && \
 # Copy application code
 COPY . .
 
-# ✅ CREATE PWA FILES
+# ✅ CREATE PWA FILES PROPERLY
 RUN mkdir -p dashboard/static/dashboard/js dashboard/static/dashboard/img
 
-# Create manifest.json
-RUN echo '{
+# Create manifest.json using cat with EOF
+RUN cat > dashboard/static/dashboard/manifest.json << 'EOF'
+{
   "name": "LanzoFields",
   "short_name": "LanzoFields",
   "description": "Plant Disease Detection System",
@@ -64,10 +61,12 @@ RUN echo '{
       "type": "image/png"
     }
   ]
-}' > dashboard/static/dashboard/manifest.json
+}
+EOF
 
-# Create serviceworker.js
-RUN echo '// LanzoFields PWA Service Worker
+# Create serviceworker.js using cat with EOF
+RUN cat > dashboard/static/dashboard/js/serviceworker.js << 'EOF'
+// LanzoFields PWA Service Worker
 const CACHE_NAME = "lanzofields-pwa-" + new Date().getTime();
 const urlsToCache = [
   "/",
@@ -114,7 +113,8 @@ self.addEventListener("fetch", event => {
   );
 });
 
-console.log("[SW] Service Worker loaded");' > dashboard/static/dashboard/js/serviceworker.js
+console.log("[SW] Service Worker loaded");
+EOF
 
 # ✅ Collect static files
 RUN python manage.py collectstatic --noinput
@@ -126,7 +126,6 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV DEBUG=False
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -142,25 +141,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed Python packages from builder
 COPY --from=builder /usr/local /usr/local
 
-# Copy collected static files
+# ✅ Copy collected static files from builder
 COPY --from=builder /app/staticfiles /app/staticfiles
+
+# ✅ Copy PWA files from builder
+COPY --from=builder /app/dashboard/static /app/dashboard/static
 
 # Copy application code
 COPY --from=builder /app /app
 
-# Create necessary directories
-RUN mkdir -p media
+# Create media directory
+RUN mkdir -p /app/media
 
-# Create non-root user
+# Create non-root user and give ownership
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8000/ || exit 1
-
-# Run the app
-CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
+# Run the app using gunicorn
+CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
