@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 
 <head>
@@ -7,17 +8,17 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     
-    <!-- ✅ PWA META TAGS -->
+    <!-- PWA META TAGS -->
     <meta name="theme-color" content="#2E7D32"/>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="LanzoFields">
-    <link rel="apple-touch-icon" href="static/dashboard/img/icon-192x192.png">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="{% static 'dashboard/img/192x192.png' %}">
+    <link rel="manifest" href="{% static 'dashboard/manifest.json' %}">
 
     <title>Escala Plants & Nursery</title>
-    <link rel="icon" href="static/dashboard/img/core-img/favicon.ico">
-    <link rel="stylesheet" href="static/dashboard/style.css">
+    <link rel="icon" href="{% static 'dashboard/img/core-img/favicon.ico' %}">
+    <link rel="stylesheet" href="{% static 'dashboard/style.css' %}">
 </head>
 
 <body>
@@ -25,7 +26,7 @@
     <div class="preloader d-flex align-items-center justify-content-center">
         <div class="preloader-circle"></div>
         <div class="preloader-img">
-            <img src="static/dashboard/img/core-img/leaf.png" alt="">
+            <img src="{% static 'dashboard/img/core-img/leaf.png' %}" alt="">
         </div>
     </div>
 
@@ -46,7 +47,6 @@
 
                             <!-- Top Header Content -->
                             <div class="top-header-meta d-flex">
-                                
                                 <!-- Login -->
                                 <div class="login">
                                     <a href="/login/"><i class="fa fa-user" aria-hidden="true"></i> <span>Login</span></a>
@@ -70,7 +70,7 @@
                     <nav class="classy-navbar justify-content-between" id="alazeaNav">
 
                         <!-- Nav Brand -->
-                        <a href="/" class="nav-brand"><img src="static/dashboard/img/core-img/logo.png" alt=""></a>
+                        <a href="/" class="nav-brand"><img src="{% static 'dashboard/img/core-img/logo.png' %}" alt=""></a>
 
                         <!-- Navbar Toggler -->
                         <div class="classy-navbar-toggler">
@@ -85,7 +85,6 @@
                                 <div class="cross-wrap"><span class="top"></span><span class="bottom"></span></div>
                             </div>
 
-                            
                             <!-- Navbar End -->
                         </div>
                     </nav>
@@ -112,7 +111,7 @@
             <!-- Single Hero Post -->
             <div class="single-hero-post bg-overlay">
                 <!-- Post Image -->
-                <div class="slide-img bg-img" style="background-image: url(static/dashboard/img/bg-img/1.png);"></div>
+                <div class="slide-img bg-img" style="background-image: url({% static 'dashboard/img/bg-img/1.png' %});"></div>
                 <div class="container h-100">
                     <div class="row h-100 align-items-center">
                         <div class="col-12">
@@ -120,16 +119,6 @@
                             <div class="hero-slides-content text-center">
                                 <h2>Escala Plant & Nursery</h2>
                                 <p>Escala Plant and Nursery Farm - Bringing nature closer with premium plants, expert advice, and garden essentials for every green thumb.</p>
-                                
-                                <!-- ✅ PWA INSTALL BUTTON -->
-                                <div id="installContainer" style="margin-top: 20px;">
-                                    <button id="installButton" style="display: none; background: #2E7D32; color: white; border: none; padding: 12px 24px; border-radius: 5px; font-size: 16px; cursor: pointer; margin: 10px;">
-                                        📱 Install Mobile App
-                                    </button>
-                                    <div id="installInfo" style="color: white; font-size: 14px; margin-top: 10px;">
-                                        <p><strong>Tip:</strong> Add to Home Screen for better mobile experience</p>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -139,7 +128,7 @@
             <!-- Single Hero Post -->
             <div class="single-hero-post bg-overlay">
                 <!-- Post Image -->
-                <div class="slide-img bg-img" style="background-image: url(static/dashboard/img/bg-img/2.jpg);"></div>
+                <div class="slide-img bg-img" style="background-image: url({% static 'dashboard/img/bg-img/2.jpg' %});"></div>
                 <div class="container h-100">
                     <div class="row h-100 align-items-center">
                         <div class="col-12">
@@ -147,13 +136,6 @@
                             <div class="hero-slides-content text-center">
                                 <h2>Escala Plant and Nursery</h2>
                                 <p>Escala Plant and Nursery Farm - Bringing nature closer with premium plants, expert advice, and garden essentials for every green thumb.</p>
-                                
-                                <!-- ✅ MOBILE INSTRUCTIONS -->
-                                <div style="color: white; font-size: 14px; margin-top: 20px;">
-                                    <p><strong>📱 Mobile Users:</strong></p>
-                                    <p>• <strong>Chrome:</strong> Tap ⋮ → "Add to Home Screen"</p>
-                                    <p>• <strong>Safari:</strong> Tap Share → "Add to Home Screen"</p>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -185,7 +167,7 @@
                         <div class="single-service-area d-flex align-items-center wow fadeInUp" data-wow-delay="100ms">
                             <!-- Icon -->
                             <div class="service-icon mr-30">
-                                <img src="static/dashboard/img/core-img/s1.png" alt="">
+                                <img src="{% static 'dashboard/img/core-img/s1.png' %}" alt="">
                             </div>
                             <!-- Content -->
                             <div class="service-content">
@@ -198,7 +180,7 @@
                         <div class="single-service-area d-flex align-items-center wow fadeInUp" data-wow-delay="300ms">
                             <!-- Icon -->
                             <div class="service-icon mr-30">
-                                <img src="static/dashboard/img/core-img/s2.png" alt="">
+                                <img src="{% static 'dashboard/img/core-img/s2.png' %}" alt="">
                             </div>
                             <!-- Content -->
                             <div class="service-content">
@@ -211,7 +193,7 @@
                         <div class="single-service-area d-flex align-items-center wow fadeInUp" data-wow-delay="500ms">
                             <!-- Icon -->
                             <div class="service-icon mr-30">
-                                <img src="static/dashboard/img/core-img/s3.png" alt="">
+                                <img src="{% static 'dashboard/img/core-img/s3.png' %}" alt="">
                             </div>
                             <!-- Content -->
                             <div class="service-content">
@@ -225,7 +207,7 @@
 
                 <div class="col-12 col-lg-6">
                     <div class="alazea-video-area bg-overlay mb-100">
-                        <img src="static/dashboard/img/bg-img/23.jpg" alt="">
+                        <img src="{% static 'dashboard/img/bg-img/23.jpg' %}" alt="">
                         <a href="http://www.youtube.com/watch?v=7HKoqNJtMTQ" class="video-icon">
                             <i class="fa fa-play" aria-hidden="true"></i>
                         </a>
@@ -246,7 +228,7 @@
                             <!-- Single Benefits Area -->
                             <div class="col-12 col-sm-6">
                                 <div class="single-benefits-area">
-                                    <img src="static/dashboard/img/core-img/b1.png" alt="">
+                                    <img src="{% static 'dashboard/img/core-img/b1.png' %}" alt="">
                                     <h5>Quality Products</h5>
                                     <p>We take pride in offering healthy, well-nurtured plants and premium gardening essentials. Our commitment to quality ensures that every plant you take home thrives beautifully.</p>
                                 </div>
@@ -255,7 +237,7 @@
                             <!-- Single Benefits Area -->
                             <div class="col-12 col-sm-6">
                                 <div class="single-benefits-area">
-                                    <img src="static/dashboard/img/core-img/b2.png" alt="">
+                                    <img src="{% static 'dashboard/img/core-img/b2.png' %}" alt="">
                                     <h5>Perfect Service</h5>
                                     <p>Customer satisfaction is our priority. From expert plant care advice to reliable support, we strive to provide the best service to help you grow and maintain a flourishing green space.</p>
                                 </div>
@@ -264,7 +246,7 @@
                             <!-- Single Benefits Area -->
                             <div class="col-12 col-sm-6">
                                 <div class="single-benefits-area">
-                                    <img src="static/dashboard/img/core-img/b3.png" alt="">
+                                    <img src="{% static 'dashboard/img/core-img/b3.png' %}" alt="">
                                     <h5>100% Natural</h5>
                                     <p>Our plants are grown with natural methods, free from harmful chemicals. We believe in organic growth, ensuring healthier plants for your home and garden.
                                     </p>
@@ -274,7 +256,7 @@
                             <!-- Single Benefits Area -->
                             <div class="col-12 col-sm-6">
                                 <div class="single-benefits-area">
-                                    <img src="static/dashboard/img/core-img/b4.png" alt="">
+                                    <img src="{% static 'dashboard/img/core-img/b4.png' %}" alt="">
                                     <h5>Environmentally friendly</h5>
                                     <p>Sustainability is at the heart of what we do. We use eco-friendly farming techniques and promote green practices to protect and preserve nature for future generations.</p>
                                 </div>
@@ -349,7 +331,7 @@
     <!-- ##### Contact Area End ##### -->
 
     <!-- ##### Footer Area Start ##### -->
-    <footer class="footer-area bg-img" style="background-image: url(static/dashboard/img/bg-img/3.jpg);">
+    <footer class="footer-area bg-img" style="background-image: url({% static 'dashboard/img/bg-img/3.jpg' %});">
         <!-- Main Footer Area -->
         <div class="main-footer-area">
             <div class="container">
@@ -359,7 +341,7 @@
                     <div class="col-12 col-sm-6 col-lg-3">
                         <div class="single-footer-widget">
                             <div class="footer-logo mb-30">
-                                <a href="#"><img src="static/dashboard/img/core-img/logo.png" alt=""></a>
+                                <a href="#"><img src="{% static 'dashboard/img/core-img/logo.png' %}" alt=""></a>
                             </div>
                             <p>Escala Plants & Nursery - Growing Nature, Nurturing Life.</p>
                             <div class="social-info">
@@ -411,84 +393,53 @@ Copyright &copy;<script>document.write(new Date().getFullYear());</script> All r
     <!-- ##### Footer Area End ##### -->
 
     <!-- ##### All Javascript Files ##### -->
-    <script src="static/dashboard/js/jquery/jquery-2.2.4.min.js"></script>
-    <script src="static/dashboard/js/bootstrap/popper.min.js"></script>
-    <script src="static/dashboard/js/bootstrap/bootstrap.min.js"></script>
-    <script src="static/dashboard/js/plugins/plugins.js"></script>
-    <script src="static/dashboard/js/active.js"></script>
+    <script src="{% static 'dashboard/js/jquery/jquery-2.2.4.min.js' %}"></script>
+    <script src="{% static 'dashboard/js/bootstrap/popper.min.js' %}"></script>
+    <script src="{% static 'dashboard/js/bootstrap/bootstrap.min.js' %}"></script>
+    <script src="{% static 'dashboard/js/plugins/plugins.js' %}"></script>
+    <script src="{% static 'dashboard/js/active.js' %}"></script>
 
-    <!-- ✅ PWA INSTALL SCRIPT - NO SERVICE WORKER -->
+    <!-- MINIMAL PWA SCRIPT -->
     <script>
-        // PWA Install Functionality - No Service Worker
-        let installPrompt;
-        const installButton = document.getElementById('installButton');
-        const installInfo = document.getElementById('installInfo');
-        
-        // Detect if mobile device
-        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        if (isMobile) {
-            console.log('📱 Mobile device detected - PWA ready');
-            if (installInfo) {
-                installInfo.innerHTML = '<p>📱 <strong>Mobile detected:</strong> Install app for better experience</p>';
-            }
+        // Register Service Worker (required for PWA)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/static/dashboard/js/serviceworker.js')
+                    .then(function(registration) {
+                        console.log('Service Worker registered');
+                    })
+                    .catch(function(err) {
+                        console.log('Service Worker registration failed:', err);
+                    });
+            });
         }
 
-        // Install prompt handler
+        // PWA Install Prompt (auto-show if available)
+        let deferredPrompt;
+        
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
-            installPrompt = e;
+            deferredPrompt = e;
             
-            console.log('✅ PWA install available');
-            
-            if (installButton) {
-                installButton.style.display = 'inline-block';
-                
-                installButton.addEventListener('click', async () => {
-                    if (installPrompt) {
-                        installPrompt.prompt();
-                        const { outcome } = await installPrompt.userChoice;
-                        
-                        if (outcome === 'accepted') {
-                            console.log('✅ User installed the app');
-                            installButton.style.display = 'none';
-                            
-                            // Show success message
-                            if (installInfo) {
-                                installInfo.innerHTML = '<p>✅ <strong>App installed successfully!</strong> Check your home screen.</p>';
-                            }
+            // Auto-show install prompt after 3 seconds
+            setTimeout(() => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('User accepted PWA install');
                         } else {
-                            console.log('❌ User dismissed install prompt');
-                            if (installInfo) {
-                                installInfo.innerHTML = '<p>💡 You can install later via browser menu → "Add to Home Screen"</p>';
-                            }
+                            console.log('User dismissed PWA install');
                         }
-                        installPrompt = null;
-                    }
-                });
-            }
+                        deferredPrompt = null;
+                    });
+                }
+            }, 3000);
         });
 
         // App installed event
         window.addEventListener('appinstalled', () => {
-            console.log('✅ PWA was successfully installed');
-            if (installButton) {
-                installButton.style.display = 'none';
-            }
-            if (installInfo) {
-                installInfo.innerHTML = '<p>✅ <strong>App installed successfully!</strong> Launch from home screen.</p>';
-            }
-        });
-
-        // Show install instructions for mobile users after page load
-        window.addEventListener('load', () => {
-            if (isMobile && !installPrompt) {
-                setTimeout(() => {
-                    if (installInfo) {
-                        installInfo.innerHTML += '<p style="margin-top: 10px;">💡 <strong>How to install:</strong> Use browser menu → "Add to Home Screen"</p>';
-                    }
-                }, 3000);
-            }
+            console.log('PWA installed successfully');
         });
     </script>
 </body>

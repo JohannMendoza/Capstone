@@ -1,0 +1,39 @@
+{
+    "name": "LanzoFields",
+    "short_name": "LanzoFields",
+    "description": "Plant Disease Detection System",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#FFFFFF",
+    "theme_color": "#2E7D32",
+    "orientation": "any",
+    "icons": [
+        {
+            "src": "/static/dashboard/img/192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/static/dashboard/img/512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["business", "productivity", "utilities"],
+    "shortcuts": [
+        {
+            "name": "Disease Detector",
+            "short_name": "Detector",
+            "description": "Scan for plant diseases",
+            "url": "/detector"
+        },
+        {
+            "name": "Pest Detector",
+            "short_name": "Pest Scan",
+            "description": "Scan for pests",
+            "url": "/pest-detector"
+        }
+    ]
+}
