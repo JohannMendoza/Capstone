@@ -1,17 +1,19 @@
-# ======================
-# Stage 1: Builder
-# ======================
+# -------- Build stage --------
 FROM python:3.10-slim AS builder
 
 WORKDIR /app
 
+# Environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV PATH=/root/.local/bin:$PATH
+ENV PATH=/home/appuser/.local/bin:$PATH
 
-# Install build dependencies
+# Create non-root user first
+RUN useradd -m -u 1000 appuser
+
+# Install system dependencies (needed for building some packages)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
@@ -26,26 +28,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gfortran \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
+# Switch to non-root user for Python installs
+USER appuser
 
-# Install PyTorch CPU first, then the rest of requirements
+# Copy requirements and install
+COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --user torch==2.9.1 -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
     pip install --user --no-cache-dir -r requirements.txt
 
-# ======================
-# Stage 2: Runtime
-# ======================
+# -------- Runtime stage --------
 FROM python:3.10-slim
 
 WORKDIR /app
 
+# Environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PATH=/root/.local/bin:$PATH
+ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install runtime dependencies only
+# Create non-root user
+RUN useradd -m -u 1000 appuser
+
+# Install runtime system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -56,8 +63,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblapack3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed Python packages from builder
-COPY --from=builder /root/.local /root/.local
+# Switch to non-root user
+USER appuser
+
+# Copy installed packages from builder
+COPY --from=builder /home/appuser/.local /home/appuser/.local
 
 # Copy application code
 COPY . .
@@ -65,11 +75,6 @@ COPY . .
 # Create media directory
 RUN mkdir -p /app/media
 
-# Set permissions and non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
-
 EXPOSE 8000
 
-# Run Gunicorn for Django
 CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
