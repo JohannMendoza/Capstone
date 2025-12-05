@@ -1184,10 +1184,9 @@ def predict(request):
 @require_POST
 def optimized_predict(request):
     """
-    ✅ IMPROVED: Optimized prediction function
-    - Faster processing with optimized parameters
-    - Better detection with lower confidence threshold
-    - Performance monitoring
+    ✅ FIXED: Optimized prediction function with PROPER COORDINATE SCALING
+    - Correctly scales bounding boxes from model size back to original video size
+    - Fixes the misaligned bounding box issue
     """
     start_time = time.time()
     
@@ -1201,36 +1200,49 @@ def optimized_predict(request):
         frame_file = request.FILES.get('frame')
         quality = request.POST.get('quality', 'high')
         plant_id = request.POST.get("plant_id")
+        
+        # ✅ CRITICAL: Get original video dimensions from frontend
+        original_width = int(request.POST.get('original_width', 640))
+        original_height = int(request.POST.get('original_height', 480))
+        
+        print(f"[DEBUG] Original dimensions from frontend: {original_width}x{original_height}")
 
         if not frame_file:
             return JsonResponse({"success": False, "error": "No frame received"})
 
-        # ✅ IMPROVED: Faster image decoding
+        # Read and decode the image
         file_bytes = np.frombuffer(frame_file.read(), np.uint8)
         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
         if frame is None:
             return JsonResponse({"success": False, "error": "Failed to decode frame"})
 
+        # ✅ Get the actual dimensions of the frame sent by frontend
+        # This is the RESIZED frame (e.g., 640x480 for model processing)
+        frame_height, frame_width = frame.shape[:2]
+        print(f"[DEBUG] Received frame dimensions: {frame_width}x{frame_height}")
+
         # ✅ IMPROVED: Adjust parameters based on quality
         imgsz = 640 if quality == 'low' else 640
         conf_threshold = 0.20 if quality == 'low' else CONF_THRESHOLD
 
-        # ✅ IMPROVED: Optimized prediction parameters
+        # ✅ Run YOLO prediction on the resized frame
         results = model.predict(
             frame, 
             conf=conf_threshold,
             imgsz=imgsz,
             verbose=False,
-            max_det=50,  # Limit maximum detections
-            agnostic_nms=True,  # Faster NMS
-            half=False  # Use full precision for better accuracy
+            max_det=50,
+            agnostic_nms=True,
+            half=False
         )[0]
 
         detections = []
         detection_count = 0
 
         if results.boxes is not None:
+            print(f"[DEBUG] Found {len(results.boxes)} raw detections")
+            
             for box in results.boxes:
                 cls = int(box.cls[0])
                 conf = float(box.conf[0])
@@ -1239,9 +1251,32 @@ def optimized_predict(request):
                 if class_name not in ALLOWED_CLASSES:
                     continue
 
+                # Get bounding box coordinates from YOLO (in model input space)
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
+                
+                # ✅ CRITICAL FIX: Scale coordinates from model size to ORIGINAL video size
+                # This is the key fix for misaligned bounding boxes
+                scale_x = original_width / frame_width
+                scale_y = original_height / frame_height
+                
+                # Scale the coordinates
+                scaled_x1 = x1 * scale_x
+                scaled_y1 = y1 * scale_y
+                scaled_x2 = x2 * scale_x
+                scaled_y2 = y2 * scale_y
+                
+                # Ensure coordinates are within bounds
+                scaled_x1 = max(0, min(scaled_x1, original_width))
+                scaled_y1 = max(0, min(scaled_y1, original_height))
+                scaled_x2 = max(0, min(scaled_x2, original_width))
+                scaled_y2 = max(0, min(scaled_y2, original_height))
+                
+                print(f"[DEBUG] Before scaling: ({x1:.1f}, {y1:.1f}, {x2:.1f}, {y2:.1f})")
+                print(f"[DEBUG] After scaling: ({scaled_x1:.1f}, {scaled_y1:.1f}, {scaled_x2:.1f}, {scaled_y2:.1f})")
+                print(f"[DEBUG] Scale factors: X={scale_x:.3f}, Y={scale_y:.3f}")
+                
                 detections.append({
-                    "box": [x1, y1, x2, y2],
+                    "box": [scaled_x1, scaled_y1, scaled_x2, scaled_y2],  # ✅ SCALED to original size
                     "confidence": conf,
                     "class": class_name.title()
                 })
@@ -1249,9 +1284,12 @@ def optimized_predict(request):
 
         processing_time = time.time() - start_time
         
-        logger.info(f"✅ Detection completed: {detection_count} leaves in {processing_time:.2f}s")
+        print(f"[DEBUG] ✅ Detection completed: {detection_count} leaves in {processing_time:.2f}s")
+        print(f"[DEBUG] Frame dimensions: {frame_width}x{frame_height}")
+        print(f"[DEBUG] Original dimensions: {original_width}x{original_height}")
+        print(f"[DEBUG] Scaling: X={original_width/frame_width:.3f}, Y={original_height/frame_height:.3f}")
 
-        # ✅ IMPROVED: Save to database if plant_id provided (non-blocking)
+        # ✅ Save to database if plant_id provided
         if plant_id and detection_count > 0:
             try:
                 from dashboard.models import Plant, TreeAnalysis, LeafImage
@@ -1282,21 +1320,29 @@ def optimized_predict(request):
                 plant.health_status = "good" if analysis.overall_health > 70 else "leaf rust"
                 plant.save()
                 
-                logger.info(f"✅ Saved {detection_count} detections to plant {plant_id}")
+                print(f"[DEBUG] ✅ Saved {detection_count} detections to plant {plant_id}")
 
             except Exception as e:
-                logger.error(f"Error saving detections: {e}")
+                print(f"[DEBUG] Error saving detections: {e}")
                 # Don't fail the request if saving fails
 
         return JsonResponse({
             "success": True,
             "detections": detections,
             "detection_count": detection_count,
-            "processing_time": round(processing_time, 2)
+            "processing_time": round(processing_time, 2),
+            "debug_info": {
+                "frame_dimensions": f"{frame_width}x{frame_height}",
+                "original_dimensions": f"{original_width}x{original_height}",
+                "scale_factors": {
+                    "x": round(original_width / frame_width, 3),
+                    "y": round(original_height / frame_height, 3)
+                }
+            }
         })
 
     except Exception as e:
-        logger.error(f"❌ Prediction error: {e}")
+        print(f"[DEBUG] ❌ Prediction error: {e}")
         traceback.print_exc()
         return JsonResponse({"success": False, "error": str(e)})
 

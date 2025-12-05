@@ -145,20 +145,25 @@
       border-radius: 20px;
       overflow: hidden;
       background: #000;
+      position: relative;
+      width: 100%;
+      height: 480px; /* Fixed height for better aspect ratio */
     }
 
     #video {
       width: 100%;
+      height: 100%;
       display: block;
       border-radius: 20px;
+      object-fit: cover; /* Ensure video fills container */
     }
 
     #canvas {
       position: absolute;
-      top: 4px;
-      left: 4px;
-      width: calc(100% - 8px);
-      height: calc(100% - 8px);
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       pointer-events: none;
       border-radius: 20px;
     }
@@ -540,6 +545,10 @@
       .stat-number {
         font-size: 2rem;
       }
+
+      .camera-inner {
+        height: 360px;
+      }
     }
 
     @media (max-width: 480px) {
@@ -553,6 +562,10 @@
       
       .app-header h1 {
         font-size: 1.5rem;
+      }
+
+      .camera-inner {
+        height: 300px;
       }
     }
 
@@ -976,16 +989,32 @@
     let liveDiseaseChart = null;
     let diseaseChart = null;
 
+    // Video dimensions
+    let originalVideoWidth = 0;
+    let originalVideoHeight = 0;
+    let displayVideoWidth = 0;
+    let displayVideoHeight = 0;
+
     // ✅ IMPROVED: Lower confidence threshold for more detections
-    const CONF_THRESHOLD = 0.25; // Reduced from 0.50 to 0.25 (25%)
+    const CONF_THRESHOLD = 0.25;
     
     // ✅ NEW: Performance optimization variables
     let lastProcessTime = 0;
-    const PROCESS_INTERVAL = 400; // Process every 400ms instead of every frame
+    const PROCESS_INTERVAL = 400;
     let frameCounter = 0;
-    const FRAME_SKIP = 2; // Process every 3rd frame
+    const FRAME_SKIP = 2;
 
-    const normalizeClass = cls => cls.toLowerCase().replace(/\s/g, '-');
+    const normalizeClass = cls => {
+      const normalized = cls.toLowerCase().replace(/\s/g, '-');
+      
+      // Map to consistent names
+      if (normalized === 'dried-leaf' || normalized === 'dried_leaf') return 'Dried Leaf';
+      if (normalized === 'leaf-rust' || normalized === 'leaf_rust') return 'Leaf Rust';
+      if (normalized === 'powdery-mildew' || normalized === 'powdery_mildew') return 'Powdery Mildew';
+      if (normalized === 'healthy') return 'Healthy';
+      
+      return cls;
+    };
 
     function getCookie(name) {
       let cookieValue = null;
@@ -1010,8 +1039,14 @@
       }
     }
 
-    function distance(p1, p2) { return Math.hypot(p1[0] - p2[0], p1[1] - p2[1]); }
-    function getCenter(box) { const [x1, y1, x2, y2] = box; return [(x1 + x2) / 2, (y1 + y2) / 2]; }
+    function distance(p1, p2) { 
+      return Math.hypot(p1[0] - p2[0], p1[1] - p2[1]); 
+    }
+    
+    function getCenter(box) { 
+      const [x1, y1, x2, y2] = box; 
+      return [(x1 + x2) / 2, (y1 + y2) / 2]; 
+    }
     
     function updateStatsUI() {
       for (let key in classCounts) {
@@ -1027,40 +1062,124 @@
       const height = box[3] - box[1];
       return Math.max(width, height) * 0.6;
     }
-    
+
+    // ✅ FIXED: Update canvas to match video display size
+    function updateCanvasToDisplaySize() {
+      const videoRect = video.getBoundingClientRect();
+      displayVideoWidth = videoRect.width;
+      displayVideoHeight = videoRect.height;
+      
+      canvas.width = displayVideoWidth;
+      canvas.height = displayVideoHeight;
+      
+      console.log(`Display size: ${displayVideoWidth}x${displayVideoHeight}`);
+      console.log(`Original video size: ${originalVideoWidth}x${originalVideoHeight}`);
+    }
+
+    // ✅ FIXED: Proper coordinate transformation from original to display
+    function transformBoxToDisplay(box) {
+      if (originalVideoWidth === 0 || originalVideoHeight === 0) return box;
+      
+      const [x1, y1, x2, y2] = box;
+      
+      // Calculate scaling factors
+      const scaleX = displayVideoWidth / originalVideoWidth;
+      const scaleY = displayVideoHeight / originalVideoHeight;
+      
+      // Transform coordinates for display
+      const displayX1 = x1 * scaleX;
+      const displayY1 = y1 * scaleY;
+      const displayX2 = x2 * scaleX;
+      const displayY2 = y2 * scaleY;
+      
+      return [
+        Math.max(0, Math.min(displayX1, displayVideoWidth)),
+        Math.max(0, Math.min(displayY1, displayVideoHeight)),
+        Math.max(0, Math.min(displayX2, displayVideoWidth)),
+        Math.max(0, Math.min(displayY2, displayVideoHeight))
+      ];
+    }
+
+    // ✅ FIXED: DrawFrame with proper coordinate transformation
     function drawFrame() {
       if (video.videoWidth === 0 || video.videoHeight === 0) {
         requestAnimationFrame(drawFrame);
         return;
       }
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Update original video dimensions if changed
+      if (originalVideoWidth !== video.videoWidth || originalVideoHeight !== video.videoHeight) {
+        originalVideoWidth = video.videoWidth;
+        originalVideoHeight = video.videoHeight;
+        console.log(`Original video dimensions updated: ${originalVideoWidth}x${originalVideoHeight}`);
+      }
 
+      // Update canvas to match video display size
+      updateCanvasToDisplaySize();
+
+      // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
+      
       trackedLeaves.forEach(det => {
-        const [x1, y1, x2, y2] = det.box;
-        const label = `${det.class} (${(det.confidence * 100).toFixed(1)}%)`;
+        // Transform box from original coordinates to display coordinates
+        const displayBox = transformBoxToDisplay(det.box);
+        const [x1, y1, x2, y2] = displayBox;
+        const boxWidth = x2 - x1;
+        const boxHeight = y2 - y1;
+        
+        // Skip drawing if box is too small
+        if (boxWidth < 10 || boxHeight < 10) return;
+        
+        // Get label based on class (NO PERCENTAGE)
+        let label = det.class;
+        
+        // Determine color based on class
         let color = '#FF0000';
-        if (det.class === 'healthy') color = '#10b981';
-        else if (det.class === 'dried-leaf') color = '#f59e0b';
-        else if (det.class === 'powdery-mildew') color = '#06b6d4';
-        else if (det.class === 'leaf-rust') color = '#ef4444';
+        if (det.class === 'Healthy') {
+          color = '#10b981';
+        } else if (det.class === 'Dried Leaf') {
+          color = '#f59e0b';
+        } else if (det.class === 'Powdery Mildew') {
+          color = '#06b6d4';
+        } else if (det.class === 'Leaf Rust') {
+          color = '#ef4444';
+        }
 
+        // Draw bounding box (thicker for visibility)
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
-        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+        ctx.strokeRect(x1, y1, boxWidth, boxHeight);
 
+        // Draw label at the TOP of the bounding box
         ctx.font = 'bold 14px Inter, sans-serif';
         const textWidth = ctx.measureText(label).width;
         const textHeight = 16;
-        const bgY = y1 - textHeight - 6 > 0 ? y1 - textHeight - 6 : y1 + 6;
-        ctx.fillStyle = color;
-        ctx.fillRect(x1, bgY, textWidth + 10, textHeight + 6);
-        ctx.fillStyle = (color === '#f59e0b') ? '#000' : '#fff';
-        ctx.fillText(label, x1 + 5, bgY + textHeight - 2);
+        
+        // Position label above the bounding box
+        const labelX = x1 + boxWidth / 2 - textWidth / 2;
+        const labelY = y1 - 10;
+        
+        // Ensure label stays within canvas bounds
+        const adjustedY = Math.max(20, labelY);
+        
+        // Draw semi-transparent background for label
+        ctx.fillStyle = color + 'DD';
+        ctx.fillRect(
+          labelX - 6,
+          adjustedY - textHeight + 4,
+          textWidth + 12,
+          textHeight + 8
+        );
+        
+        // Draw label text
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, labelX + textWidth/2, adjustedY);
+        
+        // Reset text alignment
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
       });
 
       if (detectionRunning) requestAnimationFrame(drawFrame);
@@ -1071,20 +1190,34 @@
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: 'environment',
-            width: { ideal: 1280 }, // ✅ Limit resolution for better performance
-            height: { ideal: 720 }
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 }
           }, 
           audio: false 
         });
+        
         video.srcObject = stream;
+        
+        // Wait for video metadata to get dimensions
+        video.onloadedmetadata = () => {
+          originalVideoWidth = video.videoWidth;
+          originalVideoHeight = video.videoHeight;
+          console.log(`Camera started with dimensions: ${originalVideoWidth}x${originalVideoHeight}`);
+          
+          // Force a redraw to update canvas
+          if (detectionRunning) {
+            drawFrame();
+          }
+        };
+        
         await video.play();
       } catch (err) {
         console.error('Camera error:', err);
-        alert('Cannot access camera.');
+        alert('Cannot access camera. Please check camera permissions.');
       }
     }
 
-    // ✅ IMPROVED: Optimized capture loop with frame skipping
+    // ✅ FIXED: Optimized capture loop with proper coordinate handling
     function optimizedCaptureLoop() {
       if (!detectionRunning || isPredicting) {
         requestAnimationFrame(optimizedCaptureLoop);
@@ -1109,86 +1242,110 @@
       isPredicting = true;
       lastProcessTime = now;
 
-      // ✅ IMPROVED: Use smaller canvas for faster processing
+      // Create temporary canvas with original video dimensions
       const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = 640; // Reduced from original size
-      tempCanvas.height = 480;
+      tempCanvas.width = originalVideoWidth;
+      tempCanvas.height = originalVideoHeight;
       const tempCtx = tempCanvas.getContext('2d');
       tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
 
-      // ✅ IMPROVED: Compress image for faster transmission
-      tempCanvas.toBlob(blob => {
+      // Create smaller version for model processing
+      const modelWidth = 640;
+      const modelHeight = 480;
+      const smallCanvas = document.createElement('canvas');
+      smallCanvas.width = modelWidth;
+      smallCanvas.height = modelHeight;
+      const smallCtx = smallCanvas.getContext('2d');
+      smallCtx.drawImage(tempCanvas, 0, 0, modelWidth, modelHeight);
+
+      // Compress image for faster transmission
+      smallCanvas.toBlob(blob => {
         const formData = new FormData();
         formData.append('frame', blob);
-        formData.append('quality', 'low'); // Signal for optimized processing
+        formData.append('quality', 'low');
+        formData.append('original_width', originalVideoWidth.toString());
+        formData.append('original_height', originalVideoHeight.toString());
 
-        fetch('/optimized-predict/', {  // ✅ Use optimized endpoint
+        fetch('/optimized-predict/', {
           method: 'POST',
           headers: { 'X-CSRFToken': getCookie('csrftoken') },
           body: formData
         })
-          .then(res => res.json())
-          .then(data => {
-            if (data.success && Array.isArray(data.detections)) {
-              const now = Date.now();
-              data.detections.filter(d => d.confidence >= CONF_THRESHOLD).forEach(det => {
-                const detClass = normalizeClass(det.class);
-                if (!leafClasses.includes(detClass)) return;
-                const detCenter = getCenter(det.box);
-                let matched = false;
-                
-                // ✅ IMPROVED: Better tracking with adjusted threshold
-                for (let leaf of trackedLeaves) {
-                  const distThreshold = getDistThreshold(det.box) * 0.8; // More aggressive matching
-                  if (distance(detCenter, getCenter(leaf.box)) < distThreshold) {
-                    leaf.box = det.box;
-                    leaf.class = detClass;
-                    leaf.confidence = det.confidence;
-                    leaf.lastUpdated = now;
-                    matched = true;
-                    break;
-                  }
-                }
-                
-                if (!matched) {
-                  trackedLeaves.push({
-                    id: nextLeafId++,
-                    box: det.box,
-                    class: detClass,
-                    confidence: det.confidence,
-                    lastUpdated: now
-                  });
-                  if (classCounts.hasOwnProperty(detClass)) classCounts[detClass]++;
-                }
-              });
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.detections)) {
+            const now = Date.now();
+            
+            data.detections.filter(d => d.confidence >= CONF_THRESHOLD).forEach(det => {
+              const detClass = normalizeClass(det.class);
+              if (!leafClasses.includes(detClass.toLowerCase().replace(' ', '-'))) return;
               
-              // ✅ IMPROVED: Keep leaves longer for better continuity
-              trackedLeaves = trackedLeaves.filter(l => now - l.lastUpdated < 5000); // Increased from 3000 to 5000ms
-              updateStatsUI();
-              progressText.textContent = `Detected: ${trackedLeaves.length} leaves | ${data.processing_time || '?'}s`;
+              // ✅ FIXED: The backend should return coordinates in original video space
+              // So we store them directly
+              const originalBox = det.box;
               
-              // Show/hide summary states
-              if (Object.values(classCounts).reduce((a, b) => a + b, 0) > 0) {
-                document.getElementById('summary-empty-state').style.display = 'none';
-                document.getElementById('summary-content').style.display = 'block';
-                document.getElementById('empty-state-message').style.display = 'none';
-                document.getElementById('detect-button-container').style.display = 'flex';
+              const detCenter = getCenter(originalBox);
+              let matched = false;
+              
+              // Check for existing leaves to track
+              for (let leaf of trackedLeaves) {
+                const distThreshold = getDistThreshold(originalBox) * 0.8;
+                const leafCenter = getCenter(leaf.box);
+                
+                if (distance(detCenter, leafCenter) < distThreshold) {
+                  leaf.box = originalBox;
+                  leaf.class = detClass;
+                  leaf.confidence = det.confidence;
+                  leaf.lastUpdated = now;
+                  matched = true;
+                  break;
+                }
               }
-            } else {
-              progressText.textContent = 'No detection - Try moving camera closer';
+              
+              if (!matched) {
+                trackedLeaves.push({
+                  id: nextLeafId++,
+                  box: originalBox,
+                  class: detClass,
+                  confidence: det.confidence,
+                  lastUpdated: now
+                });
+                
+                const countKey = detClass.toLowerCase().replace(' ', '-');
+                if (classCounts.hasOwnProperty(countKey)) {
+                  classCounts[countKey]++;
+                }
+              }
+            });
+            
+            // Remove old detections
+            trackedLeaves = trackedLeaves.filter(l => now - l.lastUpdated < 5000);
+            updateStatsUI();
+            
+            progressText.textContent = `Detected: ${trackedLeaves.length} leaves | ${data.processing_time || '?'}s`;
+            
+            const totalDetections = Object.values(classCounts).reduce((a, b) => a + b, 0);
+            if (totalDetections > 0) {
+              document.getElementById('summary-empty-state').style.display = 'none';
+              document.getElementById('summary-content').style.display = 'block';
+              document.getElementById('empty-state-message').style.display = 'none';
+              document.getElementById('detect-button-container').style.display = 'flex';
             }
-          })
-          .catch(err => {
-            console.error('Prediction error:', err);
-            progressText.textContent = 'Detection error - Retrying...';
-          })
-          .finally(() => {
-            isPredicting = false;
-            if (detectionRunning) {
-              requestAnimationFrame(optimizedCaptureLoop);
-            }
-          });
-      }, 'image/jpeg', 0.7); // ✅ 70% quality for faster transmission
+          } else {
+            progressText.textContent = 'No detection - Try moving camera closer';
+          }
+        })
+        .catch(err => {
+          console.error('Prediction error:', err);
+          progressText.textContent = 'Detection error - Retrying...';
+        })
+        .finally(() => {
+          isPredicting = false;
+          if (detectionRunning) {
+            requestAnimationFrame(optimizedCaptureLoop);
+          }
+        });
+      }, 'image/jpeg', 0.7);
     }
 
     function initializeDiseaseChart(healthyCount, driedLeafCount, powderyMildewCount, leafRustCount, canvasId) {
@@ -1225,19 +1382,16 @@
     }
 
     function updateLiveAnalysis(healthyCount, driedLeafCount, powderyMildewCount, leafRustCount, totalDetections, healthyPct, driedLeafPct, powderyMildewPct, leafRustPct, overallHealth, diseasedCount) {
-      // Update percentages
       document.getElementById('live-healthy-percentage').textContent = `${healthyPct}%`;
       document.getElementById('live-dried-leaf-percentage').textContent = `${driedLeafPct}%`;
       document.getElementById('live-powdery-mildew-percentage').textContent = `${powderyMildewPct}%`;
       document.getElementById('live-leaf-rust-percentage').textContent = `${leafRustPct}%`;
 
-      // Update progress bars
       document.getElementById('live-healthy-progress').style.width = `${healthyPct}%`;
       document.getElementById('live-dried-leaf-progress').style.width = `${driedLeafPct}%`;
       document.getElementById('live-powdery-mildew-progress').style.width = `${powderyMildewPct}%`;
       document.getElementById('live-leaf-rust-progress').style.width = `${leafRustPct}%`;
 
-      // Update chart
       if (liveDiseaseChart) liveDiseaseChart.destroy();
       liveDiseaseChart = initializeDiseaseChart(healthyCount, driedLeafCount, powderyMildewCount, leafRustCount, 'live-disease-chart');
 
@@ -1322,10 +1476,9 @@
       console.log('[v0] Saving analysis with ID:', analysisId);
       console.log('[v0] Detection counts:', classCounts);
 
-      // Send individual detection counts to properly save as LeafImage records
       const analysisData = {
         tree_name: analysisName,
-        plant_id: plantId || '', // ✅ Handle null plant_id
+        plant_id: plantId || '',
         healthy_count: classCounts['healthy'],
         dried_leaf_count: classCounts['dried-leaf'],
         powdery_mildew_count: classCounts['powdery-mildew'],
@@ -1361,7 +1514,6 @@
         saveBtn.disabled = false;
 
         if (result.success) {
-          // Show success message with detailed results
           console.log('[v0] Analysis saved successfully!');
           console.log('[v0] Total LeafImage records created:', result.total_detections);
           console.log('[v0] Overall health:', result.overall_health + '%');
@@ -1369,7 +1521,6 @@
           const successModal = new bootstrap.Modal(document.getElementById('successModal'));
           successModal.show();
           
-          // Update the UI with the calculated results
           if (result.plant_updated) {
             console.log('[v0] Plant health status updated');
           }
@@ -1387,11 +1538,9 @@
 
     // ✅ IMPROVED: Button event handlers with plant check
     startBtn.onclick = async () => {
-      // Check if plant exists before starting detection
       const hasPlants = await checkPlantExists();
       
       if (!hasPlants) {
-        // Show professional modal
         const plantRequiredModal = new bootstrap.Modal(document.getElementById('plantRequiredModal'));
         plantRequiredModal.show();
         return;
@@ -1404,7 +1553,7 @@
       detectionRunning = true;
       recordingIndicator.style.display = 'block';
       requestAnimationFrame(drawFrame);
-      optimizedCaptureLoop(); // ✅ Use optimized version
+      optimizedCaptureLoop();
       startBtn.disabled = true;
       stopBtn.disabled = false;
       progressText.textContent = 'Detection started - Move camera slowly over leaves';
@@ -1462,6 +1611,13 @@
 
     // Initialize camera on page load
     startCamera();
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      if (detectionRunning) {
+        updateCanvasToDisplaySize();
+      }
+    });
   </script>
 </body>
 </html>
