@@ -1,10 +1,13 @@
+# Base image na may Python 3.10
 FROM python:3.10-slim
 
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PATH=/root/.local/bin:$PATH
 
+# System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgl1 \
@@ -12,20 +15,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsm6 \
     libxext6 \
     libxrender1 \
-    libopenblas-dev \
-    liblapack-dev \
-    libhdf5-dev \
+    libopenblas0 \
+    liblapack3 \
     gfortran \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements and install
+COPY requirements.txt .
+RUN pip install --upgrade pip && pip install --user --no-cache-dir -r requirements.txt
+
+# Create media directory
 RUN mkdir -p /app/media
 
-COPY requirements.txt .
-RUN pip install --upgrade pip setuptools wheel
-RUN pip install --no-cache-dir -r requirements.txt
-
+# Copy application code
 COPY . .
 
 EXPOSE 8000
+
+# Run as non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
 
 CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
