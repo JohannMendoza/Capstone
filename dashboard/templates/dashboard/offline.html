@@ -1,35 +1,67 @@
 <!DOCTYPE html>
-<html>
+{% load static %}
+<html lang="en">
 <head>
-    <title>Offline - LanzoFields</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - LanzoFields</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 50px;
+            font-family: 'Arial', sans-serif;
             background: linear-gradient(135deg, #2E7D32, #4CAF50);
             color: white;
             height: 100vh;
+            margin: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0;
+            text-align: center;
+            padding: 20px;
         }
         .container {
             background: rgba(255, 255, 255, 0.1);
             padding: 40px;
-            border-radius: 15px;
+            border-radius: 20px;
             backdrop-filter: blur(10px);
-            max-width: 400px;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
         h1 {
             font-size: 2.5em;
             margin-bottom: 20px;
+            color: white;
         }
         .icon {
             font-size: 4em;
             margin-bottom: 20px;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .btn {
+            background: white;
+            color: #2E7D32;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+        .btn:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
         }
     </style>
 </head>
@@ -38,8 +70,68 @@
         <div class="icon">🌱</div>
         <h1>LanzoFields</h1>
         <h2>You're Offline</h2>
-        <p>Please check your internet connection to continue using LanzoFields.</p>
+        <p>It looks like you've lost your internet connection.</p>
         <p>Some features may not be available while offline.</p>
+        
+        <div class="status">
+            <p><strong>📶 Connection Status:</strong> Offline</p>
+            <p><strong>🔋 Cached Content:</strong> Available</p>
+        </div>
+        
+        <button class="btn" onclick="window.location.reload()">🔄 Try Again</button>
+        <button class="btn" onclick="goHome()">🏠 Go Home</button>
+        
+        <p style="margin-top: 30px; font-size: 14px; opacity: 0.8;">
+            App will automatically sync when connection is restored.
+        </p>
     </div>
+
+    <script>
+        function goHome() {
+            // Try to load homepage from cache
+            if ('caches' in window) {
+                caches.match('/').then(response => {
+                    if (response) {
+                        window.location.href = '/';
+                    } else {
+                        alert('Home page not available offline');
+                    }
+                });
+            } else {
+                window.location.href = '/';
+            }
+        }
+        
+        // Check connection status
+        window.addEventListener('online', () => {
+            console.log('✅ Connection restored');
+            const statusElement = document.querySelector('.status p:first-child');
+            if (statusElement) {
+                statusElement.innerHTML = '<strong>📶 Connection Status:</strong> Online';
+                statusElement.style.color = '#4CAF50';
+            }
+            
+            // Auto-refresh after 3 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        });
+        
+        window.addEventListener('offline', () => {
+            console.log('⚠️ Connection lost');
+            const statusElement = document.querySelector('.status p:first-child');
+            if (statusElement) {
+                statusElement.innerHTML = '<strong>📶 Connection Status:</strong> Offline';
+                statusElement.style.color = '#ff9800';
+            }
+        });
+        
+        // Initial check
+        if (navigator.onLine) {
+            console.log('✅ Currently online');
+        } else {
+            console.log('⚠️ Currently offline');
+        }
+    </script>
 </body>
 </html>

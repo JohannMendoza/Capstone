@@ -441,6 +441,52 @@ Copyright &copy;<script>document.write(new Date().getFullYear());</script> All r
         window.addEventListener('appinstalled', () => {
             console.log('PWA installed successfully');
         });
+
+         window.addEventListener('offline', () => {
+        console.log('⚠️ You are now offline');
+        showOfflineNotification();
+    });
+    
+    window.addEventListener('online', () => {
+        console.log('✅ You are back online');
+        hideOfflineNotification();
+    });
+    
+    function showOfflineNotification() {
+        // Create notification
+        const notification = document.createElement('div');
+        notification.id = 'offline-notification';
+        notification.innerHTML = `
+            <div style="
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #ff9800;
+                color: white;
+                padding: 15px;
+                border-radius: 5px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                z-index: 9999;
+                max-width: 300px;
+            ">
+                <strong>⚠️ Offline Mode</strong>
+                <p>You are currently offline. Some features may not be available.</p>
+            </div>
+        `;
+        document.body.appendChild(notification);
+    }
+    
+    function hideOfflineNotification() {
+        const notification = document.getElementById('offline-notification');
+        if (notification) {
+            notification.remove();
+        }
+    }
+    
+    // Check initial status
+    if (!navigator.onLine) {
+        showOfflineNotification();
+    }
     </script>
 </body>
 </html>
