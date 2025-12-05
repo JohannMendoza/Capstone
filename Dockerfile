@@ -1,5 +1,7 @@
-# Build stage
-FROM python:3.10-slim as builder
+# ======================
+# Stage 1: Builder
+# ======================
+FROM python:3.10-slim AS builder
 
 WORKDIR /app
 
@@ -9,7 +11,7 @@ ENV PIP_NO_CACHE_DIR=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PATH=/root/.local/bin:$PATH
 
-# Install system dependencies
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
@@ -27,12 +29,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy requirements
 COPY requirements.txt .
 
-# Install PyTorch CPU first, then rest of requirements
+# Install PyTorch CPU first, then the rest of requirements
 RUN pip install --upgrade pip && \
     pip install --user torch==2.9.1 -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
     pip install --user --no-cache-dir -r requirements.txt
 
-# Runtime stage
+# ======================
+# Stage 2: Runtime
+# ======================
 FROM python:3.10-slim
 
 WORKDIR /app
@@ -52,19 +56,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     liblapack3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed packages from builder
+# Copy installed Python packages from builder
 COPY --from=builder /root/.local /root/.local
-
-# Create media directory
-RUN mkdir -p /app/media
 
 # Copy application code
 COPY . .
 
-EXPOSE 8000
+# Create media directory
+RUN mkdir -p /app/media
 
-# Run as non-root user
+# Set permissions and non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
+EXPOSE 8000
+
+# Run Gunicorn for Django
 CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
