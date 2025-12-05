@@ -1,16 +1,13 @@
-# ========================
-# Build stage
-# ========================
-FROM python:3.10-slim AS builder
+# ---- Build Stage ----
+FROM python:3.10-slim as builder
 
 WORKDIR /app
 
-# Python environment settings
+# Avoid writing .pyc files and enable unbuffered stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV PATH=/root/.local/bin:$PATH
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -30,24 +27,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy requirements
 COPY requirements.txt .
 
-# Install PyTorch CPU and other requirements
+# Install Python dependencies globally
 RUN pip install --upgrade pip && \
-    pip install --user torch==2.9.1 -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
-    pip install --user --no-cache-dir -r requirements.txt
+    pip install torch==2.9.1 -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
+    pip install --no-cache-dir -r requirements.txt
 
-# ========================
-# Runtime stage
-# ========================
+# ---- Runtime Stage ----
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# Python environment settings
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PATH=/root/.local/bin:$PATH
 
-# Install runtime dependencies
+# Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -59,7 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder /usr/local /usr/local
 
 # Copy application code
 COPY . .
@@ -67,12 +60,12 @@ COPY . .
 # Create media directory
 RUN mkdir -p /app/media
 
-# Create non-root user
+# Create non-root user and give ownership
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 # Expose port
 EXPOSE 8000
 
-# Start Django with gunicorn
+# Run the app using gunicorn
 CMD ["gunicorn", "capstone.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
