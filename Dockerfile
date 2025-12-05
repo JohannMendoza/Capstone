@@ -1,4 +1,38 @@
-# Base image na may Python 3.10
+# Build stage
+FROM python:3.10-slim as builder
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PATH=/root/.local/bin:$PATH
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    pkg-config \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install PyTorch CPU first, then rest of requirements
+RUN pip install --upgrade pip && \
+    pip install --user torch==2.9.1 -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
+    pip install --user --no-cache-dir -r requirements.txt
+
+# Runtime stage
 FROM python:3.10-slim
 
 WORKDIR /app
@@ -7,9 +41,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PATH=/root/.local/bin:$PATH
 
-# System dependencies
+# Install runtime dependencies only
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
@@ -17,12 +50,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libopenblas0 \
     liblapack3 \
-    gfortran \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install --user --no-cache-dir -r requirements.txt
+# Copy installed packages from builder
+COPY --from=builder /root/.local /root/.local
 
 # Create media directory
 RUN mkdir -p /app/media
