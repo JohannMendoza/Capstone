@@ -126,7 +126,7 @@
                         </div>
                         <div>
                             <h1 class="text-xl font-bold">Escala Plants</h1>
-                            <p class="text-green-200 text-sm">Admin Dashboard</p>
+                            <p class="text-green-200 text-sm">User Section</p>
                         </div>
                     </div>
                 </div>
@@ -174,17 +174,13 @@
                         </div>
                         <span class="font-medium">History</span>
                     </a>
+                    <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
+                        <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                            <i class="fas fa-sign-out-alt text-red-300"></i>
+                        </div>
+                        <span class="font-medium text-red-300">Logout</span>
+                    </a>
                 </nav>
-            </div>
-            
-            <!-- Logout Section -->
-            <div class="p-6 mt-auto">
-                <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
-                    <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
-                        <i class="fas fa-sign-out-alt text-red-300"></i>
-                    </div>
-                    <span class="font-medium text-red-300">Logout</span>
-                </a>
             </div>
         </div>
 

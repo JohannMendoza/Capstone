@@ -194,14 +194,14 @@ class Plant(models.Model):
 
     def save(self, *args, **kwargs):
         symptoms_mapping = {
-            "leaf rust": "gawang ulan",
-            "dahon": "gawa ng puno",
-            "amag": "gawa ng kung ano",
-            "insecto": "gawa ng insecto",
-            "good": "good plant care",
+            "Healthy": "Good Health",
+            "Dried Leaf": "Leaves turn yellow then brown, starting from the edges.",
+            "Powdery Mildew": "White, powder-like spots on leaf surfaces (like baby powder).",
+            "Leaf Rust": "Small yellow spots on the upper surface of the leaf."
         }
         self.symptoms = symptoms_mapping.get(self.health_status, "Unknown")
         super().save(*args, **kwargs)
+
 
     @property
     def overall_health(self):
@@ -228,30 +228,28 @@ class Plant(models.Model):
 
 class PlantInventory(models.Model):
     name = models.CharField(max_length=100)
-    plant_number = models.IntegerField(default=0)  # New column for plant numbers
+    plant_number = models.IntegerField(default=0)
     health_status = models.CharField(
         max_length=20,
         choices=[
-            ('leaf rust', 'Leaf Rust'),
-            ('dahon', 'Dahon'),
-            ('amag', 'Amag'),
-            ('insecto', 'Insecto'),
-            ('good', 'Good')
+            ('Healthy', 'Healthy'),
+            ('Dried Leaf', 'Dried Leaf'),
+            ('Powdery Mildew', 'Powdery Mildew'),
+            ('Leaf Rust', 'Leaf Rust')
         ]
     )
-    symptoms = models.CharField(max_length=255, blank=True)  # New column for symptoms
+    symptoms = models.CharField(max_length=255, blank=True)
 
     def save(self, *args, **kwargs):
-        # Automatically insert symptoms based on health status
         symptoms_mapping = {
-            'leaf rust': 'gawang ulan',
-            'dahon': 'gawa ng puno',
-            'amag': 'gawa ng kung ano',
-            'insecto': 'gawa ng insecto',
-            'good': 'good plant care'
+            'Healthy': 'Good Health',
+            'Dried Leaf': 'Leaves turn yellow then brown, starting from the edges.',
+            'Powdery Mildew': 'White, powder-like spots on leaf surfaces (like baby powder).',
+            'Leaf Rust': 'Small yellow spots on the upper surface of the leaf.'
         }
         self.symptoms = symptoms_mapping.get(self.health_status, "")
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
+

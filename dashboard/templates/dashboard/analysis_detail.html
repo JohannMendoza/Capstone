@@ -272,7 +272,8 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="summary-stat">
-                                            <div class="summary-stat-value">{{ tree_analysis.overall_health|floatformat:1 }}%</div>
+                                            <!-- CHANGED: Use healthy_percentage as overall_health -->
+                                            <div class="summary-stat-value">{{ overall_health|floatformat:1 }}%</div>
                                             <div class="summary-stat-label">Overall Health</div>
                                         </div>
                                     </div>
@@ -309,11 +310,12 @@
                         <h3 class="card-title mb-4">Health Assessment</h3>
                         
                         <div class="text-center mb-4">
-                            {% if tree_analysis.overall_health >= 80 %}
+                            <!-- CHANGED: Use overall_health (which is healthy_percentage) -->
+                            {% if overall_health >= 80 %}
                             <div class="health-status good">
                                 <i class="bi bi-check-circle-fill me-2"></i> Good Health
                             </div>
-                            {% elif tree_analysis.overall_health >= 50 %}
+                            {% elif overall_health >= 50 %}
                             <div class="health-status moderate">
                                 <i class="bi bi-exclamation-triangle-fill me-2"></i> Moderate Health
                             </div>
@@ -327,7 +329,8 @@
                         <div class="mb-4">
                             <div class="health-meter">
                                 <canvas id="health-meter"></canvas>
-                                <div class="health-meter-value">{{ tree_analysis.overall_health|floatformat:1 }}%</div>
+                                <!-- CHANGED: Use overall_health (which is healthy_percentage) -->
+                                <div class="health-meter-value">{{ overall_health|floatformat:1 }}%</div>
                                 <div class="health-meter-label">Health Score</div>
                             </div>
                         </div>
@@ -378,7 +381,8 @@
                         <h3 class="card-title mb-4">Recommendations</h3>
                         
                         <div class="row">
-                            {% if tree_analysis.healthy_percentage > 80 %}
+                            <!-- CHANGED: Use overall_health (which is healthy_percentage) -->
+                            {% if overall_health > 80 %}
                             <div class="col-md-12 mb-3">
                                 <div class="card recommendation-card h-100" style="border-left-color: #28a745;">
                                     <div class="card-body">
@@ -508,8 +512,9 @@
                 type: 'doughnut',
                 data: {
                     datasets: [{
-                        data: [{{ tree_analysis.overall_health }}, 100 - {{ tree_analysis.overall_health }}],
-                        backgroundColor: [getHealthColor({{ tree_analysis.overall_health }}), '#e9ecef'],
+                        // CHANGED: Use overall_health (which is healthy_percentage)
+                        data: [{{ overall_health }}, 100 - {{ overall_health }}],
+                        backgroundColor: [getHealthColor({{ overall_health }}), '#e9ecef'],
                         borderWidth: 0
                     }]
                 },
@@ -569,4 +574,3 @@
     </script>
 </body>
 </html>
-

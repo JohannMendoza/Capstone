@@ -214,17 +214,13 @@
                     </div>
                     <span class="font-medium">History</span>
                 </a>
+                 <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
+                    <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                        <i class="fas fa-sign-out-alt text-red-300"></i>
+                    </div>
+                    <span class="font-medium text-red-300">Logout</span>
+                </a>
             </nav>
-        </div>
-        
-        <!-- Logout Section -->
-        <div class="p-6 mt-auto">
-            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
-                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
-                    <i class="fas fa-sign-out-alt text-red-300"></i>
-                </div>
-                <span class="font-medium text-red-300">Logout</span>
-            </a>
         </div>
     </aside>
 
@@ -301,18 +297,16 @@
                     </div>
                     <span class="font-medium">History</span>
                 </a>
+                <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30" onclick="closeMobileSidebar()">
+                    <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                        <i class="fas fa-sign-out-alt text-red-300"></i>
+                    </div>
+                    <span class="font-medium text-red-300">Logout</span>
+                </a>
             </nav>
         </div>
         
         <!-- Logout Section -->
-        <div class="p-6 mt-auto">
-            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30" onclick="closeMobileSidebar()">
-                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
-                    <i class="fas fa-sign-out-alt text-red-300"></i>
-                </div>
-                <span class="font-medium text-red-300">Logout</span>
-            </a>
-        </div>
     </aside>
 
     <!-- Main Content -->
@@ -326,8 +320,8 @@
                             <i class="fas fa-search text-white text-2xl"></i>
                         </div>
                         <div>
-                            <h2 class="text-2xl lg:text-3xl font-bold">Disease Detection</h2>
-                            <p class="text-green-100 mt-1">AI-powered lanzones leaf disease detection system</p>
+                            <h2 class="text-2xl lg:text-3xl font-bold">Detection</h2>
+                            <p class="text-green-100 mt-1">AI-powered lanzones leaf disease and pest detection</p>
                         </div>
                     </div>
                     <div class="bg-white bg-opacity-20 rounded-xl p-3">
@@ -438,32 +432,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Recent Analyses -->
-            {% if recent_analyses %}
-            <div class="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">Recent Analyses</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {% for analysis in recent_analyses %}
-                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                        <div class="flex justify-between items-start mb-3">
-                            <h4 class="font-semibold text-gray-800">{{ analysis.name }}</h4>
-                            <span class="text-sm text-gray-500">{{ analysis.completed_at|date:"M d, Y" }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-gray-600">{{ analysis.total_leaves }} leaves</span>
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium 
-                                {% if analysis.overall_health >= 70 %}bg-green-100 text-green-800
-                                {% elif analysis.overall_health >= 40 %}bg-yellow-100 text-yellow-800
-                                {% else %}bg-red-100 text-red-800{% endif %}">
-                                {{ analysis.overall_health|default:0 }}% Health
-                            </span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
         </div>
     </main>
 </div>

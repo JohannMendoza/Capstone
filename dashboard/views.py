@@ -47,6 +47,13 @@ from reportlab.pdfgen import canvas
 from .forms import RegisterForm, PlantForm
 from .models import CustomUser, Plant, TreeAnalysis, LeafImage, PestDetectionSession, PestDetectionResult
 from .utils import send_verification_email
+from datetime import timedelta
+from django.utils import timezone
+from collections import Counter
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from django.contrib.auth import get_user_model
+from dashboard.models import Plant, TreeAnalysis
 
 
 
@@ -359,44 +366,87 @@ def admin_dashboard(request):
     total_health_score = 0
     plants_with_health = 0
 
+    # For disease distribution
+    disease_counts = {
+        'leaf_rust': 0,
+        'powdery_mildew': 0,
+        'dried_leaf': 0
+    }
+    
     for plant in plants_queryset:
-        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
-        
-        if not latest_analysis:
-            latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+        try:
+            latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
 
-        if latest_analysis and latest_analysis.overall_health is not None:
-            try:
-                overall_health = float(latest_analysis.overall_health)
-                total_health_score += overall_health
-                plants_with_health += 1
+            if not latest_analysis:
+                latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+
+            if latest_analysis:
+                # ✅ Safely get numeric values
+                def safe(val):
+                    try:
+                        return float(val) if val is not None else 0.0
+                    except:
+                        return 0.0
+
+                # 🔹 USE HEALTHY PERCENTAGE AS OVERALL HEALTH
+                healthy_percentage = safe(latest_analysis.healthy_percentage)
                 
-                if overall_health >= 70:
+                # 🔹 Determine health category BASED ON HEALTHY PERCENTAGE (SAME LOGIC AS INVENTORY)
+                if healthy_percentage >= 70:
                     healthy_plants += 1
                 else:
                     needs_attention_plants += 1
-            except (ValueError, TypeError):
+                    
+                # Add to total health score
+                total_health_score += healthy_percentage
+                plants_with_health += 1
+                
+                # Track disease counts (for disease distribution chart)
+                if safe(latest_analysis.leaf_rust_percentage) > 0:
+                    disease_counts['leaf_rust'] += 1
+                if safe(latest_analysis.powdery_mildew_percentage) > 0:
+                    disease_counts['powdery_mildew'] += 1
+                if safe(latest_analysis.dried_leaf_percentage) > 0:
+                    disease_counts['dried_leaf'] += 1
+
+            else:
+                # No analysis found - count as needs attention (SAME AS INVENTORY)
                 needs_attention_plants += 1
-        else:
+
+        except Exception as e:
+            print(f"[ERROR] Problem with plant ID {plant.plant_id} in admin dashboard: {e}")
             needs_attention_plants += 1
 
     # Calculate average health score
     avg_health_score = round(total_health_score / plants_with_health, 1) if plants_with_health > 0 else 0
 
-    # Your original disease distribution
-    disease_counts = Counter()
-    for plant in plants_queryset:
-        if plant.health_status and plant.health_status not in ["good", "undetected"]:
-            disease_counts[plant.health_status] += 1
+    # Prepare disease data for chart (using the same disease names as inventory)
+    disease_labels = []
+    disease_values = []
     
-    disease_labels = list(disease_counts.keys())
-    disease_values = list(disease_counts.values())
+    # Only include diseases that have counts
+    if disease_counts['leaf_rust'] > 0:
+        disease_labels.append('Leaf Rust')
+        disease_values.append(disease_counts['leaf_rust'])
+    
+    if disease_counts['powdery_mildew'] > 0:
+        disease_labels.append('Powdery Mildew')
+        disease_values.append(disease_counts['powdery_mildew'])
+    
+    if disease_counts['dried_leaf'] > 0:
+        disease_labels.append('Dried Leaf')
+        disease_values.append(disease_counts['dried_leaf'])
+
+    # If no diseases found, provide default data for chart
+    if not disease_labels:
+        disease_labels = ['Leaf Rust', 'Powdery Mildew', 'Dried Leaf']
+        disease_values = [5, 3, 2]
 
     return render(request, "dashboard/admin_dashboard.html", {
         'total_users': total_users,
         'total_plants': total_plants,
-        'healthy_plants': healthy_plants,  # CORRECT VARIABLE NAME
-        'unhealthy_plants': needs_attention_plants,  # CORRECT VARIABLE NAME  
+        'healthy_plants': healthy_plants,
+        'unhealthy_plants': needs_attention_plants,  # Note: using 'unhealthy_plants' in template
         'avg_health_score': avg_health_score,
         'disease_labels': disease_labels,
         'disease_values': disease_values,
@@ -409,7 +459,7 @@ def client_dashboard(request):
     if request.user.role != "client":
         return redirect('home')
 
-    # 🔹 GET ALL PLANTS (SAME LOGIC AS ADMIN DASHBOARD)
+    # 🔹 GET ALL PLANTS WITH TREE ANALYSIS (SAME LOGIC AS ADMIN DASHBOARD)
     plants_queryset = Plant.objects.select_related('tree_analysis').all()
     
     # 🔹 COUNT PLANTS BY HEALTH STATUS (SAME LOGIC AS ADMIN DASHBOARD)
@@ -419,47 +469,92 @@ def client_dashboard(request):
     total_health_score = 0
     plants_with_health = 0
 
-    for plant in plants_queryset:
-        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
-        
-        if not latest_analysis:
-            latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+    # Helper function to safely convert values
+    def safe_convert(val):
+        try:
+            return float(val) if val is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
 
-        if latest_analysis and latest_analysis.overall_health is not None:
-            try:
-                overall_health = float(latest_analysis.overall_health)
-                total_health_score += overall_health
-                plants_with_health += 1
+    # For disease distribution (same as admin dashboard)
+    disease_counts = {
+        'leaf_rust': 0,
+        'powdery_mildew': 0,
+        'dried_leaf': 0
+    }
+    
+    for plant in plants_queryset:
+        try:
+            latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+            
+            # Fallback: Try to find by name if direct relation doesn't exist
+            if not latest_analysis:
+                latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+
+            if latest_analysis:
+                # 🔹 USE HEALTHY PERCENTAGE AS OVERALL HEALTH (SAME AS ADMIN DASHBOARD)
+                healthy_percentage = safe_convert(latest_analysis.healthy_percentage)
                 
-                if overall_health >= 70:
+                # 🔹 Determine health category BASED ON HEALTHY PERCENTAGE (SAME LOGIC)
+                if healthy_percentage >= 70:
                     healthy_plants += 1
                 else:
                     needs_attention_plants += 1
-            except (ValueError, TypeError):
+                    
+                # Add to total health score
+                total_health_score += healthy_percentage
+                plants_with_health += 1
+                
+                # Track disease counts (for disease distribution chart) - SAME AS ADMIN
+                if safe_convert(latest_analysis.leaf_rust_percentage) > 0:
+                    disease_counts['leaf_rust'] += 1
+                if safe_convert(latest_analysis.powdery_mildew_percentage) > 0:
+                    disease_counts['powdery_mildew'] += 1
+                if safe_convert(latest_analysis.dried_leaf_percentage) > 0:
+                    disease_counts['dried_leaf'] += 1
+
+            else:
+                # No analysis found - count as needs attention (SAME AS ADMIN)
                 needs_attention_plants += 1
-        else:
+
+        except Exception as e:
+            print(f"[ERROR] Problem with plant ID {plant.plant_id} in client dashboard: {e}")
             needs_attention_plants += 1
 
     # Calculate average health score
     avg_health_score = round(total_health_score / plants_with_health, 1) if plants_with_health > 0 else 0
 
-    # Disease distribution (same logic as admin dashboard)
-    disease_counts = Counter()
-    for plant in plants_queryset:
-        if plant.health_status and plant.health_status not in ["good", "undetected"]:
-            disease_counts[plant.health_status] += 1
+    # 🔹 DISEASE DISTRIBUTION - USING ACTUAL ANALYSIS DATA (SAME AS ADMIN DASHBOARD)
+    disease_labels = []
+    disease_values = []
     
-    disease_labels = list(disease_counts.keys())
-    disease_values = list(disease_counts.values())
+    # Only include diseases that have counts
+    if disease_counts['leaf_rust'] > 0:
+        disease_labels.append('Leaf Rust')
+        disease_values.append(disease_counts['leaf_rust'])
+    
+    if disease_counts['powdery_mildew'] > 0:
+        disease_labels.append('Powdery Mildew')
+        disease_values.append(disease_counts['powdery_mildew'])
+    
+    if disease_counts['dried_leaf'] > 0:
+        disease_labels.append('Dried Leaf')
+        disease_values.append(disease_counts['dried_leaf'])
+
+    # If no diseases found, provide default data for chart
+    if not disease_labels:
+        disease_labels = ['Leaf Rust', 'Powdery Mildew', 'Dried Leaf']
+        disease_values = [0, 0, 0]
 
     context = {
         'total_plants': total_plants,
-        'healthy_plants': healthy_plants,  # CORRECT VARIABLE NAME (same as admin)
-        'unhealthy_plants': needs_attention_plants,  # CORRECT VARIABLE NAME (same as admin)
+        'healthy_plants': healthy_plants,  # ✅ SAME VARIABLE NAME AS ADMIN
+        'unhealthy_plants': needs_attention_plants,  # ✅ SAME VARIABLE NAME AS ADMIN
         'avg_health_score': avg_health_score,
         'disease_labels': disease_labels,
         'disease_values': disease_values,
         'username': request.user.username,
+        'current_date': timezone.now(),  # Add this for the date display
     }
 
     return render(request, "dashboard/client_dashboard.html", context)
@@ -518,14 +613,25 @@ from .models import Plant, TreeAnalysis
 
 @login_required
 def plant_inventory(request):
-    # 🔹 Get all plants (ordered)
+    # 🔹 Get search query
+    search_query = request.GET.get('search', '').strip()
+    
+    # 🔹 GET ALL PLANTS (SAME LOGIC AS ADMIN DASHBOARD)
     plants_queryset = Plant.objects.select_related('tree_analysis').all().order_by('plant_id')
     
-    # 🔹 Count plants by health status
+    # 🔹 APPLY SEARCH FILTER IF QUERY EXISTS
+    if search_query:
+        plants_queryset = plants_queryset.filter(
+            Q(plant_id__icontains=search_query) |
+            Q(plant_number__icontains=search_query)
+
+        )
+    
+    # 🔹 COUNT PLANTS BY HEALTH STATUS
     total_plants = plants_queryset.count()
     healthy_plants = 0
     needs_attention_plants = 0
-    plants_data = []  # Store plant data with calculated fields
+    plants_data = []
 
     for plant in plants_queryset:
         try:
@@ -549,7 +655,6 @@ def plant_inventory(request):
             }
 
             if latest_analysis:
-                # ✅ Safely get numeric values
                 def safe(val):
                     try:
                         return float(val) if val is not None else 0.0
@@ -564,14 +669,13 @@ def plant_inventory(request):
                     'overall_health': round(safe(latest_analysis.overall_health), 1),
                 }
 
-                overall_health = safe(latest_analysis.overall_health)
+                healthy_percentage = safe(latest_analysis.healthy_percentage)
                 
-                # 🔹 Determine health category
-                if overall_health >= 70:
+                if healthy_percentage >= 70:
                     health_category = 'Excellent Health'
                     health_status = 'good'
                     healthy_plants += 1
-                elif overall_health >= 40:
+                elif healthy_percentage >= 40:
                     health_category = 'Moderate Health' 
                     health_status = 'moderate'
                     needs_attention_plants += 1
@@ -583,14 +687,13 @@ def plant_inventory(request):
                 plant_info.update({
                     'health_status': health_status,
                     'health_category': health_category,
-                    'overall_health': overall_health,
-                    'status_percentage': overall_health,
+                    'overall_health': healthy_percentage,
+                    'status_percentage': healthy_percentage,
                     'detection_details': detection_details
                 })
 
             else:
-                # No analysis found
-                needs_attention_plants += 1  # Undetected plants need attention
+                needs_attention_plants += 1
                 plant_info.update({
                     'health_status': 'undetected',
                     'health_category': 'Not Analyzed',
@@ -611,8 +714,8 @@ def plant_inventory(request):
             })
             needs_attention_plants += 1
 
-    # 🔹 Paginate the plants_data list
-    paginator = Paginator(plants_data, 10)  # 10 items per page
+    # 🔹 Paginate
+    paginator = Paginator(plants_data, 10)
     page_number = request.GET.get('page')
     
     try:
@@ -627,11 +730,12 @@ def plant_inventory(request):
     avg_health_score = sum(p['overall_health'] for p in plants_with_health) / len(plants_with_health) if plants_with_health else 0
 
     context = {
-        'plants_page': plants_page,  # Use plants_page instead of plants_data
+        'plants_page': plants_page,
         'total_plants': total_plants,
         'healthy_plants': healthy_plants,
         'needs_attention_plants': needs_attention_plants,
-        'avg_health_score': round(avg_health_score, 1)
+        'avg_health_score': round(avg_health_score, 1),
+        'search_query': search_query,  # ✅ ADD THIS
     }
 
     return render(request, 'dashboard/inventory.html', context)
@@ -757,55 +861,605 @@ def reports_view(request):
     total_users = User.objects.count()
     active_users = User.objects.filter(is_active=True).count()
     
-    total_plants = Plant.objects.count()
-    healthy_plants = Plant.objects.filter(health_status="good").count()
-    unhealthy_plants = Plant.objects.exclude(health_status="good").count()
+    # 🔹 GET ALL PLANTS WITH TREE ANALYSIS (SAME LOGIC AS ADMIN DASHBOARD AND INVENTORY)
+    plants_queryset = Plant.objects.select_related('tree_analysis').all()
+    
+    # 🔹 COUNT PLANTS BY HEALTH STATUS BASED ON LATEST TREE ANALYSIS (SAME LOGIC)
+    total_plants = plants_queryset.count()
+    healthy_plants = 0
+    needs_attention_plants = 0
+    total_health_score = 0
+    plants_with_health = 0
+
+    # Helper function to safely convert values
+    def safe_convert(val):
+        try:
+            return float(val) if val is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
+
+    # For disease distribution (more accurate tracking)
+    disease_counts = {
+        'leaf_rust': 0,
+        'powdery_mildew': 0,
+        'dried_leaf': 0
+    }
+    
+    for plant in plants_queryset:
+        try:
+            latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+            
+            # Fallback: Try to find by name if direct relation doesn't exist
+            if not latest_analysis:
+                latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+
+            if latest_analysis:
+                # 🔹 USE HEALTHY PERCENTAGE AS OVERALL HEALTH (SAME AS INVENTORY)
+                healthy_percentage = safe_convert(latest_analysis.healthy_percentage)
+                
+                # 🔹 Determine health category BASED ON HEALTHY PERCENTAGE (SAME LOGIC)
+                if healthy_percentage >= 70:
+                    healthy_plants += 1
+                else:
+                    needs_attention_plants += 1
+                    
+                # Add to total health score
+                total_health_score += healthy_percentage
+                plants_with_health += 1
+                
+                # Track disease counts (for disease distribution chart) - MORE ACCURATE
+                if safe_convert(latest_analysis.leaf_rust_percentage) > 0:
+                    disease_counts['leaf_rust'] += 1
+                if safe_convert(latest_analysis.powdery_mildew_percentage) > 0:
+                    disease_counts['powdery_mildew'] += 1
+                if safe_convert(latest_analysis.dried_leaf_percentage) > 0:
+                    disease_counts['dried_leaf'] += 1
+
+            else:
+                # No analysis found - count as needs attention (SAME AS INVENTORY)
+                needs_attention_plants += 1
+
+        except Exception as e:
+            print(f"[ERROR] Problem with plant ID {plant.plant_id} in reports view: {e}")
+            needs_attention_plants += 1
+
+    # Calculate average health score
+    avg_health_score = round(total_health_score / plants_with_health, 1) if plants_with_health > 0 else 0
+
+    # 🔹 DISEASE DISTRIBUTION - USING ACTUAL ANALYSIS DATA (SAME AS ADMIN DASHBOARD)
+    disease_labels = []
+    disease_values = []
+    
+    # Only include diseases that have counts
+    if disease_counts['leaf_rust'] > 0:
+        disease_labels.append('Leaf Rust')
+        disease_values.append(disease_counts['leaf_rust'])
+    
+    if disease_counts['powdery_mildew'] > 0:
+        disease_labels.append('Powdery Mildew')
+        disease_values.append(disease_counts['powdery_mildew'])
+    
+    if disease_counts['dried_leaf'] > 0:
+        disease_labels.append('Dried Leaf')
+        disease_values.append(disease_counts['dried_leaf'])
+
+    # If no diseases found, provide default data for chart
+    if not disease_labels:
+        disease_labels = ['Leaf Rust', 'Powdery Mildew', 'Dried Leaf']
+        disease_values = [0, 0, 0]
+
+    # 🔹 ADDITIONAL METRICS FOR REPORTS
+    # Total analyses performed
+    total_analyses = TreeAnalysis.objects.count()
+    
+    # Recent analyses (last 7 days)
+    recent_analyses = TreeAnalysis.objects.filter(
+        completed_at__gte=timezone.now() - timedelta(days=7)
+    ).count()
+    
+    # Average healthy percentage across all analyses
+    all_analyses = TreeAnalysis.objects.all()
+    avg_healthy_percentage = 0
+    if all_analyses.exists():
+        total_healthy = sum(safe_convert(analysis.healthy_percentage) for analysis in all_analyses)
+        avg_healthy_percentage = round(total_healthy / all_analyses.count(), 1)
 
     context = {
         "total_users": total_users,
         "active_users": active_users,
         "total_plants": total_plants,
         "healthy_plants": healthy_plants,
-        "unhealthy_plants": unhealthy_plants
+        "unhealthy_plants": needs_attention_plants,
+        "avg_health_score": avg_health_score,
+        "disease_labels": disease_labels,
+        "disease_values": disease_values,
+        "total_analyses": total_analyses,
+        "recent_analyses": recent_analyses,
+        "avg_healthy_percentage": avg_healthy_percentage,
     }
 
     return render(request, "dashboard/reports.html", context)
-
 # ... existing code ...
+from collections import Counter
+from django.contrib.auth import get_user_model
+from django.http import HttpResponse
+import csv
+from .models import Plant, TreeAnalysis
+from django.utils.timezone import now
 
 def export_csv(request):
     if request.method == "GET":
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = 'attachment; filename="report.csv"'
+        try:
+            # Use UTF-8 encoding for CSV
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            response["Content-Disposition"] = 'attachment; filename="escala_lanzones_farm_report.csv"'
 
-        writer = csv.writer(response)
+            writer = csv.writer(response)
+            User = get_user_model()
+            
+            # Current date for report
+            current_date = now().strftime("%Y-%m-%d %H:%M:%S")
 
-        if "export_users" in request.GET:
-            writer.writerow(["User ID", "Username", "Email", "Role", "Active"])
-            users = CustomUser.objects.all().values_list("id", "username", "email", "role", "is_active")
-            for user in users:
-                writer.writerow(user)
+            # Helper function to safely convert values
+            def safe_convert(val):
+                try:
+                    return float(val) if val is not None else 0.0
+                except (ValueError, TypeError):
+                    return 0.0
 
-        if "export_total_plants" in request.GET:
-            writer.writerow(["Total Plants"])
-            writer.writerow([Plant.objects.count()])
+            # Check which export is requested
+            if "export_total_plants" in request.GET:
+                # 🔹 FARM HEADER TEMPLATE
+                writer.writerow(["ESCALA LANZONES FARM"])
+                writer.writerow(["PLANT INVENTORY REPORT"])
+                writer.writerow([f"Generated on: {current_date}"])
+                writer.writerow(["Health Assessment: Consistent health assessment logic"])
+                writer.writerow([])  # Blank line
+                
+                # 🔹 REPORT SUMMARY SECTION - USING SAME LOGIC
+                plants_queryset = Plant.objects.select_related('tree_analysis').all()
+                total_plants = plants_queryset.count()
+                
+                # Calculate summary statistics
+                excellent_health_count = 0
+                moderate_health_count = 0
+                poor_health_count = 0
+                total_health_score = 0
+                plants_with_health = 0
+                
+                for plant in plants_queryset:
+                    latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+                    
+                    if not latest_analysis:
+                        latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+                    
+                    healthy_percentage = 0.0
+                    
+                    if latest_analysis:
+                        # USE HEALTHY PERCENTAGE AS OVERALL HEALTH
+                        healthy_percentage = safe_convert(latest_analysis.healthy_percentage)
+                        
+                        # DETERMINE HEALTH CATEGORY BASED ON THRESHOLDS
+                        if healthy_percentage >= 70:
+                            excellent_health_count += 1
+                        elif healthy_percentage >= 40:
+                            moderate_health_count += 1
+                        else:
+                            poor_health_count += 1
+                        
+                        total_health_score += healthy_percentage
+                        plants_with_health += 1
+                    else:
+                        # No analysis found - count as poor health
+                        poor_health_count += 1
+                
+                avg_health_score = round(total_health_score / plants_with_health, 1) if plants_with_health > 0 else 0
+                
+                # Write summary
+                writer.writerow(["REPORT SUMMARY"])
+                writer.writerow(["Total Plants:", total_plants])
+                writer.writerow(["Excellent Health (70% or higher):", excellent_health_count])
+                writer.writerow(["Moderate Health (40% to 69%):", moderate_health_count])
+                writer.writerow(["Poor Health (Below 40%):", poor_health_count])
+                writer.writerow(["Average Health Score:", f"{avg_health_score}%"])
+                writer.writerow(["Health Data Coverage:", f"{plants_with_health}/{total_plants} plants"])
+                writer.writerow([])  # Blank line
+                
+                # 🔹 DETAILED PLANT LIST SECTION
+                writer.writerow(["DETAILED PLANT LIST"])
+                writer.writerow([])  # Blank line
+                
+                # Table Headers - WITH HEALTHY PERCENTAGE
+                headers = ["No.", "Plant ID", "Age", "Healthy Percentage", "Health Status", "Category", "Last Analysis", "Notes"]
+                writer.writerow(headers)
+                
+                # Separator line
+                separator = ["-" * 5, "-" * 8, "-" * 5, "-" * 18, "-" * 15, "-" * 12, "-" * 15, "-" * 30]
+                writer.writerow(separator)
+                
+                # Get all plants for detailed list
+                plants_queryset = Plant.objects.select_related('tree_analysis').all()
+                
+                # Check if there are any plants
+                if not plants_queryset.exists():
+                    writer.writerow(["No plants found in the database"])
+                else:
+                    plant_number = 1
+                    for plant in plants_queryset:
+                        try:
+                            # Get latest TreeAnalysis
+                            latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+                            
+                            # If no direct relation, try to find by name
+                            if not latest_analysis:
+                                latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+                            
+                            # Determine health status based on healthy_percentage
+                            health_status = "Unknown"
+                            health_category = "Unknown"
+                            healthy_percentage = 0.0
+                            analysis_date = "N/A"
+                            notes = ""
+                            
+                            if latest_analysis:
+                                # Analysis date
+                                if hasattr(latest_analysis, 'created_at') and latest_analysis.created_at:
+                                    analysis_date = latest_analysis.created_at.strftime("%Y-%m-%d")
+                                
+                                # Healthy percentage and status
+                                if hasattr(latest_analysis, 'healthy_percentage') and latest_analysis.healthy_percentage is not None:
+                                    healthy_percentage = safe_convert(latest_analysis.healthy_percentage)
+                                    
+                                    if healthy_percentage >= 70:
+                                        health_status = "EXCELLENT"
+                                        health_category = "Excellent Health"
+                                        notes = "Optimal condition"
+                                    elif healthy_percentage >= 40:
+                                        health_status = "MODERATE"
+                                        health_category = "Moderate Health"
+                                        notes = "Requires monitoring"
+                                    else:
+                                        health_status = "POOR"
+                                        health_category = "Poor Health"
+                                        notes = "Immediate attention required"
+                                else:
+                                    health_status = "NO HEALTH DATA"
+                                    health_category = "Not Analyzed"
+                                    notes = "No health assessment available"
+                            else:
+                                health_status = "NO ANALYSIS"
+                                health_category = "Not Analyzed"
+                                notes = "No analysis performed"
+                            
+                            # Safely get plant attributes
+                            plant_id = getattr(plant, 'plant_id', 'N/A')
+                            age = getattr(plant, 'age', 'N/A')
+                            
+                            # Write plant row with healthy percentage
+                            writer.writerow([
+                                plant_number,
+                                plant_id,
+                                age,
+                                f"{healthy_percentage:.1f}%",
+                                health_status,
+                                health_category,
+                                analysis_date,
+                                notes
+                            ])
+                            
+                            plant_number += 1
+                            
+                        except Exception as e:
+                            # Log error but continue with other plants
+                            print(f"Error processing plant {plant.plant_id}: {str(e)}")
+                            writer.writerow([
+                                plant_number,
+                                f"Plant {plant.plant_id}",
+                                "ERROR",
+                                "N/A",
+                                "PROCESSING ERROR",
+                                "Error",
+                                "N/A",
+                                f"Error: {str(e)[:50]}..."
+                            ])
+                            plant_number += 1
+                
+                # 🔹 FOOTER SECTION
+                writer.writerow([])  # Blank line
+                writer.writerow(["END OF REPORT"])
+                writer.writerow([f"Generated by: {request.user.username if request.user.is_authenticated else 'System'}"])
+                writer.writerow(["Health Logic: Uses healthy_percentage with consistent thresholds"])
+                writer.writerow(["ESCALA LANZONES FARM - Plant Management System"])
 
-        if "export_healthy_plants" in request.GET:
-            writer.writerow(["Plant ID", "Age", "Health Status", "Symptoms"])
-            healthy_plants = Plant.objects.filter(health_status="good").values_list("plant_id", "age", "health_status", "symptoms")
-            for plant in healthy_plants:
-                writer.writerow(plant)
+            elif "export_healthy_plants" in request.GET:
+                # 🔹 HEALTHY PLANTS REPORT
+                writer.writerow(["ESCALA LANZONES FARM"])
+                writer.writerow(["HEALTHY PLANTS REPORT"])
+                writer.writerow([f"Generated on: {current_date}"])
+                writer.writerow(["Criteria: Plants with Healthy Percentage 70% or higher"])
+                writer.writerow([])  # Blank line
+                
+                # Table Headers
+                headers = ["No.", "Plant ID", "Age", "Healthy Percentage", "Last Analysis", "Status"]
+                writer.writerow(headers)
+                
+                separator = ["-" * 5, "-" * 8, "-" * 5, "-" * 18, "-" * 15, "-" * 15]
+                writer.writerow(separator)
+                
+                plants_queryset = Plant.objects.select_related('tree_analysis').all()
+                plant_number = 1
+                total_healthy = 0
+                
+                for plant in plants_queryset:
+                    try:
+                        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+                        
+                        if not latest_analysis:
+                            latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
 
-        if "export_unhealthy_plants" in request.GET:
-            writer.writerow(["Plant ID", "Age", "Health Status", "Symptoms"])
-            unhealthy_plants = Plant.objects.exclude(health_status="good").values_list("plant_id", "age", "health_status", "symptoms")
-            for plant in unhealthy_plants:
-                writer.writerow(plant)
+                        if latest_analysis and hasattr(latest_analysis, 'healthy_percentage') and latest_analysis.healthy_percentage is not None:
+                            healthy_percentage = safe_convert(latest_analysis.healthy_percentage)
+                            
+                            # ONLY EXPORT PLANTS WITH HEALTHY PERCENTAGE 70% OR HIGHER
+                            if healthy_percentage >= 70:
+                                analysis_date = latest_analysis.created_at.strftime("%Y-%m-%d") if hasattr(latest_analysis, 'created_at') and latest_analysis.created_at else "N/A"
+                                plant_id = getattr(plant, 'plant_id', 'N/A')
+                                age = getattr(plant, 'age', 'N/A')
+                                
+                                # Determine status category based on healthy percentage
+                                if healthy_percentage >= 90:
+                                    status = "EXCELLENT"
+                                elif healthy_percentage >= 80:
+                                    status = "VERY GOOD"
+                                else:
+                                    status = "GOOD"
+                                
+                                writer.writerow([
+                                    plant_number,
+                                    plant_id, 
+                                    age, 
+                                    f"{healthy_percentage:.1f}%",
+                                    analysis_date,
+                                    status
+                                ])
+                                plant_number += 1
+                                total_healthy += 1
+                    except Exception as e:
+                        print(f"Error processing healthy plant {plant.plant_id}: {str(e)}")
+                
+                # Footer
+                writer.writerow([])
+                writer.writerow([f"Total Healthy Plants (70% or higher): {total_healthy}"])
+                writer.writerow(["Health Threshold: 70% or higher = Excellent Health"])
+                writer.writerow(["END OF HEALTHY PLANTS REPORT"])
 
-        return response
+            elif "export_unhealthy_plants" in request.GET:
+                # 🔹 PLANTS NEEDING ATTENTION REPORT
+                writer.writerow(["ESCALA LANZONES FARM"])
+                writer.writerow(["PLANTS NEEDING ATTENTION REPORT"])
+                writer.writerow([f"Generated on: {current_date}"])
+                writer.writerow(["Criteria: Plants with Healthy Percentage below 70%"])
+                writer.writerow([])  # Blank line
+                
+                # Table Headers
+                headers = ["No.", "Plant ID", "Age", "Healthy Percentage", "Category", "Last Analysis", "Action Required"]
+                writer.writerow(headers)
+                
+                separator = ["-" * 5, "-" * 8, "-" * 5, "-" * 18, "-" * 15, "-" * 15, "-" * 30]
+                writer.writerow(separator)
+                
+                plants_queryset = Plant.objects.select_related('tree_analysis').all()
+                plant_number = 1
+                total_needs_attention = 0
+                
+                for plant in plants_queryset:
+                    try:
+                        latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+                        
+                        if not latest_analysis:
+                            latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+
+                        healthy_percentage = 0.0
+                        health_category = "UNKNOWN"
+                        analysis_date = "N/A"
+                        action_required = ""
+                        
+                        if latest_analysis:
+                            if hasattr(latest_analysis, 'created_at') and latest_analysis.created_at:
+                                analysis_date = latest_analysis.created_at.strftime("%Y-%m-%d")
+                            
+                            if hasattr(latest_analysis, 'healthy_percentage') and latest_analysis.healthy_percentage is not None:
+                                healthy_percentage = safe_convert(latest_analysis.healthy_percentage)
+                                
+                                # ONLY EXPORT PLANTS WITH HEALTHY PERCENTAGE BELOW 70%
+                                if healthy_percentage < 70:
+                                    # Categorize based on healthy percentage
+                                    if healthy_percentage >= 40:
+                                        health_category = "MODERATE HEALTH"
+                                        action_required = "Regular monitoring and preventive care"
+                                    else:
+                                        health_category = "POOR HEALTH"
+                                        action_required = "Immediate attention required"
+                                else:
+                                    continue  # Skip healthy plants (70% or higher)
+                            else:
+                                health_category = "NO HEALTH DATA"
+                                action_required = "Perform health assessment"
+                        else:
+                            health_category = "NO ANALYSIS"
+                            action_required = "Schedule initial analysis"
+                            healthy_percentage = 0.0
+                        
+                        # Only export if it's not healthy (already handled by continue above)
+                        # Or if there's no data (considered as needs attention)
+                        plant_id = getattr(plant, 'plant_id', 'N/A')
+                        age = getattr(plant, 'age', 'N/A')
+                        
+                        writer.writerow([
+                            plant_number,
+                            plant_id,
+                            age,
+                            f"{healthy_percentage:.1f}%" if healthy_percentage > 0 else "N/A",
+                            health_category,
+                            analysis_date,
+                            action_required
+                        ])
+                        plant_number += 1
+                        total_needs_attention += 1
+                        
+                    except Exception as e:
+                        print(f"Error processing unhealthy plant {plant.plant_id}: {str(e)}")
+                
+                # Footer with breakdown
+                writer.writerow([])
+                writer.writerow([f"Total Plants Needing Attention: {total_needs_attention}"])
+                writer.writerow(["Health Categories: Below 70% = Needs Attention"])
+                writer.writerow(["END OF ATTENTION REPORT"])
+
+            elif "export_users" in request.GET:
+                # 🔹 USERS REPORT
+                writer.writerow(["ESCALA LANZONES FARM"])
+                writer.writerow(["USER ACCOUNTS REPORT"])
+                writer.writerow([f"Generated on: {current_date}"])
+                writer.writerow([])  # Blank line
+                
+                headers = ["No.", "User ID", "Username", "Email", "Role", "Status", "Last Login"]
+                writer.writerow(headers)
+                
+                separator = ["-" * 5, "-" * 8, "-" * 15, "-" * 25, "-" * 10, "-" * 10, "-" * 20]
+                writer.writerow(separator)
+                
+                users = User.objects.all()
+                user_number = 1
+                
+                for user in users:
+                    status = "ACTIVE" if user.is_active else "INACTIVE"
+                    last_login = user.last_login.strftime("%Y-%m-%d %H:%M") if user.last_login else "Never"
+                    
+                    writer.writerow([
+                        user_number,
+                        user.id,
+                        user.username,
+                        user.email,
+                        user.role.upper() if hasattr(user, 'role') else "USER",
+                        status,
+                        last_login
+                    ])
+                    user_number += 1
+                
+                # Footer
+                writer.writerow([])
+                writer.writerow([f"Total Users: {user_number - 1}"])
+                writer.writerow([f"Active Users: {User.objects.filter(is_active=True).count()}"])
+                writer.writerow(["END OF USERS REPORT"])
+
+            elif "export_summary" in request.GET:
+                # 🔹 COMPREHENSIVE SUMMARY REPORT
+                writer.writerow(["ESCALA LANZONES FARM"])
+                writer.writerow(["COMPREHENSIVE FARM MANAGEMENT REPORT"])
+                writer.writerow([f"Generated on: {current_date}"])
+                writer.writerow(["Health Assessment: Consistent health assessment logic"])
+                writer.writerow([])  # Blank line
+                
+                # User Statistics
+                writer.writerow(["USER STATISTICS"])
+                writer.writerow(["-" * 50])
+                total_users = User.objects.count()
+                active_users = User.objects.filter(is_active=True).count()
+                writer.writerow(["Total Registered Users:", total_users])
+                writer.writerow(["Active Users:", active_users])
+                writer.writerow(["Inactive Users:", total_users - active_users])
+                writer.writerow([])
+                
+                # Plant Statistics
+                writer.writerow(["PLANT STATISTICS"])
+                writer.writerow(["-" * 50])
+                plants_queryset = Plant.objects.select_related('tree_analysis').all()
+                total_plants = plants_queryset.count()
+                
+                excellent_count = 0
+                moderate_count = 0
+                poor_count = 0
+                total_health_score = 0
+                plants_with_health = 0
+                
+                for plant in plants_queryset:
+                    latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+                    if not latest_analysis:
+                        latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+                    
+                    healthy_percentage = 0.0
+                    
+                    if latest_analysis and hasattr(latest_analysis, 'healthy_percentage') and latest_analysis.healthy_percentage is not None:
+                        healthy_percentage = safe_convert(latest_analysis.healthy_percentage)
+                        total_health_score += healthy_percentage
+                        plants_with_health += 1
+                        
+                        if healthy_percentage >= 70:
+                            excellent_count += 1
+                        elif healthy_percentage >= 40:
+                            moderate_count += 1
+                        else:
+                            poor_count += 1
+                    else:
+                        poor_count += 1
+                
+                avg_health_score = round(total_health_score / plants_with_health, 1) if plants_with_health > 0 else 0
+                
+                writer.writerow(["Total Plants:", total_plants])
+                writer.writerow(["Excellent Health (70% or higher):", excellent_count])
+                writer.writerow(["Moderate Health (40% to 69%):", moderate_count])
+                writer.writerow(["Poor Health (Below 40%):", poor_count])
+                writer.writerow(["Average Health Score:", f"{avg_health_score}%"])
+                writer.writerow(["Health Data Coverage:", f"{plants_with_health}/{total_plants} plants ({round(plants_with_health/total_plants*100, 1) if total_plants > 0 else 0}%)"])
+                writer.writerow([])
+                
+                # Health Threshold Explanation
+                writer.writerow(["HEALTH THRESHOLDS"])
+                writer.writerow(["-" * 50])
+                writer.writerow(["70% or higher = Excellent Health: Optimal condition"])
+                writer.writerow(["40% to 69% = Moderate Health: Requires monitoring"])
+                writer.writerow(["Below 40% = Poor Health: Immediate attention needed"])
+                writer.writerow([])
+                
+                # Recommendations
+                writer.writerow(["RECOMMENDATIONS"])
+                writer.writerow(["-" * 50])
+                if poor_count > 0:
+                    writer.writerow(["1. Immediate action required for plants with poor health (below 40%)"])
+                if moderate_count > 0:
+                    writer.writerow(["2. Schedule preventive care for plants with moderate health (40% to 69%)"])
+                if excellent_count > 0:
+                    writer.writerow(["3. Maintain current practices for plants with excellent health (70% or higher)"])
+                writer.writerow([])
+                
+                writer.writerow(["REPORT GENERATED BY SYSTEM"])
+                writer.writerow(["Health Logic: Uses healthy_percentage field with consistent thresholds"])
+                writer.writerow(["ESCALA LANZONES FARM MANAGEMENT SYSTEM"])
+                writer.writerow(["END OF COMPREHENSIVE REPORT"])
+
+            else:
+                writer.writerow(["ESCALA LANZONES FARM"])
+                writer.writerow(["REPORT GENERATION ERROR"])
+                writer.writerow([])
+                writer.writerow(["No valid export option selected."])
+                writer.writerow(["Available options:"])
+                writer.writerow(["1. export_total_plants - Complete plant inventory"])
+                writer.writerow(["2. export_healthy_plants - Healthy plants only (70% or higher)"])
+                writer.writerow(["3. export_unhealthy_plants - Plants needing attention (below 70%)"])
+                writer.writerow(["4. export_users - User accounts list"])
+                writer.writerow(["5. export_summary - Comprehensive farm report"])
+
+            return response
+
+        except Exception as e:
+            # Create error response
+            error_response = HttpResponse(f"Error generating CSV: {str(e)}", content_type="text/plain")
+            error_response.status_code = 500
+            return error_response
+            
     else:
         return HttpResponse("Invalid request", status=400)
-
 # ... existing code ...
 from io import BytesIO
 from datetime import datetime
@@ -833,9 +1487,13 @@ def export_pdf(request):
     # --- Colors ---
     PRIMARY_COLOR = colors.HexColor("#1B5E20")
     SECONDARY_COLOR = colors.HexColor("#2E7D32")
+    ACCENT_COLOR = colors.HexColor("#43A047")
+    WARNING_COLOR = colors.HexColor("#F57F17")
+    DANGER_COLOR = colors.HexColor("#C62828")
     HEADER_TEXT = colors.white
     LIGHT_BG = colors.HexColor("#F1F8E9")
     NEUTRAL_TEXT = colors.HexColor("#212121")
+    SECONDARY_TEXT = colors.HexColor("#616161")  # ✅ ADDED THIS LINE
     BORDER_COLOR = colors.HexColor("#A5D6A7")
 
     # --- Styles ---
@@ -846,7 +1504,9 @@ def export_pdf(request):
                                         textColor=PRIMARY_COLOR, spaceBefore=18, spaceAfter=8, fontName="Helvetica-Bold")
     label_style = ParagraphStyle("Label", parent=styles["Normal"], fontSize=10, textColor=SECONDARY_COLOR,
                                  alignment=1)
-    footer_style = ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=SECONDARY_COLOR, alignment=1)
+    footer_style = ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=SECONDARY_TEXT, alignment=1)
+    body_style = ParagraphStyle("BodyText", parent=styles["Normal"], fontSize=10,
+                                leading=14, textColor=NEUTRAL_TEXT, spaceAfter=6)
 
     story = []
 
@@ -865,11 +1525,18 @@ def export_pdf(request):
 
     # --- Title ---
     story.append(Paragraph("Escala Plants & Nursery", label_style))
-    story.append(Paragraph("Reports", title_style))
+    story.append(Paragraph("Comprehensive System Report", title_style))
     story.append(Paragraph(f"Generated on {datetime.now().strftime('%B %d, %Y')}", label_style))
     story.append(Spacer(1, 0.3*inch))
 
     page_width = A4[0] - doc.leftMargin - doc.rightMargin
+
+    # Helper function to safely convert values
+    def safe_convert(val):
+        try:
+            return float(val) if val is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
 
     # --- Users Table ---
     if "export_users" in request.POST:
@@ -905,30 +1572,91 @@ def export_pdf(request):
             story.append(table)
             story.append(Spacer(1, 0.3*inch))
 
-    # --- Plants Table ---
+    # --- Plants Summary with SAME LOGIC ---
     plant_keys = ["export_total_plants", "export_healthy_plants", "export_unhealthy_plants"]
     if any(key in request.POST for key in plant_keys):
-        story.append(Paragraph("Plants Summary", section_style_left))
+        story.append(Paragraph("Plants Health Summary", section_style_left))
         story.append(Spacer(1, 0.1*inch))
 
-        total_plants = Plant.objects.count()
-        healthy_plants = Plant.objects.filter(health_status="good").count()
-        unhealthy_plants = Plant.objects.exclude(health_status="good").count()
+        # === GAMITIN ANG PAREHONG LOGIC ===
+        plants_queryset = Plant.objects.select_related('tree_analysis').all()
+        
+        # Count plants by health status
+        total_plants = plants_queryset.count()
+        healthy_plants = 0
+        needs_attention_plants = 0
 
-        plants_data = [["Category", "Count"]]
+        # For detailed plant data if needed
+        plant_details = []
+
+        for plant in plants_queryset:
+            try:
+                latest_analysis = TreeAnalysis.objects.filter(plant=plant).order_by('-id').first()
+
+                if not latest_analysis:
+                    latest_analysis = TreeAnalysis.objects.filter(name__icontains=f"Plant {plant.plant_id}").order_by('-id').first()
+
+                healthy_percentage = 0.0
+                
+                if latest_analysis:
+                    # === USE HEALTHY PERCENTAGE AS OVERALL HEALTH ===
+                    healthy_percentage = safe_convert(latest_analysis.healthy_percentage)
+                    
+                    # === DETERMINE HEALTH CATEGORY BASED ON 70% AND 40% THRESHOLDS ===
+                    if healthy_percentage >= 70:
+                        healthy_plants += 1
+                        health_status = "Excellent Health"
+                    elif healthy_percentage >= 40:
+                        needs_attention_plants += 1
+                        health_status = "Moderate Health"
+                    else:
+                        needs_attention_plants += 1
+                        health_status = "Poor Health"
+                else:
+                    # No analysis found - count as needs attention
+                    needs_attention_plants += 1
+                    health_status = "Not Analyzed"
+                    healthy_percentage = 0.0
+
+                # Store plant details for detailed table if needed
+                plant_details.append({
+                    'plant_id': plant.plant_id,
+                    'health_status': health_status,
+                    'healthy_percentage': healthy_percentage
+                })
+
+            except Exception as e:
+                print(f"[ERROR] Problem with plant ID {plant.plant_id} in export_pdf: {e}")
+                needs_attention_plants += 1
+
+        # Prepare summary data
+        plants_data = [["Category", "Count", "Percentage"]]
+        
         if "export_total_plants" in request.POST:
-            plants_data.append(["Total Plants", str(total_plants)])
+            plants_data.append(["Total Plants", str(total_plants), "100%"])
+        
         if "export_healthy_plants" in request.POST:
-            plants_data.append(["Healthy Plants", str(healthy_plants)])
+            healthy_percentage_total = (healthy_plants / total_plants * 100) if total_plants > 0 else 0
+            plants_data.append(["Healthy Plants (70% or higher)", str(healthy_plants), f"{healthy_percentage_total:.1f}%"])
+        
         if "export_unhealthy_plants" in request.POST:
-            plants_data.append(["Unhealthy Plants", str(unhealthy_plants)])
+            unhealthy_percentage_total = (needs_attention_plants / total_plants * 100) if total_plants > 0 else 0
+            plants_data.append(["Needs Attention (below 70%)", str(needs_attention_plants), f"{unhealthy_percentage_total:.1f}%"])
+
+        # Add health threshold information - PLAIN TEXT ONLY
+        plants_data.append(["", "", ""])
+        plants_data.append(["Health Thresholds", "Range", "Category"])
+        plants_data.append(["", "70% or higher", "Excellent Health"])
+        plants_data.append(["", "40% to 69%", "Moderate Health"])
+        plants_data.append(["", "Below 40%", "Poor Health"])
 
         col_widths = [
-            4.0 * inch,   # Category
-            1.8 * inch    # Count
+            3.0 * inch,   # Category
+            1.5 * inch,   # Count
+            1.5 * inch    # Percentage
         ]
 
-        table = Table(plants_data, colWidths=col_widths, rowHeights=0.6*inch)
+        table = Table(plants_data, colWidths=col_widths, rowHeights=0.5*inch)
         table.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,0), SECONDARY_COLOR),
             ("TEXTCOLOR", (0,0), (-1,0), HEADER_TEXT),
@@ -936,21 +1664,103 @@ def export_pdf(request):
             ("ALIGN", (0,0), (-1,-1), "CENTER"),
             ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
             ("GRID", (0,0), (-1,-1), 0.5, BORDER_COLOR),
-            ("ROWBACKGROUNDS", (1,1), (-1,-1), [colors.white, LIGHT_BG]),
-            ("ALIGN", (0,1), (0,-1), "LEFT")  # Category left-aligned
+            ("ROWBACKGROUNDS", (1,1), (-1,3), [colors.white, LIGHT_BG]),
+            ("BACKGROUND", (0,4), (-1,4), PRIMARY_COLOR),
+            ("TEXTCOLOR", (0,4), (-1,4), colors.white),
+            ("BACKGROUND", (0,5), (0,7), LIGHT_BG),
+            ("ALIGN", (1,5), (1,7), "LEFT"),
+            ("SPAN", (0,5), (0,7)),  # Span the first column for threshold rows
         ]))
         story.append(table)
         story.append(Spacer(1, 0.3*inch))
 
+        # --- Detailed Plant Analysis (if requested) ---
+        if "export_total_plants" in request.POST and len(plant_details) > 0:
+            story.append(Paragraph("Detailed Plant Analysis", section_style_left))
+            story.append(Spacer(1, 0.1*inch))
+
+            detailed_data = [["Plant ID", "Health Status", "Healthy Percentage", "Category"]]
+            
+            for plant in plant_details:
+                # Determine color based on percentage
+                if plant['healthy_percentage'] >= 70:
+                    row_color = ACCENT_COLOR
+                    text_color = colors.white
+                elif plant['healthy_percentage'] >= 40:
+                    row_color = WARNING_COLOR
+                    text_color = colors.white
+                else:
+                    row_color = DANGER_COLOR
+                    text_color = colors.white
+                
+                detailed_data.append([
+                    f"Plant {plant['plant_id']}",
+                    plant['health_status'],
+                    f"{plant['healthy_percentage']:.1f}%",
+                    "Excellent" if plant['healthy_percentage'] >= 70 else "Moderate" if plant['healthy_percentage'] >= 40 else "Poor"
+                ])
+
+            detailed_table = Table(detailed_data, colWidths=[1.5*inch, 2.0*inch, 1.5*inch, 1.5*inch])
+            detailed_table.setStyle(TableStyle([
+                ("BACKGROUND", (0,0), (-1,0), PRIMARY_COLOR),
+                ("TEXTCOLOR", (0,0), (-1,0), HEADER_TEXT),
+                ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+                ("ALIGN", (0,0), (-1,-1), "CENTER"),
+                ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+                ("GRID", (0,0), (-1,-1), 0.5, BORDER_COLOR),
+                ("BACKGROUND", (0,1), (-1,-1), colors.white),
+                ("ROWBACKGROUNDS", (1,1), (-1,-1), [colors.white, LIGHT_BG]),
+            ]))
+            
+            # Add conditional row colors
+            for i in range(1, len(detailed_data)):
+                if plant_details[i-1]['healthy_percentage'] >= 70:
+                    detailed_table.setStyle(TableStyle([
+                        ("BACKGROUND", (0,i), (-1,i), ACCENT_COLOR),
+                        ("TEXTCOLOR", (0,i), (-1,i), colors.white),
+                    ]))
+                elif plant_details[i-1]['healthy_percentage'] >= 40:
+                    detailed_table.setStyle(TableStyle([
+                        ("BACKGROUND", (0,i), (-1,i), WARNING_COLOR),
+                        ("TEXTCOLOR", (0,i), (-1,i), colors.white),
+                    ]))
+                else:
+                    detailed_table.setStyle(TableStyle([
+                        ("BACKGROUND", (0,i), (-1,i), DANGER_COLOR),
+                        ("TEXTCOLOR", (0,i), (-1,i), colors.white),
+                    ]))
+            
+            story.append(detailed_table)
+            story.append(Spacer(1, 0.3*inch))
+
+    # --- Health Assessment Summary ---
+    if any(key in request.POST for key in ["export_total_plants", "export_healthy_plants", "export_unhealthy_plants"]):
+        story.append(Paragraph("Health Assessment Summary", section_style_left))
+        
+        summary_text = """
+        This report uses consistent health assessment logic. Plant health is determined based on the healthy leaf percentage from the latest tree analysis:
+        
+        • <b>Excellent Health (70% or higher):</b> Plant is in optimal condition
+        • <b>Moderate Health (40% to 69%):</b> Plant requires monitoring and preventive care
+        • <b>Poor Health (Below 40%):</b> Plant requires immediate attention
+        
+        All percentages are calculated from the healthy_percentage field in the database, ensuring consistency across all reports.
+        """
+        
+        summary_para = Paragraph(summary_text, body_style)
+        story.append(summary_para)
+        story.append(Spacer(1, 0.2*inch))
+
     # --- Footer ---
     story.append(Paragraph(f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", footer_style))
+    story.append(Paragraph(f"Report Logic: Uses healthy percentage calculation (70%/40% thresholds)", 
+                          ParagraphStyle("Note", parent=styles["Normal"], fontSize=7, textColor=SECONDARY_TEXT, alignment=1)))
 
     doc.build(story)
     pdf = buffer.getvalue()
     buffer.close()
     response.write(pdf)
     return response
-
 
 # ✅ FIXED: Model path and caching
 model_path = os.path.join(settings.MEDIA_ROOT, 'best.pt')
@@ -1184,9 +1994,7 @@ def predict(request):
 @require_POST
 def optimized_predict(request):
     """
-    ✅ FIXED: Optimized prediction function with PROPER COORDINATE SCALING
-    - Correctly scales bounding boxes from model size back to original video size
-    - Fixes the misaligned bounding box issue
+    ✅ FIXED: Optimized prediction with better coordinate handling
     """
     start_time = time.time()
     
@@ -1199,50 +2007,40 @@ def optimized_predict(request):
         
         frame_file = request.FILES.get('frame')
         quality = request.POST.get('quality', 'high')
-        plant_id = request.POST.get("plant_id")
-        
-        # ✅ CRITICAL: Get original video dimensions from frontend
         original_width = int(request.POST.get('original_width', 640))
         original_height = int(request.POST.get('original_height', 480))
         
-        print(f"[DEBUG] Original dimensions from frontend: {original_width}x{original_height}")
-
         if not frame_file:
             return JsonResponse({"success": False, "error": "No frame received"})
 
-        # Read and decode the image
+        # Read image
         file_bytes = np.frombuffer(frame_file.read(), np.uint8)
         frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
         if frame is None:
             return JsonResponse({"success": False, "error": "Failed to decode frame"})
 
-        # ✅ Get the actual dimensions of the frame sent by frontend
-        # This is the RESIZED frame (e.g., 640x480 for model processing)
+        # Get actual frame dimensions
         frame_height, frame_width = frame.shape[:2]
-        print(f"[DEBUG] Received frame dimensions: {frame_width}x{frame_height}")
-
-        # ✅ IMPROVED: Adjust parameters based on quality
+        
+        # Adjust parameters
         imgsz = 640 if quality == 'low' else 640
-        conf_threshold = 0.20 if quality == 'low' else CONF_THRESHOLD
+        conf_threshold = 0.25  # Slightly higher for better accuracy
 
-        # ✅ Run YOLO prediction on the resized frame
+        # Run prediction
         results = model.predict(
             frame, 
             conf=conf_threshold,
             imgsz=imgsz,
             verbose=False,
-            max_det=50,
+            max_det=100,  # Increased max detections
             agnostic_nms=True,
             half=False
         )[0]
 
         detections = []
-        detection_count = 0
-
+        
         if results.boxes is not None:
-            print(f"[DEBUG] Found {len(results.boxes)} raw detections")
-            
             for box in results.boxes:
                 cls = int(box.cls[0])
                 conf = float(box.conf[0])
@@ -1251,15 +2049,14 @@ def optimized_predict(request):
                 if class_name not in ALLOWED_CLASSES:
                     continue
 
-                # Get bounding box coordinates from YOLO (in model input space)
+                # Get original coordinates (in model input space)
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
                 
-                # ✅ CRITICAL FIX: Scale coordinates from model size to ORIGINAL video size
-                # This is the key fix for misaligned bounding boxes
-                scale_x = original_width / frame_width
-                scale_y = original_height / frame_height
+                # Scale to original video dimensions
+                # Model processes at 640x480, scale back to original
+                scale_x = original_width / 640
+                scale_y = original_height / 480
                 
-                # Scale the coordinates
                 scaled_x1 = x1 * scale_x
                 scaled_y1 = y1 * scale_y
                 scaled_x2 = x2 * scale_x
@@ -1270,74 +2067,23 @@ def optimized_predict(request):
                 scaled_y1 = max(0, min(scaled_y1, original_height))
                 scaled_x2 = max(0, min(scaled_x2, original_width))
                 scaled_y2 = max(0, min(scaled_y2, original_height))
-                
-                print(f"[DEBUG] Before scaling: ({x1:.1f}, {y1:.1f}, {x2:.1f}, {y2:.1f})")
-                print(f"[DEBUG] After scaling: ({scaled_x1:.1f}, {scaled_y1:.1f}, {scaled_x2:.1f}, {scaled_y2:.1f})")
-                print(f"[DEBUG] Scale factors: X={scale_x:.3f}, Y={scale_y:.3f}")
-                
+
                 detections.append({
-                    "box": [scaled_x1, scaled_y1, scaled_x2, scaled_y2],  # ✅ SCALED to original size
+                    "box": [scaled_x1, scaled_y1, scaled_x2, scaled_y2],
                     "confidence": conf,
                     "class": class_name.title()
                 })
-                detection_count += 1
 
         processing_time = time.time() - start_time
         
-        print(f"[DEBUG] ✅ Detection completed: {detection_count} leaves in {processing_time:.2f}s")
-        print(f"[DEBUG] Frame dimensions: {frame_width}x{frame_height}")
-        print(f"[DEBUG] Original dimensions: {original_width}x{original_height}")
-        print(f"[DEBUG] Scaling: X={original_width/frame_width:.3f}, Y={original_height/frame_height:.3f}")
-
-        # ✅ Save to database if plant_id provided
-        if plant_id and detection_count > 0:
-            try:
-                from dashboard.models import Plant, TreeAnalysis, LeafImage
-                from django.utils import timezone
-                
-                plant = Plant.objects.get(plant_id=plant_id)
-                analysis, created = TreeAnalysis.objects.get_or_create(
-                    plant=plant,
-                    defaults={"name": f"Analysis for Plant {plant.plant_id}"}
-                )
-
-                for det in detections:
-                    LeafImage.objects.create(
-                        image=None,
-                        prediction=det["class"],
-                        healthy_confidence=det["confidence"] if det["class"] == "Healthy" else 0,
-                        dried_leaf_confidence=det["confidence"] if det["class"] == "Dried Leaf" else 0,
-                        leaf_rust_confidence=det["confidence"] if det["class"] == "Leaf Rust" else 0,
-                        powdery_mildew_confidence=det["confidence"] if det["class"] == "Powdery Mildew" else 0,
-                        tree_analysis=analysis
-                    )
-
-                analysis.calculate_health()
-                analysis.is_completed = True
-                analysis.save()
-
-                plant.tree_analysis = analysis
-                plant.health_status = "good" if analysis.overall_health > 70 else "leaf rust"
-                plant.save()
-                
-                print(f"[DEBUG] ✅ Saved {detection_count} detections to plant {plant_id}")
-
-            except Exception as e:
-                print(f"[DEBUG] Error saving detections: {e}")
-                # Don't fail the request if saving fails
-
         return JsonResponse({
             "success": True,
             "detections": detections,
-            "detection_count": detection_count,
+            "detection_count": len(detections),
             "processing_time": round(processing_time, 2),
             "debug_info": {
                 "frame_dimensions": f"{frame_width}x{frame_height}",
                 "original_dimensions": f"{original_width}x{original_height}",
-                "scale_factors": {
-                    "x": round(original_width / frame_width, 3),
-                    "y": round(original_height / frame_height, 3)
-                }
             }
         })
 
@@ -1345,7 +2091,6 @@ def optimized_predict(request):
         print(f"[DEBUG] ❌ Prediction error: {e}")
         traceback.print_exc()
         return JsonResponse({"success": False, "error": str(e)})
-
 
 @csrf_exempt
 @require_POST
@@ -1757,39 +2502,69 @@ def clear_leaves(request, analysis_id):
         })
 
 # ... existing code ...
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from .models import TreeAnalysis, PestDetectionSession
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
+from .models import TreeAnalysis, PestDetectionSession, Plant
 
 @login_required
 def history(request):
-    # <CHANGE> Fixed pagination handling with proper page context
+    # Get all completed tree analyses and pest sessions
     tree_analyses = TreeAnalysis.objects.filter(is_completed=True).order_by('-completed_at')
     pest_sessions = PestDetectionSession.objects.all().order_by('-created_at')
 
     analyses = []
 
+    # Helper function to safely convert values
+    def safe_convert(val):
+        try:
+            return float(val) if val is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
+
     for analysis in tree_analyses:
-        diseased_count = analysis.dried_leaf_count + analysis.leaf_rust_count + analysis.powdery_mildew_count
-        diseased_percentage = (diseased_count / analysis.total_leaves) * 100 if analysis.total_leaves > 0 else 0
+        # ✅ Safely get numeric values
+        healthy_percentage = safe_convert(analysis.healthy_percentage)
+        dried_leaf_count = safe_convert(analysis.dried_leaf_count)
+        leaf_rust_count = safe_convert(analysis.leaf_rust_count)
+        powdery_mildew_count = safe_convert(analysis.powdery_mildew_count)
+        total_leaves = safe_convert(analysis.total_leaves) if analysis.total_leaves else 1
+        
+        # Calculate diseased count and percentage
+        diseased_count = dried_leaf_count + leaf_rust_count + powdery_mildew_count
+        diseased_percentage = (diseased_count / total_leaves) * 100 if total_leaves > 0 else 0
+        
+        # 🔹 DETERMINE HEALTH STATUS BASED ON HEALTHY PERCENTAGE (SAME LOGIC AS ADMIN DASHBOARD)
+        if healthy_percentage >= 70:
+            health_status = 'good'
+            health_category = 'Excellent Health'
+        elif healthy_percentage >= 40:
+            health_status = 'moderate'
+            health_category = 'Moderate Health'
+        else:
+            health_status = 'poor'
+            health_category = 'Poor Health'
+        
         analyses.append({
             'id': analysis.id,
             'name': analysis.name,
             'created_at': analysis.created_at,
             'completed_at': analysis.completed_at,
-            'overall_health': analysis.overall_health,
+            'overall_health': healthy_percentage,  # Use healthy_percentage
+            'health_status': health_status,
+            'health_category': health_category,
             'healthy_count': analysis.healthy_count,
             'dried_leaf_count': analysis.dried_leaf_count,
             'leaf_rust_count': analysis.leaf_rust_count,
             'powdery_mildew_count': analysis.powdery_mildew_count,
-            'healthy_percentage': analysis.healthy_percentage,
-            'dried_leaf_percentage': analysis.dried_leaf_percentage,
-            'leaf_rust_percentage': analysis.leaf_rust_percentage,
-            'powdery_mildew_percentage': analysis.powdery_mildew_percentage,
-            'total_leaves': analysis.total_leaves,
-            'diseased_count': diseased_count,
-            'diseased_percentage': diseased_percentage,
+            'healthy_percentage': healthy_percentage,
+            'dried_leaf_percentage': safe_convert(analysis.dried_leaf_percentage),
+            'leaf_rust_percentage': safe_convert(analysis.leaf_rust_percentage),
+            'powdery_mildew_percentage': safe_convert(analysis.powdery_mildew_percentage),
+            'total_leaves': total_leaves,
+            'diseased_count': int(diseased_count),
+            'diseased_percentage': round(diseased_percentage, 1),
             'type': 'tree_analysis',
         })
 
@@ -1810,7 +2585,7 @@ def history(request):
 
     analyses.sort(key=lambda x: x['completed_at'], reverse=True)
 
-    # <CHANGE> Proper pagination with Paginator
+    # Pagination
     paginator = Paginator(analyses, 5)
     page_number = request.GET.get('page')
     
@@ -1822,7 +2597,7 @@ def history(request):
         page_obj = paginator.page(paginator.num_pages)
 
     return render(request, 'dashboard/history.html', {'analyses': page_obj})
-# ... existing code ...
+
 
 @login_required
 def analysis_detail(request, analysis_id):
@@ -1830,13 +2605,107 @@ def analysis_detail(request, analysis_id):
     tree_analysis = get_object_or_404(TreeAnalysis, id=analysis_id)
     leaf_images = tree_analysis.leaf_images.all()
     
+    # Helper function to safely convert values
+    def safe_convert(val):
+        try:
+            return float(val) if val is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
+
+    # 🔹 USE HEALTHY PERCENTAGE AS OVERALL HEALTH
+    healthy_percentage = safe_convert(tree_analysis.healthy_percentage)
+    
+    # 🔹 Determine health category based on healthy_percentage (SAME LOGIC)
+    if healthy_percentage >= 70:
+        health_status = 'good'
+        health_category = 'Excellent Health'
+    elif healthy_percentage >= 40:
+        health_status = 'moderate'
+        health_category = 'Moderate Health'
+    else:
+        health_status = 'poor'
+        health_category = 'Poor Health'
+    
+    # Calculate diseased statistics
+    total_leaves = safe_convert(tree_analysis.total_leaves) if tree_analysis.total_leaves else 1
+    diseased_count = safe_convert(tree_analysis.dried_leaf_count) + safe_convert(tree_analysis.leaf_rust_count) + safe_convert(tree_analysis.powdery_mildew_count)
+    diseased_percentage = (diseased_count / total_leaves) * 100 if total_leaves > 0 else 0
+    
+    # Calculate percentages for each condition
+    healthy_percentage_calc = (safe_convert(tree_analysis.healthy_count) / total_leaves) * 100
+    dried_leaf_percentage_calc = (safe_convert(tree_analysis.dried_leaf_count) / total_leaves) * 100
+    leaf_rust_percentage_calc = (safe_convert(tree_analysis.leaf_rust_count) / total_leaves) * 100
+    powdery_mildew_percentage_calc = (safe_convert(tree_analysis.powdery_mildew_count) / total_leaves) * 100
+    
     context = {
         'tree_analysis': tree_analysis,
-        'leaf_images': leaf_images
+        'leaf_images': leaf_images,
+        'overall_health': healthy_percentage,
+        'healthy_percentage': healthy_percentage,
+        'health_status': health_status,
+        'health_category': health_category,
+        'diseased_count': int(diseased_count),
+        'diseased_percentage': round(diseased_percentage, 1),
+        'total_leaves': tree_analysis.total_leaves,
+        # Calculated percentages for consistency
+        'healthy_percentage_calc': round(healthy_percentage_calc, 1),
+        'dried_leaf_percentage_calc': round(dried_leaf_percentage_calc, 1),
+        'leaf_rust_percentage_calc': round(leaf_rust_percentage_calc, 1),
+        'powdery_mildew_percentage_calc': round(powdery_mildew_percentage_calc, 1),
     }
     
     return render(request, 'dashboard/analysis_detail.html', context)
 
+
+def analysis_detail_json(request, analysis_id):
+    try:
+        analysis = TreeAnalysis.objects.get(id=analysis_id, is_completed=True)
+        
+        # Helper function to safely convert values
+        def safe_convert(val):
+            try:
+                return float(val) if val is not None else 0.0
+            except (ValueError, TypeError):
+                return 0.0
+
+        # 🔹 USE HEALTHY PERCENTAGE AS OVERALL HEALTH
+        healthy_percentage = safe_convert(analysis.healthy_percentage)
+        
+        # 🔹 Determine health status based on healthy_percentage (SAME LOGIC)
+        if healthy_percentage >= 70:
+            health_status = 'good'
+            health_category = 'Excellent Health'
+        elif healthy_percentage >= 40:
+            health_status = 'moderate'
+            health_category = 'Moderate Health'
+        else:
+            health_status = 'poor'
+            health_category = 'Poor Health'
+        
+        data = {
+            'success': True,
+            'analysis': {
+                'id': analysis.id,
+                'name': analysis.name,
+                'created_at': analysis.created_at.isoformat() if analysis.created_at else None,
+                'completed_at': analysis.completed_at.isoformat() if analysis.completed_at else None,
+                'overall_health': healthy_percentage,
+                'healthy_count': analysis.healthy_count,
+                'healthy_percentage': healthy_percentage,
+                'dried_leaf_count': analysis.dried_leaf_count,
+                'dried_leaf_percentage': safe_convert(analysis.dried_leaf_percentage),
+                'leaf_rust_count': analysis.leaf_rust_count,
+                'leaf_rust_percentage': safe_convert(analysis.leaf_rust_percentage),
+                'powdery_mildew_count': analysis.powdery_mildew_count,
+                'powdery_mildew_percentage': safe_convert(analysis.powdery_mildew_percentage),
+                'total_leaves': analysis.total_leaves,
+                'health_status': health_status,
+                'health_category': health_category,
+            }
+        }
+        return JsonResponse(data)
+    except TreeAnalysis.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Analysis not found'}, status=404)
 # ... existing code ...
 
 @csrf_exempt
@@ -2053,12 +2922,17 @@ def export_analysis_pdf(request, analysis_id):
     story.append(meta_table)
     story.append(Spacer(1, 0.25 * inch))
 
-    # --- Health Status Summary ---
+    # --- Calculate Overall Health from Healthy Percentage ---
+    # Use healthy_percentage as the primary source for overall health
+    healthy_percentage = tree_analysis.healthy_percentage or 0
+    overall_health = healthy_percentage  # Consistent with other views
+
+    # --- Health Status Summary (UPDATED LOGIC: 70% and 40%) ---
     story.append(Paragraph("Health Status Summary", section_heading))
-    overall_health = tree_analysis.overall_health or 0
-    if overall_health >= 80:
+    
+    if overall_health >= 70:  # Changed from 80 to 70
         health_status, health_color, indicator = "Excellent", ACCENT_COLOR, "HEALTHY"
-    elif overall_health >= 50:
+    elif overall_health >= 40:  # Changed from 50 to 40
         health_status, health_color, indicator = "Moderate", WARNING_COLOR, "CAUTION"
     else:
         health_status, health_color, indicator = "Poor", DANGER_COLOR, "CRITICAL"
@@ -2090,12 +2964,29 @@ def export_analysis_pdf(request, analysis_id):
 
     # --- Leaf Analysis Breakdown ---
     story.append(Paragraph("Leaf Analysis Breakdown", section_heading))
+    
+    # Calculate percentages if they don't exist or need verification
+    total_leaves = tree_analysis.total_leaves or 1
+    
+    healthy_count = tree_analysis.healthy_count or 0
+    healthy_percentage_calc = (healthy_count / total_leaves) * 100
+    
+    dried_leaf_count = tree_analysis.dried_leaf_count or 0
+    dried_leaf_percentage_calc = (dried_leaf_count / total_leaves) * 100
+    
+    powdery_mildew_count = tree_analysis.powdery_mildew_count or 0
+    powdery_mildew_percentage_calc = (powdery_mildew_count / total_leaves) * 100
+    
+    leaf_rust_count = tree_analysis.leaf_rust_count or 0
+    leaf_rust_percentage_calc = (leaf_rust_count / total_leaves) * 100
+    
+    # Use calculated values to ensure consistency
     detection_data = [
         ["Category", "Count", "Percentage", "Status"],
-        ["Healthy Leaves", str(tree_analysis.healthy_count or 0), f"{tree_analysis.healthy_percentage or 0:.1f}%", "GOOD"],
-        ["Dried Leaves", str(tree_analysis.dried_leaf_count or 0), f"{tree_analysis.dried_leaf_percentage or 0:.1f}%", "WARN"],
-        ["Powdery Mildew", str(tree_analysis.powdery_mildew_count or 0), f"{tree_analysis.powdery_mildew_percentage or 0:.1f}%", "WARN"],
-        ["Leaf Rust", str(tree_analysis.leaf_rust_count or 0), f"{tree_analysis.leaf_rust_percentage or 0:.1f}%", "CRITICAL"],
+        ["Healthy Leaves", str(healthy_count), f"{healthy_percentage_calc:.1f}%", "GOOD"],
+        ["Dried Leaves", str(dried_leaf_count), f"{dried_leaf_percentage_calc:.1f}%", "WARN"],
+        ["Powdery Mildew", str(powdery_mildew_count), f"{powdery_mildew_percentage_calc:.1f}%", "WARN"],
+        ["Leaf Rust", str(leaf_rust_count), f"{leaf_rust_percentage_calc:.1f}%", "CRITICAL"],
     ]
     detection_table = Table(detection_data, colWidths=[2 * inch, 1.2 * inch, 1.3 * inch, 1.7 * inch])
     detection_table.setStyle(TableStyle([
@@ -2111,14 +3002,15 @@ def export_analysis_pdf(request, analysis_id):
     story.append(detection_table)
     story.append(Spacer(1, 0.25 * inch))
 
-    # --- Recommendations ---
+    # --- Recommendations (UPDATED LOGIC: 70% and 40%) ---
     story.append(Paragraph("Recommendations", section_heading))
-    if overall_health >= 80:
+    
+    if overall_health >= 70:  # Changed from 80 to 70
         recommendation, recommendation_color = (
             "Tree health is excellent. Continue regular monitoring and maintain current care practices to ensure sustained vitality.",
             ACCENT_COLOR
         )
-    elif overall_health >= 50:
+    elif overall_health >= 40:  # Changed from 50 to 40
         recommendation, recommendation_color = (
             "Tree shows moderate concerns. Apply preventive treatments, increase monitoring frequency to weekly inspections, and consider professional consultation.",
             WARNING_COLOR
@@ -2143,8 +3035,19 @@ def export_analysis_pdf(request, analysis_id):
     story.append(rec_table)
     story.append(Spacer(1, 0.3 * inch))
 
+    # --- Consistency Note ---
+    # Add a note explaining the health calculation if needed
+    stored_overall_health = tree_analysis.overall_health or 0
+    if abs(stored_overall_health - overall_health) > 0.1:
+        note_text = f"Note: Overall health is calculated based on healthy leaf percentage ({healthy_percentage_calc:.1f}%) for consistency with system standards."
+        story.append(Paragraph(note_text, ParagraphStyle(
+            "Note", parent=styles["Normal"], fontSize=8,
+            textColor=SECONDARY_TEXT, alignment=1, spaceBefore=8
+        )))
+        story.append(Spacer(1, 0.1 * inch))
+
     # --- Footer ---
-    footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Report ID: TREE-{analysis_id}"
+    footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Report ID: TREE-{analysis_id} | Health Assessment based on 70%/40% thresholds"
     story.append(Paragraph(footer_text, footer_style))
 
     # --- Build PDF ---
@@ -2153,11 +3056,10 @@ def export_analysis_pdf(request, analysis_id):
     buffer.close()
     response.write(pdf)
 
-    logger.info(f"Tree analysis PDF exported: {analysis_id}")
+    logger.info(f"Tree analysis PDF exported: {analysis_id} (using 70%/40% thresholds)")
     return response
 
 # ... existing code ...
-
 def export_all_analyses(request):
     """Export all completed tree analyses as professional PDF reports, each on a separate page"""
     try:
@@ -2263,12 +3165,17 @@ def export_all_analyses(request):
             story.append(meta_table)
             story.append(Spacer(1, 0.25*inch))
 
-            # --- Health Status Summary ---
+            # === PANGUNAHING PAGBABAGO: GAMITIN ANG PAREHONG LOGIC TULAD SA SINGLE ANALYSIS ===
+            # Use healthy_percentage as the primary source for overall health
+            healthy_percentage = analysis.healthy_percentage or 0
+            overall_health = healthy_percentage  # Consistent with other views
+
+            # --- Health Status Summary (UPDATED LOGIC: 70% and 40%) ---
             story.append(Paragraph("Health Status Summary", section_heading))
-            overall_health = analysis.overall_health or 0
-            if overall_health >= 80:
+            
+            if overall_health >= 70:  # Changed from 80 to 70
                 health_status, health_color, indicator = "Excellent", ACCENT_COLOR, "HEALTHY"
-            elif overall_health >= 50:
+            elif overall_health >= 40:  # Changed from 50 to 40
                 health_status, health_color, indicator = "Moderate", WARNING_COLOR, "CAUTION"
             else:
                 health_status, health_color, indicator = "Poor", DANGER_COLOR, "CRITICAL"
@@ -2282,7 +3189,7 @@ def export_all_analyses(request):
                 ("BACKGROUND", (0, 0), (-1, 0), PRIMARY_COLOR),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 11),
+                ("FONTSIZE", (0, 0), (-1, 0), 11),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("BACKGROUND", (0, 1), (-1, 1), health_color),
                 ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
@@ -2300,12 +3207,31 @@ def export_all_analyses(request):
 
             # --- Leaf Analysis Breakdown ---
             story.append(Paragraph("Leaf Analysis Breakdown", section_heading))
+            
+            # Calculate percentages from counts to ensure consistency
+            total_leaves = analysis.total_leaves or 1
+            
+            healthy_count = analysis.healthy_count or 0
+            # === DITO GINAMIT ANG PAREHONG HEALTH PERCENTAGE ===
+            # Ito ang susi: gamitin ang healthy_percentage mula sa database
+            healthy_percentage_calc = healthy_percentage  # Gamitin ang stored value
+            
+            dried_leaf_count = analysis.dried_leaf_count or 0
+            dried_leaf_percentage_calc = (dried_leaf_count / total_leaves) * 100 if total_leaves > 0 else 0
+            
+            powdery_mildew_count = analysis.powdery_mildew_count or 0
+            powdery_mildew_percentage_calc = (powdery_mildew_count / total_leaves) * 100 if total_leaves > 0 else 0
+            
+            leaf_rust_count = analysis.leaf_rust_count or 0
+            leaf_rust_percentage_calc = (leaf_rust_count / total_leaves) * 100 if total_leaves > 0 else 0
+            
+            # Use calculated values to ensure consistency
             detection_data = [
                 ["Category", "Count", "Percentage", "Status"],
-                ["Healthy Leaves", str(analysis.healthy_count or 0), f"{analysis.healthy_percentage or 0:.1f}%", "GOOD"],
-                ["Dried Leaves", str(analysis.dried_leaf_count or 0), f"{analysis.dried_leaf_percentage or 0:.1f}%", "WARN"],
-                ["Powdery Mildew", str(analysis.powdery_mildew_count or 0), f"{analysis.powdery_mildew_percentage or 0:.1f}%", "WARN"],
-                ["Leaf Rust", str(analysis.leaf_rust_count or 0), f"{analysis.leaf_rust_percentage or 0:.1f}%", "CRITICAL"],
+                ["Healthy Leaves", str(healthy_count), f"{healthy_percentage_calc:.1f}%", "GOOD"],
+                ["Dried Leaves", str(dried_leaf_count), f"{dried_leaf_percentage_calc:.1f}%", "WARN"],
+                ["Powdery Mildew", str(powdery_mildew_count), f"{powdery_mildew_percentage_calc:.1f}%", "WARN"],
+                ["Leaf Rust", str(leaf_rust_count), f"{leaf_rust_percentage_calc:.1f}%", "CRITICAL"],
             ]
             detection_table = Table(detection_data, colWidths=[2 * inch, 1.2 * inch, 1.3 * inch, 1.7 * inch])
             detection_table.setStyle(TableStyle([
@@ -2321,14 +3247,15 @@ def export_all_analyses(request):
             story.append(detection_table)
             story.append(Spacer(1, 0.25*inch))
 
-            # --- Recommendations ---
+            # --- Recommendations (UPDATED LOGIC: 70% and 40%) ---
             story.append(Paragraph("Recommendations", section_heading))
-            if overall_health >= 80:
+            
+            if overall_health >= 70:  # Changed from 80 to 70
                 recommendation, recommendation_color = (
                     "Tree health is excellent. Continue regular monitoring and maintain current care practices to ensure sustained vitality.",
                     ACCENT_COLOR
                 )
-            elif overall_health >= 50:
+            elif overall_health >= 40:  # Changed from 50 to 40
                 recommendation, recommendation_color = (
                     "Tree shows moderate concerns. Apply preventive treatments, increase monitoring frequency to weekly inspections, and consider professional consultation.",
                     WARNING_COLOR
@@ -2353,8 +3280,74 @@ def export_all_analyses(request):
             story.append(rec_table)
             story.append(Spacer(1, 0.3*inch))
 
+            # --- Consistency Note ---
+            # Add a note explaining the health calculation if needed
+            stored_overall_health = analysis.overall_health or 0
+            # Calculate what the healthy percentage should be from counts
+            calculated_from_counts = (healthy_count / total_leaves) * 100 if total_leaves > 0 else 0
+            
+            if abs(stored_overall_health - overall_health) > 0.1 or abs(calculated_from_counts - overall_health) > 0.1:
+                note_text = f"Note: Overall health ({overall_health:.1f}%) is based on healthy leaf percentage. Calculated from counts: {calculated_from_counts:.1f}%."
+                story.append(Paragraph(note_text, ParagraphStyle(
+                    "Note", parent=styles["Normal"], fontSize=8,
+                    textColor=SECONDARY_TEXT, alignment=1, spaceBefore=8
+                )))
+                story.append(Spacer(1, 0.1*inch))
+
+            # --- Detailed Health Assessment ---
+            story.append(Paragraph("Detailed Health Assessment", section_heading))
+            
+            # Helper function to safely convert to float
+            def safe_float(val):
+                try:
+                    return float(val) if val is not None else 0.0
+                except (ValueError, TypeError):
+                    return 0.0
+            
+            # Use actual healthy percentage (same as overall_health)
+            actual_healthy_percentage = safe_float(healthy_percentage)
+            
+            # Health assessment based on the new logic (70% and 40%)
+            health_assessment_text = ""
+            if overall_health >= 70:
+                health_assessment_text = "Based on the 70% healthy leaves threshold, this tree is in EXCELLENT health. The plant demonstrates strong vitality with minimal disease presence."
+            elif overall_health >= 40:
+                health_assessment_text = "Based on the 40% healthy leaves threshold, this tree shows MODERATE health concerns. Regular monitoring and preventive measures are recommended."
+            else:
+                health_assessment_text = "Based on the 40% healthy leaves threshold, this tree is in POOR health. Immediate intervention and professional consultation are required."
+            
+            assessment_data = [
+                ["Assessment Criteria", "Value", "Status"],
+                ["Healthy Leaves", f"{actual_healthy_percentage:.1f}%", "Primary Health Indicator"],
+                ["Diseased Leaves", f"{dried_leaf_percentage_calc + powdery_mildew_percentage_calc + leaf_rust_percentage_calc:.1f}%", "Total Disease Impact"],
+                ["Health Threshold", "≥70% = Excellent, ≥40% = Moderate, <40% = Poor", "System Standard"],
+                ["Assessment", health_assessment_text, ""],
+            ]
+            
+            assessment_table = Table(assessment_data, colWidths=[2.0 * inch, 1.5 * inch, 2.8 * inch])
+            assessment_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), PRIMARY_COLOR),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("GRID", (0, 0), (-1, -1), 1, BORDER_COLOR),
+                ("BACKGROUND", (0, 1), (-1, 1), LIGHT_BG),
+                ("BACKGROUND", (0, 2), (-1, 2), colors.HexColor("#FFF3CD")),
+                ("BACKGROUND", (0, 3), (-1, 3), LIGHT_BG),
+                ("SPAN", (2, 3), (-1, 3)),
+                ("ALIGN", (2, 3), (-1, 3), "LEFT"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(assessment_table)
+            story.append(Spacer(1, 0.25*inch))
+
             # --- Footer ---
-            footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Report ID: TREE-{analysis.id}"
+            footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Report ID: TREE-{analysis.id} | Health Assessment based on 70%/40% thresholds | Same healthy percentage used throughout: {overall_health:.1f}% | Page {idx + 1} of {len(analyses)}"
             story.append(Paragraph(footer_text, footer_style))
 
             # --- Page break except last analysis ---
@@ -2367,14 +3360,12 @@ def export_all_analyses(request):
         buffer.close()
         response.write(pdf)
 
-        logger.info("All tree analyses PDF exported successfully.")
+        logger.info(f"All tree analyses PDF exported successfully. Total analyses: {len(analyses)} (using consistent 70%/40% thresholds)")
         return response
 
     except Exception as e:
         logger.error(f"Error exporting all analyses PDF: {e}")
         return HttpResponse(f"Error exporting analyses: {str(e)}", status=500)
-
-# ... existing code ...
 
 def analysis_detail_view(request, analysis_id):
     try:
@@ -2933,39 +3924,71 @@ def export_multiple_analyses(request):
             story.append(meta_table)
             story.append(Spacer(1, 0.25*inch))
 
-            # Health Status Summary
+            # === PANGUNAHING PAGBABAGO: GAMITIN ANG PAREHONG LOGIC ===
+            # Use healthy_percentage as the primary source for overall health
+            healthy_percentage = analysis.healthy_percentage or 0
+            overall_health = healthy_percentage  # Consistent with other views
+
+            # --- Health Status Summary (UPDATED LOGIC: 70% and 40%) ---
             story.append(Paragraph("Health Status Summary", section_heading))
-            overall_health = analysis.overall_health or 0
-            if overall_health >= 80:
+            
+            if overall_health >= 70:  # Changed from 80 to 70
                 health_status, health_color, indicator = "Excellent", ACCENT_COLOR, "HEALTHY"
-            elif overall_health >= 50:
+            elif overall_health >= 40:  # Changed from 50 to 40
                 health_status, health_color, indicator = "Moderate", WARNING_COLOR, "CAUTION"
             else:
                 health_status, health_color, indicator = "Poor", DANGER_COLOR, "CRITICAL"
 
-            summary_data = [["Metric", "Score", "Status"], ["Overall Tree Health", f"{overall_health:.1f}%", f"{health_status} • {indicator}"]]
+            summary_data = [
+                ["Metric", "Score", "Status"],
+                ["Overall Tree Health", f"{overall_health:.1f}%", f"{health_status} • {indicator}"],
+            ]
             summary_table = Table(summary_data, colWidths=[2.5*inch, 1.5*inch, 2.5*inch])
             summary_table.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), PRIMARY_COLOR),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, 0), 11),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("BACKGROUND", (0, 1), (-1, 1), health_color),
                 ("TEXTCOLOR", (0, 1), (-1, 1), colors.white),
                 ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 1), (-1, 1), 11),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("GRID", (0, 0), (-1, -1), 1, colors.white),
             ]))
             story.append(summary_table)
             story.append(Spacer(1, 0.25*inch))
 
-            # Leaf Analysis Breakdown
+            # --- Leaf Analysis Breakdown ---
             story.append(Paragraph("Leaf Analysis Breakdown", section_heading))
+            
+            # Calculate percentages from counts to ensure consistency
+            total_leaves = analysis.total_leaves or 1
+            
+            healthy_count = analysis.healthy_count or 0
+            # === DITO GINAMIT ANG PAREHONG HEALTH PERCENTAGE ===
+            healthy_percentage_calc = healthy_percentage  # Gamitin ang stored value
+            
+            dried_leaf_count = analysis.dried_leaf_count or 0
+            dried_leaf_percentage_calc = (dried_leaf_count / total_leaves) * 100 if total_leaves > 0 else 0
+            
+            powdery_mildew_count = analysis.powdery_mildew_count or 0
+            powdery_mildew_percentage_calc = (powdery_mildew_count / total_leaves) * 100 if total_leaves > 0 else 0
+            
+            leaf_rust_count = analysis.leaf_rust_count or 0
+            leaf_rust_percentage_calc = (leaf_rust_count / total_leaves) * 100 if total_leaves > 0 else 0
+
             detection_data = [
                 ["Category", "Count", "Percentage", "Status"],
-                ["Healthy Leaves", str(analysis.healthy_count or 0), f"{analysis.healthy_percentage or 0:.1f}%", "GOOD"],
-                ["Dried Leaves", str(analysis.dried_leaf_count or 0), f"{analysis.dried_leaf_percentage or 0:.1f}%", "WARN"],
-                ["Powdery Mildew", str(analysis.powdery_mildew_count or 0), f"{analysis.powdery_mildew_percentage or 0:.1f}%", "WARN"],
-                ["Leaf Rust", str(analysis.leaf_rust_count or 0), f"{analysis.leaf_rust_percentage or 0:.1f}%", "CRITICAL"],
+                ["Healthy Leaves", str(healthy_count), f"{healthy_percentage_calc:.1f}%", "GOOD"],
+                ["Dried Leaves", str(dried_leaf_count), f"{dried_leaf_percentage_calc:.1f}%", "WARN"],
+                ["Powdery Mildew", str(powdery_mildew_count), f"{powdery_mildew_percentage_calc:.1f}%", "WARN"],
+                ["Leaf Rust", str(leaf_rust_count), f"{leaf_rust_percentage_calc:.1f}%", "CRITICAL"],
             ]
             detection_table = Table(detection_data, colWidths=[2*inch, 1.2*inch, 1.3*inch, 1.7*inch])
             detection_table.setStyle(TableStyle([
@@ -2981,14 +4004,15 @@ def export_multiple_analyses(request):
             story.append(detection_table)
             story.append(Spacer(1, 0.25*inch))
 
-            # Recommendations
+            # --- Recommendations (UPDATED LOGIC: 70% and 40%) ---
             story.append(Paragraph("Recommendations", section_heading))
-            if overall_health >= 80:
+            
+            if overall_health >= 70:  # Changed from 80 to 70
                 recommendation, recommendation_color = (
                     "Tree health is excellent. Continue regular monitoring and maintain current care practices to ensure sustained vitality.",
                     ACCENT_COLOR
                 )
-            elif overall_health >= 50:
+            elif overall_health >= 40:  # Changed from 50 to 40
                 recommendation, recommendation_color = (
                     "Tree shows moderate concerns. Apply preventive treatments, increase monitoring frequency to weekly inspections, and consider professional consultation.",
                     WARNING_COLOR
@@ -3012,8 +4036,24 @@ def export_multiple_analyses(request):
             story.append(rec_table)
             story.append(Spacer(1, 0.3*inch))
 
-            # Footer
-            footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Report ID: TREE-{analysis.id}"
+            # --- Consistency Note ---
+            # Add a note explaining the health calculation if needed
+            stored_overall_health = analysis.overall_health or 0
+            # Calculate what the healthy percentage should be from counts
+            calculated_from_counts = (healthy_count / total_leaves) * 100 if total_leaves > 0 else 0
+            
+            # If there's a discrepancy between stored values or calculated from counts
+            if (abs(stored_overall_health - overall_health) > 0.1 or 
+                abs(calculated_from_counts - overall_health) > 0.1):
+                note_text = f"Note: Overall health ({overall_health:.1f}%) is based on healthy leaf percentage. Calculated from counts: {calculated_from_counts:.1f}%."
+                story.append(Paragraph(note_text, ParagraphStyle(
+                    "Note", parent=styles["Normal"], fontSize=8,
+                    textColor=SECONDARY_TEXT, alignment=1, spaceBefore=8
+                )))
+                story.append(Spacer(1, 0.1*inch))
+
+            # --- Footer ---
+            footer_text = f"Generated on {datetime.now().strftime('%Y-%m-%d at %H:%M:%S')} | Report ID: TREE-{analysis.id} | Health Assessment based on 70%/40% thresholds | Same healthy percentage used throughout: {overall_health:.1f}% | Page {idx + 1} of {len(analyses)}"
             story.append(Paragraph(footer_text, footer_style))
 
             if idx < len(analyses) - 1:
@@ -3024,7 +4064,7 @@ def export_multiple_analyses(request):
         buffer.close()
         response.write(pdf)
 
-        logger.info(f"Selected analyses PDF exported: {len(analyses)} analyses")
+        logger.info(f"Selected analyses PDF exported: {len(analyses)} analyses (using consistent 70%/40% thresholds)")
         return response
 
     except Exception as e:

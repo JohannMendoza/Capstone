@@ -116,7 +116,7 @@
                     </div>
                     <div>
                         <h1 class="text-xl font-bold">Escala Plants</h1>
-                        <p class="text-green-200 text-sm">Admin Dashboard</p>
+                        <p class="text-green-200 text-sm">Inventory Center</p>
                     </div>
                 </div>
             </div>
@@ -168,23 +168,30 @@
                     <span class="font-medium">Reports</span>
                 </a>
                 {% endif %}
+                
+                <a href="{% url 'history' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-history text-white"></i>
+                    </div>
+                    <span class="font-medium">History</span>
+                </a>
+                
+                <!-- LOGOUT BUTTON FOR ALL USERS -->
+                {% if request.user.is_authenticated %}
+                <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
+                    <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                        <i class="fas fa-sign-out-alt text-red-300"></i>
+                    </div>
+                    <span class="font-medium text-red-300">Logout</span>
+                </a>
+                {% endif %}
             </nav>
-        </div>
-        
-        <!-- Logout Section -->
-        <div class="p-6 mt-auto">
-            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30">
-                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
-                    <i class="fas fa-sign-out-alt text-red-300"></i>
-                </div>
-                <span class="font-medium text-red-300">Logout</span>
-            </a>
         </div>
     </aside>
 
     <!-- Mobile Sidebar - FIXED: Behind header -->
     <aside id="mobileSidebar" class="mobile-sidebar bg-gradient-to-b from-green-800 to-emerald-900 text-white flex flex-col lg:hidden">
-        <div class="p-6 flex-1 pt-20"> <!-- Added pt-20 to account for header -->
+        <div class="p-6 flex-1 pt-20">
             <!-- Header with close button -->
             <div class="flex items-center justify-between mb-8">
                 <div class="flex items-center space-x-3">
@@ -248,17 +255,24 @@
                     <span class="font-medium">Reports</span>
                 </a>
                 {% endif %}
+                
+                <a href="{% url 'history' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-white hover:bg-opacity-10" onclick="closeMobileSidebar()">
+                    <div class="bg-white bg-opacity-15 p-2 rounded-lg mr-3">
+                        <i class="fas fa-history text-white"></i>
+                    </div>
+                    <span class="font-medium">History</span>
+                </a>
+                
+                <!-- LOGOUT BUTTON FOR ALL USERS -->
+                {% if request.user.is_authenticated %}
+                <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30" onclick="closeMobileSidebar()">
+                    <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
+                        <i class="fas fa-sign-out-alt text-red-300"></i>
+                    </div>
+                    <span class="font-medium text-red-300">Logout</span>
+                </a>
+                {% endif %}
             </nav>
-        </div>
-        
-        <!-- Logout Section -->
-        <div class="p-6 mt-auto">
-            <a href="{% url 'logout' %}" class="flex items-center py-3 px-4 rounded-xl transition-all duration-200 hover:bg-red-600 hover:bg-opacity-20 border border-red-400 border-opacity-30" onclick="closeMobileSidebar()">
-                <div class="bg-red-500 bg-opacity-20 p-2 rounded-lg mr-3">
-                    <i class="fas fa-sign-out-alt text-red-300"></i>
-                </div>
-                <span class="font-medium text-red-300">Logout</span>
-            </a>
         </div>
     </aside>
 
@@ -278,9 +292,6 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-3">
-                        <div class="bg-white bg-opacity-20 rounded-xl p-3">
-                            <p class="text-green-100 text-sm">Total Plants: <span class="font-bold text-white">{{ plants.paginator.count|default:0 }}</span></p>
-                        </div>
                         <a href="{% url 'add_plant' %}" class="inline-flex items-center justify-center px-4 py-3 rounded-xl text-sm font-medium bg-white text-green-600 hover:bg-green-50 transition-colors shadow-lg">
                             <i class="fas fa-plus mr-2"></i>
                             Add New Plant
@@ -370,12 +381,40 @@
                         <p class="text-gray-500 text-sm">Track health status, age, and manage your plant inventory</p>
                     </div>
                     <div class="flex items-center space-x-3">
-                        <div class="relative">
-                            <input type="text" placeholder="Search plants..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        <!-- FIXED SEARCH FORM -->
+                        <form method="GET" action="{% url 'inventory' %}" class="relative">
+                            <input type="text" name="search" 
+                                   placeholder="Search by Plant ID, Number, Age, or Status..." 
+                                   value="{{ search_query|default:'' }}"
+                                   class="pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent w-64">
                             <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                        </div>
+                            {% if search_query %}
+                            <a href="{% url 'inventory' %}" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-times"></i>
+                            </a>
+                            {% endif %}
+                            <button type="submit" class="hidden">Search</button>
+                        </form>
                     </div>
                 </div>
+
+                <!-- SEARCH RESULTS INDICATOR -->
+                {% if search_query %}
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 m-6 mb-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-search text-blue-500"></i>
+                            <span class="text-blue-700">
+                                Search results for: <strong>"{{ search_query }}"</strong> 
+                                ({{ plants_page.paginator.count }} plant{{ plants_page.paginator.count|pluralize }} found)
+                            </span>
+                        </div>
+                        <a href="{% url 'inventory' %}" class="text-sm text-blue-600 hover:text-blue-800">
+                            <i class="fas fa-times mr-1"></i> Clear search
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
 
                 <!-- Enhanced table -->
                 <div class="overflow-x-auto">
@@ -557,11 +596,11 @@
                         </div>
                         <div class="flex items-center space-x-2">
                             {% if plants_page.has_previous %}
-                                <a href="?page=1" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                <a href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                                     <i class="fas fa-angle-double-left mr-1"></i>
                                     First
                                 </a>
-                                <a href="?page={{ plants_page.previous_page_number }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                <a href="?page={{ plants_page.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                                     <i class="fas fa-chevron-left mr-1"></i>
                                     Previous
                                 </a>
@@ -574,7 +613,7 @@
                                             {{ num }}
                                         </span>
                                     {% elif num > plants_page.number|add:'-3' and num < plants_page.number|add:'3' %}
-                                        <a href="?page={{ num }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                        <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                                             {{ num }}
                                         </a>
                                     {% endif %}
@@ -582,11 +621,11 @@
                             </div>
 
                             {% if plants_page.has_next %}
-                                <a href="?page={{ plants_page.next_page_number }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                <a href="?page={{ plants_page.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                                     Next
                                     <i class="fas fa-chevron-right ml-1"></i>
                                 </a>
-                                <a href="?page={{ plants_page.paginator.num_pages }}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                <a href="?page={{ plants_page.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}" class="inline-flex items-center px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
                                     Last
                                     <i class="fas fa-angle-double-right ml-1"></i>
                                 </a>
@@ -665,6 +704,29 @@
                 closeMobileSidebar();
             }
         });
+        
+        // Auto-search functionality
+        const searchInput = document.querySelector('input[name="search"]');
+        const searchForm = document.querySelector('form[method="GET"]');
+        
+        if (searchInput) {
+            // Handle Enter key
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (searchForm) searchForm.submit();
+                }
+            });
+            
+            // Auto-submit when clear button is clicked
+            const clearBtn = document.querySelector('a[href*="inventory"] .fa-times');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function(e) {
+                    searchInput.value = '';
+                    if (searchForm) searchForm.submit();
+                });
+            }
+        }
     });
 </script>
 </body>
